@@ -1,5 +1,6 @@
 import { Header } from "@/components/layout/header";
 import type { ReactNode } from "react";
+import { CurrentYear } from "@/components/layout/current-year";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
@@ -9,7 +10,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
       <footer className="py-6 text-center text-sm text-muted-foreground border-t">
-        © {new Date().getFullYear()} FinalQuiz. All rights reserved.
+        © <CurrentYear /> FinalQuiz. All rights reserved.
       </footer>
     </div>
   );
