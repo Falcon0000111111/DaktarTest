@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -108,7 +109,15 @@ export function UploadQuizForm({ workspaceId }: UploadQuizFormProps) {
           id="num-questions"
           type="number"
           value={numQuestions}
-          onChange={(e) => setNumQuestions(parseInt(e.target.value, 10))}
+          onChange={(e) => {
+            const parsedValue = parseInt(e.target.value, 10);
+            if (!isNaN(parsedValue)) {
+              setNumQuestions(parsedValue);
+            }
+            // If parseInt results in NaN (e.g., empty string or non-numeric text),
+            // setNumQuestions is not called. numQuestions retains its previous valid value.
+            // This prevents the `value` prop of the input from receiving NaN.
+          }}
           min="1"
           max="20" // Reasonable limit for demo
           required
