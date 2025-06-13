@@ -1,8 +1,10 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 
 export default async function HomePage() {
-  const supabase = createSupabaseServerClient();
+  const supabase = createClient(); // Uses the server client from @/lib/supabase/server
+  
   const { data: { session } } = await supabase.auth.getSession();
 
   if (session) {
@@ -11,6 +13,5 @@ export default async function HomePage() {
     redirect('/auth/login');
   }
 
-  // This return is technically unreachable due to redirects but satisfies Next.js component structure.
   return null; 
 }

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/lib/supabase/client"; // Updated import
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = createClient(); // Updated client creation
   const { toast } = useToast();
 
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
@@ -39,7 +39,7 @@ export default function LoginPage() {
           description: "Redirecting to dashboard...",
         });
         router.push("/dashboard");
-        router.refresh(); // Ensure server components reload with new auth state
+        router.refresh(); 
       }
     } catch (error) {
       toast({

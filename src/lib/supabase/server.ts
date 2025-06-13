@@ -1,16 +1,30 @@
-
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import type { Database } from '@/types/supabase';
 
-export const createSupabaseServerClient = () => {
-  // createServerComponentClient will automatically use NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
-  // from environment variables when used in Server Components.
-  return createServerComponentClient<Database>({
-    cookies: cookies, // Pass the cookies function from next/headers directly
-  });
-};
+export const createClient = () => {
+  const cookieStore = cookies();
 
-// The createSupabaseRouteHandlerClient function previously defined here was unused.
-// Route handlers, like src/app/auth/callback/route.ts, directly import and use 
-// createRouteHandlerClient from '@supabase/auth-helpers-nextjs'.
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {
+            // The `setAll` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
+        },
+      },
+    }
+  );
+};

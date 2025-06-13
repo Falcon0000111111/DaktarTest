@@ -1,20 +1,21 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server"; // Updated import
 import { generateQuizFromPdf, type GenerateQuizInput, type GenerateQuizOutput } from "@/ai/flows/generate-quiz-from-pdf";
 import type { Quiz, NewQuiz } from "@/types/supabase";
 import { revalidatePath } from "next/cache";
+import { cookies } from 'next/headers'; // Required for server client
 
 interface GenerateQuizParams {
   workspaceId: string;
   pdfName: string;
   pdfDataUri: string;
   numberOfQuestions: number;
-  existingQuizIdToUpdate?: string; // For retries
+  existingQuizIdToUpdate?: string; 
 }
 
 export async function generateQuizFromPdfAction(params: GenerateQuizParams): Promise<Quiz> {
-  const supabase = createSupabaseServerClient();
+  const supabase = createClient(); // Updated client creation
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -26,7 +27,6 @@ export async function generateQuizFromPdfAction(params: GenerateQuizParams): Pro
   let quizEntryId = existingQuizIdToUpdate;
 
   if (!quizEntryId) {
-    // Create initial quiz entry with status 'processing'
     const initialQuizData: NewQuiz = {
       workspace_id: workspaceId,
       user_id: user.id,
@@ -47,7 +47,6 @@ export async function generateQuizFromPdfAction(params: GenerateQuizParams): Pro
     }
     quizEntryId = newQuizEntry.id;
   } else {
-    // Update existing entry to 'processing' for retry
      const { error: updateToProcessingError } = await supabase
       .from("quizzes")
       .update({ status: "processing", error_message: null, updated_at: new Date().toISOString() })
@@ -60,7 +59,6 @@ export async function generateQuizFromPdfAction(params: GenerateQuizParams): Pro
     }
   }
   
-  // Revalidate path immediately to show "processing" state
   revalidatePath(`/dashboard/workspace/${workspaceId}`);
 
   try {
@@ -74,7 +72,7 @@ export async function generateQuizFromPdfAction(params: GenerateQuizParams): Pro
     const { data: updatedQuiz, error: updateError } = await supabase
       .from("quizzes")
       .update({
-        generated_quiz_data: generatedData as any, // Cast to any if type mismatch with Json
+        generated_quiz_data: generatedData as any, 
         status: "completed",
         error_message: null,
         updated_at: new Date().toISOString(),
@@ -86,7 +84,6 @@ export async function generateQuizFromPdfAction(params: GenerateQuizParams): Pro
 
     if (updateError || !updatedQuiz) {
       console.error("Error updating quiz with generated data:", updateError);
-      // If update fails, try to set status to failed
       await supabase.from("quizzes").update({ status: "failed", error_message: "Failed to save generated quiz" }).eq("id", quizEntryId);
       throw new Error(updateError?.message || "Failed to update quiz with generated data.");
     }
@@ -101,7 +98,7 @@ export async function generateQuizFromPdfAction(params: GenerateQuizParams): Pro
     const { data: failedQuiz, error: failUpdateError } = await supabase
       .from("quizzes")
       .update({ status: "failed", error_message: errorMessage, updated_at: new Date().toISOString() })
-      .eq("id", quizEntryId!) // quizEntryId will be defined here
+      .eq("id", quizEntryId!) 
       .eq("user_id", user.id)
       .select()
       .single();
@@ -111,14 +108,13 @@ export async function generateQuizFromPdfAction(params: GenerateQuizParams): Pro
     }
 
     revalidatePath(`/dashboard/workspace/${workspaceId}`);
-    // Throw the original error that caused the failure
     throw new Error(errorMessage);
   }
 }
 
 
 export async function getQuizzesForWorkspace(workspaceId: string): Promise<Quiz[]> {
-  const supabase = createSupabaseServerClient();
+  const supabase = createClient(); // Updated client creation
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {

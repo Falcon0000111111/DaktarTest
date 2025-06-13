@@ -1,4 +1,5 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server"; // Updated import
+import { cookies } from 'next/headers'; // Required for server client
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import { CreateWorkspaceDialog } from "@/components/dashboard/create-workspace-dialog";
@@ -6,7 +7,8 @@ import { WorkspaceList } from "@/components/dashboard/workspace-list";
 import { getWorkspaces } from "@/lib/actions/workspace.actions";
 
 export default async function DashboardPage() {
-  const supabase = createSupabaseServerClient();
+  const supabase = createClient(); // Updated client creation
+
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {

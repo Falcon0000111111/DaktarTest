@@ -1,4 +1,5 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server"; // Updated import
+import { cookies } from 'next/headers'; // Required for server client
 import { getWorkspaceById } from "@/lib/actions/workspace.actions";
 import { UploadQuizForm } from "@/components/dashboard/upload-quiz-form";
 import { QuizList } from "@/components/dashboard/quiz-list";
@@ -10,7 +11,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default async function WorkspacePage({ params }: { params: { workspaceId: string } }) {
-  const supabase = createSupabaseServerClient();
+  const supabase = createClient(); // Updated client creation
+
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {

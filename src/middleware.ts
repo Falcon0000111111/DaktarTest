@@ -1,44 +1,65 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
-  const supabase = createMiddlewareClient({ req, res });
+  let response = NextResponse.next({
+    request: {
+      headers: req.headers,
+    },
+  });
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => req.cookies.set(name, value, options));
+          // Re-assign response to apply cookies to it
+          response = NextResponse.next({
+            request: {
+              headers: req.headers,
+            },
+          });
+          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+        },
+      },
+    }
+  );
+
+  // Refresh session if expired - important to do before accessing session
+  const { data: { session: refreshedSession } } = await supabase.auth.getSession();
 
   const { pathname } = req.nextUrl;
 
   // Auth routes
   if (pathname.startsWith('/auth/login') || pathname.startsWith('/auth/signup')) {
-    if (session) {
+    if (refreshedSession) {
       return NextResponse.redirect(new URL('/dashboard', req.url));
     }
-    return res;
+    return response;
   }
 
   // Protected routes
   if (pathname.startsWith('/dashboard')) {
-    if (!session) {
+    if (!refreshedSession) {
       return NextResponse.redirect(new URL('/auth/login', req.url));
     }
   }
   
   // Root page redirect
   if (pathname === '/') {
-    if (session) {
+    if (refreshedSession) {
       return NextResponse.redirect(new URL('/dashboard', req.url));
     }
-    // Allow access to landing page if not logged in (will be /auth/login effectively)
     return NextResponse.redirect(new URL('/auth/login', req.url));
   }
 
-
-  await supabase.auth.getSession(); // Refresh session cookie
-  return res;
+  return response;
 }
 
 export const config = {
