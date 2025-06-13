@@ -1,3 +1,4 @@
+
 "use server";
 
 import { createClient } from "@/lib/supabase/server"; // Updated import
@@ -114,10 +115,11 @@ export async function generateQuizFromPdfAction(params: GenerateQuizParams): Pro
 
 
 export async function getQuizzesForWorkspace(workspaceId: string): Promise<Quiz[]> {
-  const supabase = createClient(); // Updated client creation
+  const supabase = createClient(); 
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
+    console.warn("getQuizzesForWorkspace called without an authenticated user.");
     return [];
   }
 
@@ -129,8 +131,21 @@ export async function getQuizzesForWorkspace(workspaceId: string): Promise<Quiz[
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Error fetching quizzes for workspace:", error);
-    throw new Error(error.message || "Failed to fetch quizzes.");
+    // Log the raw error for better diagnostics
+    console.error("Supabase error fetching quizzes for workspace. Raw error:", JSON.stringify(error, null, 2));
+    
+    // Construct a more informative error message, including common Supabase error properties
+    const messageParts = [
+      `Failed to fetch quizzes for workspace ${workspaceId}.`,
+      error.message ? `Message: ${error.message}` : 'Unknown error.',
+      error.code ? `Code: ${error.code}` : null,
+      error.details ? `Details: ${error.details}` : null,
+      error.hint ? `Hint: ${error.hint}` : null,
+    ];
+    const errorMessage = messageParts.filter(part => part !== null).join(' ');
+    
+    console.error("Constructed error message for throw:", errorMessage);
+    throw new Error(errorMessage);
   }
   return data || [];
 }
