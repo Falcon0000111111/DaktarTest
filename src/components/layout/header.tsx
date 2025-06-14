@@ -19,7 +19,7 @@ export function Header() {
         <Link href="/dashboard" className="mr-6 flex items-center space-x-2 md:ml-4">
           {/* <BookOpenCheck className="h-6 w-6 text-primary" /> */}
           <span className="font-bold font-headline text-xl sm:inline-block">
-            QuizifyAI
+            FinalQuiz
           </span>
         </Link>
         <div className="flex flex-1 items-center justify-end space-x-4">
