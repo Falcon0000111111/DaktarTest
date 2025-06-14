@@ -22,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 type ViewMode = "placeholder" | "review" | "take_quiz" | "show_results";
 
 export default function WorkspacePage({ params: paramsProp }: { params: { workspaceId: string } }) {
-  const resolvedParams = use(paramsProp as any);
+  const resolvedParams = use(paramsProp as any); // Unwrapping params as per Next.js warning
   const { workspaceId } = resolvedParams;
 
   const supabase = createClient();
@@ -73,12 +73,13 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
         } else {
           setWorkspace(ws);
           const fetchedQuizzes = await getQuizzesForWorkspace(workspaceId);
-          setQuizzes(fetchedQuizzes); 
+          const sortedQuizzes = [...fetchedQuizzes].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          setQuizzes(sortedQuizzes);
           const pdfs = new Set(fetchedQuizzes.map(q => q.pdf_name).filter(name => name !== null) as string[]);
           setUniquePdfNames(Array.from(pdfs));
 
-          if (selectedQuizForDisplay && fetchedQuizzes.some(q => q.id === selectedQuizForDisplay.id)) {
-            const updatedSelectedQuiz = fetchedQuizzes.find(q => q.id === selectedQuizForDisplay.id);
+          if (selectedQuizForDisplay && sortedQuizzes.some(q => q.id === selectedQuizForDisplay.id)) {
+            const updatedSelectedQuiz = sortedQuizzes.find(q => q.id === selectedQuizForDisplay.id);
             if (updatedSelectedQuiz) {
                 setSelectedQuizForDisplay(updatedSelectedQuiz);
                  if (updatedSelectedQuiz.status === 'completed' && viewMode !== 'take_quiz' && viewMode !== 'show_results') {
@@ -90,7 +91,9 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                 setSelectedQuizForDisplay(null);
                 setViewMode('placeholder');
             }
-          } else if (!selectedQuizForDisplay && fetchedQuizzes.length > 0) {
+          } else if (!selectedQuizForDisplay && sortedQuizzes.length > 0) {
+             // If nothing is selected, and quizzes exist, don't auto-select, wait for user action or select latest.
+             // For now, default to placeholder. Could auto-select sortedQuizzes[0] if desired.
             setViewMode('placeholder'); 
           } else if (!selectedQuizForDisplay) {
             setViewMode('placeholder');
@@ -104,10 +107,11 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
       }
     };
     fetchData();
-  }, [workspaceId, supabase]); 
+  }, [workspaceId, supabase]); // `viewMode` removed as it caused re-fetch loops. Selection should drive viewMode.
 
   useEffect(() => {
     if (selectedQuizForDisplay && quizzes.length > 0) {
+      // The first quiz in the `quizzes` array is the latest after sorting
       setIsLatestQuizSelected(selectedQuizForDisplay.id === quizzes[0]?.id);
     } else {
       setIsLatestQuizSelected(false);
@@ -138,8 +142,8 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
 
   const handleUploadDialogClose = (refresh?: boolean) => {
     setShowUploadDialog(false);
-    setInitialNumQuestionsForUpload(undefined);
     setInitialPdfNameForUpload(undefined);
+    setInitialNumQuestionsForUpload(undefined);
     setExistingQuizIdToUpdate(undefined);
     if (refresh) {
       const fetchQuizzesAndPdfs = async () => {
@@ -147,19 +151,32 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
         try {
           setIsLoading(true);
           const fetchedQuizzes = await getQuizzesForWorkspace(workspaceId);
-          setQuizzes(fetchedQuizzes);
-          const pdfs = new Set(fetchedQuizzes.map(q => q.pdf_name).filter(name => name !== null) as string[]);
+          const sortedQuizzes = [...fetchedQuizzes].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          setQuizzes(sortedQuizzes);
+
+          const pdfs = new Set(sortedQuizzes.map(q => q.pdf_name).filter(name => name !== null) as string[]);
           setUniquePdfNames(Array.from(pdfs));
           
+          // Try to re-select the quiz that was just (re)generated or the one that was selected before
           const reGeneratedQuizId = existingQuizIdToUpdate || selectedQuizForDisplay?.id;
+          let reSelectedQuiz = null;
           if (reGeneratedQuizId) {
-            const reSelectedQuiz = fetchedQuizzes.find(q => q.id === reGeneratedQuizId);
-            if (reSelectedQuiz) {
-              setSelectedQuizForDisplay(reSelectedQuiz);
-              if (reSelectedQuiz.status === 'completed') setViewMode('review');
-              else setViewMode('placeholder'); 
-            }
+             reSelectedQuiz = sortedQuizzes.find(q => q.id === reGeneratedQuizId);
           }
+          
+          if (reSelectedQuiz) {
+            setSelectedQuizForDisplay(reSelectedQuiz);
+            if (reSelectedQuiz.status === 'completed') setViewMode('review');
+            else setViewMode('placeholder'); 
+          } else if (sortedQuizzes.length > 0 && existingQuizIdToUpdate) {
+            // If a quiz was re-generated but its ID changed (should not happen with current logic)
+            // or if the previously selected quiz was somehow deleted during re-generation (unlikely)
+            // Fallback to selecting the newest quiz if an explicit re-selection failed
+            setSelectedQuizForDisplay(sortedQuizzes[0]);
+            if (sortedQuizzes[0].status === 'completed') setViewMode('review');
+            else setViewMode('placeholder');
+          }
+
           setIsLoading(false);
         } catch (e) {
           console.error("Error refetching quizzes:", e);
@@ -223,7 +240,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
     : [];
 
   return (
-    <div className="flex h-full"> 
+    <div className="flex h-full"> {/* This div takes full height from parent (<main>) */}
       {/* Left Navigation Pane */}
       <div className={cn(
         "transition-all duration-300 ease-in-out border-r border-border flex flex-col h-full overflow-y-auto bg-transparent", 
@@ -237,7 +254,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
         </Button>
 
         {isSidebarOpen && (
-          <div className="flex-1 flex flex-col min-h-0 space-y-4"> 
+          <div className="flex-1 flex flex-col min-h-0 space-y-4"> {/* min-h-0 allows child to scroll */}
             <div className="mb-2"> 
                 <Link href="/dashboard" className="text-sm text-primary hover:underline">
                     &larr; All Workspaces
@@ -248,7 +265,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
             </div>
             
             <div className="space-y-1"> 
-              <div className="flex justify-between items-center mb-1"> 
+              <div className="flex justify-between items-center mb-1 pt-2"> 
                 <h2 className="text-lg font-semibold font-headline flex items-center">
                   <BookCopy className="mr-2 h-5 w-5 text-primary" />
                   Knowledge Base
@@ -272,12 +289,12 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
 
             <Separator className="my-2" /> 
 
-            <div className="space-y-1 flex-1 flex flex-col min-h-0"> 
+            <div className="space-y-1 flex-1 flex flex-col min-h-0 pt-2"> {/* min-h-0 allows child to scroll */}
               <h2 className="text-lg font-semibold font-headline flex items-center mb-1"> 
                 <CheckSquare className="mr-2 h-5 w-5 text-primary" />
                 Generated Quizzes
               </h2>
-              <div className="flex-1 overflow-y-auto"> 
+              <div className="flex-1 overflow-y-auto"> {/* This div will scroll if QuizList is long */}
                 <QuizList
                     initialQuizzes={quizzes}
                     workspaceId={workspace.id}
@@ -301,6 +318,10 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
       </div>
 
       {/* Right Content Pane: Three-Part Structure */}
+      {/* This parent div is flex-1 (takes width) and flex flex-col (stacks children vertically) 
+          AND h-full (takes height from its parent <div class="flex h-full">)
+          AND overflow-hidden (so IT doesn't scroll, its middle child does)
+      */}
       <div className="flex-1 flex flex-col h-full overflow-hidden bg-background"> 
         {/* 1. Header (Static) */}
         {selectedQuizForDisplay && workspace && (
@@ -327,13 +348,14 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
         )}
 
         {/* 2. Scrolling Content Area */}
+        {/* This div has flex-1 (takes remaining vertical space), overflow-y-auto, and min-h-0 (critical for shrinking) */}
         <div className="flex-1 overflow-y-auto p-6 min-h-0">
-            {isLoading && selectedQuizForDisplay && <div className="flex justify-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
+            {isLoading && selectedQuizForDisplay && !error && <div className="flex justify-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
 
-            {!selectedQuizForDisplay && viewMode === 'placeholder' && !isLoading && (
+            {!selectedQuizForDisplay && viewMode === 'placeholder' && !isLoading && !error && (
             <div className="flex flex-col items-center justify-center h-full text-center max-w-3xl mx-auto">
                 <Info className="h-16 w-16 text-primary mb-6" data-ai-hint="information lightbulb" />
-                <h2 className="text-2xl font-bold font-headline">Welcome to {workspace.name}</h2>
+                <h2 className="text-2xl font-bold font-headline">Welcome to {workspace?.name}</h2>
                 <p className="text-muted-foreground max-w-md">
                 Select a quiz from "Generated Quizzes" on the left to start,
                 or click "+ Add" in "Knowledge Base" to upload a PDF and generate a new quiz.
@@ -341,7 +363,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
             </div>
             )}
             
-            {selectedQuizForDisplay && selectedQuizForDisplay.status === 'processing' && viewMode === 'placeholder' && (
+            {selectedQuizForDisplay && selectedQuizForDisplay.status === 'processing' && viewMode === 'placeholder' && !isLoading && !error && (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground max-w-3xl mx-auto">
                     <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
                     <p className="text-lg">Quiz <span className="font-medium">{selectedQuizForDisplay.pdf_name}</span> is processing...</p>
@@ -349,7 +371,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                 </div>
             )}
 
-            {selectedQuizForDisplay && selectedQuizForDisplay.status === 'failed' && viewMode === 'placeholder' && (
+            {selectedQuizForDisplay && selectedQuizForDisplay.status === 'failed' && viewMode === 'placeholder' && !isLoading && !error && (
                 <div className="flex flex-col items-center justify-center h-full text-destructive max-w-3xl mx-auto">
                     <AlertCircle className="h-12 w-12 mb-4" />
                     <p className="text-lg">Quiz generation for <span className="font-medium">{selectedQuizForDisplay.pdf_name}</span> failed.</p>
@@ -360,7 +382,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                 </div>
             )}
 
-            {selectedQuizForDisplay && selectedQuizForDisplay.status === 'completed' && viewMode === 'review' && (
+            {selectedQuizForDisplay && selectedQuizForDisplay.status === 'completed' && viewMode === 'review' && !isLoading && !error && (
                 <div className="space-y-4 max-w-3xl mx-auto">
                     {parsedQuizDataForTakingOrReview.map((question, index) => (
                     <QuestionReviewCard key={index} question={question} questionNumber={index + 1} />
@@ -370,12 +392,15 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                         <AlertCircle className="h-12 w-12 text-orange-400 mb-4" />
                         <p>This quiz is marked as completed, but no questions were found.</p>
                         <p className="text-sm">It might have been generated incorrectly or the data is missing.</p>
+                         <Button onClick={handleRegenerateQuiz} className="mt-6">
+                            <RefreshCcw className="mr-2 h-4 w-4" /> Re-Generate This Quiz
+                        </Button>
                     </div>
                     )}
                 </div>
             )}
 
-            {viewMode === 'take_quiz' && parsedQuizDataForTakingOrReview.length > 0 && (
+            {viewMode === 'take_quiz' && parsedQuizDataForTakingOrReview.length > 0 && !isLoading && !error && (
             <div className="max-w-3xl mx-auto">
                 <QuizTakerForm
                     quiz={selectedQuizForDisplay!} 
@@ -386,7 +411,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
             </div>
             )}
 
-            {viewMode === 'show_results' && quizAttemptAnswers && parsedQuizDataForTakingOrReview.length > 0 && (
+            {viewMode === 'show_results' && quizAttemptAnswers && parsedQuizDataForTakingOrReview.length > 0 && !isLoading && !error && (
             <div className="max-w-3xl mx-auto">
                 <QuizResultsDisplay
                     quiz={selectedQuizForDisplay!}
@@ -403,7 +428,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
         </div>
 
         {/* 3. Fixed Action Bar (Footer) */}
-        {selectedQuizForDisplay && selectedQuizForDisplay.status !== 'processing' && viewMode !== 'placeholder' && viewMode !== 'take_quiz' && (
+        {selectedQuizForDisplay && selectedQuizForDisplay.status !== 'processing' && viewMode !== 'placeholder' && viewMode !== 'take_quiz' && !isLoading && !error && (
           <div className="p-4 border-t border-border bg-background flex justify-end space-x-3">
             {viewMode === 'review' && selectedQuizForDisplay.status === 'completed' && (
               isLatestQuizSelected ? (
@@ -415,7 +440,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                     <PlayCircle className="mr-2 h-5 w-5" /> Take Quiz
                   </Button>
                 </>
-              ) : (
+              ) : ( // Older completed quiz
                 <Button onClick={() => {
                   setViewMode('take_quiz');
                   setQuizAttemptAnswers(null);
