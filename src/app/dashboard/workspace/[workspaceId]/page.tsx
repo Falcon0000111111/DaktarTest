@@ -73,7 +73,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
         } else {
           setWorkspace(ws);
           const fetchedQuizzes = await getQuizzesForWorkspace(workspaceId);
-          setQuizzes(fetchedQuizzes); // Already sorted by created_at desc in action
+          setQuizzes(fetchedQuizzes); 
           const pdfs = new Set(fetchedQuizzes.map(q => q.pdf_name).filter(name => name !== null) as string[]);
           setUniquePdfNames(Array.from(pdfs));
 
@@ -83,7 +83,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                 setSelectedQuizForDisplay(updatedSelectedQuiz);
                  if (updatedSelectedQuiz.status === 'completed' && viewMode !== 'take_quiz' && viewMode !== 'show_results') {
                     setViewMode('review');
-                } else if (updatedSelectedQuiz.status === 'processing') {
+                } else if (updatedSelectedQuiz.status === 'processing' || updatedSelectedQuiz.status === 'pending' || updatedSelectedQuiz.status === 'failed') {
                     setViewMode('placeholder');
                 }
             } else {
@@ -91,10 +91,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                 setViewMode('placeholder');
             }
           } else if (!selectedQuizForDisplay && fetchedQuizzes.length > 0) {
-            // If no quiz is selected but quizzes exist, select the latest one by default
-            // setSelectedQuizForDisplay(fetchedQuizzes[0]);
-            // setViewMode(fetchedQuizzes[0].status === 'completed' ? 'review' : 'placeholder');
-            setViewMode('placeholder'); // Default to placeholder until user selects
+            setViewMode('placeholder'); 
           } else if (!selectedQuizForDisplay) {
             setViewMode('placeholder');
           }
@@ -107,7 +104,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
       }
     };
     fetchData();
-  }, [workspaceId, supabase]); // Removed viewMode to prevent re-fetches on viewMode change
+  }, [workspaceId, supabase]); 
 
   useEffect(() => {
     if (selectedQuizForDisplay && quizzes.length > 0) {
@@ -125,9 +122,9 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
       if (quiz.status === 'completed') {
         setViewMode('review');
       } else if (quiz.status === 'processing' || quiz.status === 'pending' || quiz.status === 'failed') {
-        setViewMode('placeholder'); // Or a specific 'processing' view
+        setViewMode('placeholder'); 
       }
-      setQuizAttemptAnswers(null); // Clear previous attempt answers
+      setQuizAttemptAnswers(null); 
     }
   };
 
@@ -154,14 +151,13 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
           const pdfs = new Set(fetchedQuizzes.map(q => q.pdf_name).filter(name => name !== null) as string[]);
           setUniquePdfNames(Array.from(pdfs));
           
-          // If a quiz was being re-generated, try to re-select it.
           const reGeneratedQuizId = existingQuizIdToUpdate || selectedQuizForDisplay?.id;
           if (reGeneratedQuizId) {
             const reSelectedQuiz = fetchedQuizzes.find(q => q.id === reGeneratedQuizId);
             if (reSelectedQuiz) {
               setSelectedQuizForDisplay(reSelectedQuiz);
               if (reSelectedQuiz.status === 'completed') setViewMode('review');
-              else setViewMode('placeholder'); // or processing view
+              else setViewMode('placeholder'); 
             }
           }
           setIsLoading(false);
@@ -188,7 +184,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
   
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  if (isLoading && !workspace) { // Show initial full page loader only if workspace is not yet loaded
+  if (isLoading && !workspace) { 
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -227,32 +223,32 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
     : [];
 
   return (
-    <div className="flex h-full"> {/* Main flex container for two panes */}
+    <div className="flex h-full"> 
       {/* Left Navigation Pane */}
       <div className={cn(
-        "transition-all duration-300 ease-in-out border-r border-border flex flex-col h-full overflow-y-auto bg-background", // Ensure background for collapsed state, use page bg
+        "transition-all duration-300 ease-in-out border-r border-border flex flex-col h-full overflow-y-auto bg-transparent", 
         isSidebarOpen ? "w-80 p-4" : "w-12 p-2 pt-4 items-center"
       )}>
-        <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mb-1 hidden md:flex self-start sticky top-0 bg-background z-10"> {/* Use page bg */}
+        <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mb-1 hidden md:flex self-start sticky top-0 bg-background z-10"> 
             <ChevronsLeftRight className={cn("h-5 w-5", !isSidebarOpen && "rotate-180")} />
         </Button>
-         <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mb-1 md:hidden absolute top-4 left-2 z-50 bg-background"> {/* Use page bg */}
+         <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mb-1 md:hidden absolute top-4 left-2 z-50 bg-background"> 
             <ChevronsLeftRight className={cn("h-5 w-5", !isSidebarOpen && "rotate-180")} />
         </Button>
 
         {isSidebarOpen && (
-          <div className="flex-1 flex flex-col min-h-0"> {/* This div will handle its own scrolling if content overflows */}
-            <div className="mb-6"> {/* Increased bottom margin */}
+          <div className="flex-1 flex flex-col min-h-0 space-y-4"> 
+            <div className="mb-2"> 
                 <Link href="/dashboard" className="text-sm text-primary hover:underline">
                     &larr; All Workspaces
                 </Link>
-                <h1 className="text-2xl font-bold font-headline tracking-tight mt-1 mb-3 truncate" title={workspace.name}>
+                <h1 className="text-2xl font-bold font-headline tracking-tight mt-1 mb-1 truncate" title={workspace.name}>
                     {workspace.name}
                 </h1>
             </div>
             
-            <div className="space-y-3 mb-8"> {/* Increased bottom margin */}
-              <div className="flex justify-between items-center mb-2"> {/* Increased bottom margin */}
+            <div className="space-y-1"> 
+              <div className="flex justify-between items-center mb-1"> 
                 <h2 className="text-lg font-semibold font-headline flex items-center">
                   <BookCopy className="mr-2 h-5 w-5 text-primary" />
                   Knowledge Base
@@ -274,14 +270,14 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
               <SourceFileList pdfNames={uniquePdfNames} />
             </div>
 
-            <Separator className="my-4" /> 
+            <Separator className="my-2" /> 
 
-            <div className="space-y-3 flex-1 flex flex-col min-h-0"> {/* Increased bottom margin, flex for quiz list scroll */}
-              <h2 className="text-lg font-semibold font-headline flex items-center mb-2"> {/* Increased bottom margin */}
+            <div className="space-y-1 flex-1 flex flex-col min-h-0"> 
+              <h2 className="text-lg font-semibold font-headline flex items-center mb-1"> 
                 <CheckSquare className="mr-2 h-5 w-5 text-primary" />
                 Generated Quizzes
               </h2>
-              <div className="flex-1 overflow-y-auto"> {/* This makes only QuizList scrollable */}
+              <div className="flex-1 overflow-y-auto"> 
                 <QuizList
                     initialQuizzes={quizzes}
                     workspaceId={workspace.id}
@@ -305,7 +301,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
       </div>
 
       {/* Right Content Pane: Three-Part Structure */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-background"> {/* Use page bg */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-background"> 
         {/* 1. Header (Static) */}
         {selectedQuizForDisplay && workspace && (
           <div className="p-6 border-b border-border">
@@ -331,11 +327,11 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
         )}
 
         {/* 2. Scrolling Content Area */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 min-h-0">
             {isLoading && selectedQuizForDisplay && <div className="flex justify-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
 
             {!selectedQuizForDisplay && viewMode === 'placeholder' && !isLoading && (
-            <div className="flex flex-col items-center justify-center h-full text-center">
+            <div className="flex flex-col items-center justify-center h-full text-center max-w-3xl mx-auto">
                 <Info className="h-16 w-16 text-primary mb-6" data-ai-hint="information lightbulb" />
                 <h2 className="text-2xl font-bold font-headline">Welcome to {workspace.name}</h2>
                 <p className="text-muted-foreground max-w-md">
@@ -346,7 +342,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
             )}
             
             {selectedQuizForDisplay && selectedQuizForDisplay.status === 'processing' && viewMode === 'placeholder' && (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground max-w-3xl mx-auto">
                     <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
                     <p className="text-lg">Quiz <span className="font-medium">{selectedQuizForDisplay.pdf_name}</span> is processing...</p>
                     <p className="text-sm">Please check back shortly. Content will appear once generation is complete.</p>
@@ -354,7 +350,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
             )}
 
             {selectedQuizForDisplay && selectedQuizForDisplay.status === 'failed' && viewMode === 'placeholder' && (
-                <div className="flex flex-col items-center justify-center h-full text-destructive">
+                <div className="flex flex-col items-center justify-center h-full text-destructive max-w-3xl mx-auto">
                     <AlertCircle className="h-12 w-12 mb-4" />
                     <p className="text-lg">Quiz generation for <span className="font-medium">{selectedQuizForDisplay.pdf_name}</span> failed.</p>
                     {selectedQuizForDisplay.error_message && <p className="text-sm mt-1">Error: {selectedQuizForDisplay.error_message}</p>}
@@ -365,7 +361,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
             )}
 
             {selectedQuizForDisplay && selectedQuizForDisplay.status === 'completed' && viewMode === 'review' && (
-                <div className="space-y-4">
+                <div className="space-y-4 max-w-3xl mx-auto">
                     {parsedQuizDataForTakingOrReview.map((question, index) => (
                     <QuestionReviewCard key={index} question={question} questionNumber={index + 1} />
                     ))}
@@ -380,63 +376,74 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
             )}
 
             {viewMode === 'take_quiz' && parsedQuizDataForTakingOrReview.length > 0 && (
-            <QuizTakerForm
-                quiz={selectedQuizForDisplay!} 
-                quizData={parsedQuizDataForTakingOrReview}
-                onSubmit={handleQuizSubmit}
-                isSubmitting={isSubmittingQuiz}
-            />
+            <div className="max-w-3xl mx-auto">
+                <QuizTakerForm
+                    quiz={selectedQuizForDisplay!} 
+                    quizData={parsedQuizDataForTakingOrReview}
+                    onSubmit={handleQuizSubmit}
+                    isSubmitting={isSubmittingQuiz}
+                />
+            </div>
             )}
 
             {viewMode === 'show_results' && quizAttemptAnswers && parsedQuizDataForTakingOrReview.length > 0 && (
-            <QuizResultsDisplay
-                quiz={selectedQuizForDisplay!}
-                quizData={parsedQuizDataForTakingOrReview}
-                userAnswers={quizAttemptAnswers}
-                onRetake={() => {
-                  setViewMode('take_quiz');
-                  setQuizAttemptAnswers(null);
-                }}
-                onReviewAll={() => setViewMode('review')}
-            />
+            <div className="max-w-3xl mx-auto">
+                <QuizResultsDisplay
+                    quiz={selectedQuizForDisplay!}
+                    quizData={parsedQuizDataForTakingOrReview}
+                    userAnswers={quizAttemptAnswers}
+                    onRetake={() => {
+                    setViewMode('take_quiz');
+                    setQuizAttemptAnswers(null);
+                    }}
+                    onReviewAll={() => setViewMode('review')}
+                />
+            </div>
             )}
         </div>
 
         {/* 3. Fixed Action Bar (Footer) */}
-        {selectedQuizForDisplay && selectedQuizForDisplay.status === 'completed' && viewMode === 'review' && (
+        {selectedQuizForDisplay && selectedQuizForDisplay.status !== 'processing' && viewMode !== 'placeholder' && viewMode !== 'take_quiz' && (
           <div className="p-4 border-t border-border bg-background flex justify-end space-x-3">
-            {isLatestQuizSelected ? (
-              <>
-                <Button variant="outline" onClick={handleRegenerateQuiz}>
-                  <RefreshCcw className="mr-2 h-4 w-4" /> Re-Generate Questions
+            {viewMode === 'review' && selectedQuizForDisplay.status === 'completed' && (
+              isLatestQuizSelected ? (
+                <>
+                  <Button variant="outline" onClick={handleRegenerateQuiz}>
+                    <RefreshCcw className="mr-2 h-4 w-4" /> Re-Generate Questions
+                  </Button>
+                  <Button onClick={() => setViewMode('take_quiz')} size="lg">
+                    <PlayCircle className="mr-2 h-5 w-5" /> Take Quiz
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={() => {
+                  setViewMode('take_quiz');
+                  setQuizAttemptAnswers(null);
+                }} size="lg">
+                  <RefreshCcw className="mr-2 h-4 w-4" /> Retake Quiz
                 </Button>
-                <Button onClick={() => setViewMode('take_quiz')} size="lg">
-                  <PlayCircle className="mr-2 h-5 w-5" /> Take Quiz
+              )
+            )}
+            {viewMode === 'review' && selectedQuizForDisplay.status === 'failed' && (
+                <Button onClick={handleRegenerateQuiz}>
+                    <RefreshCcw className="mr-2 h-4 w-4" /> Re-Generate Questions
                 </Button>
-              </>
-            ) : (
-              // Older completed quiz in review mode
-              <Button onClick={() => setViewMode('take_quiz')} size="lg">
-                <RefreshCcw className="mr-2 h-4 w-4" /> Retake Quiz
-              </Button>
+            )}
+             {viewMode === 'show_results' && (
+                <>
+                    <Button variant="outline" onClick={() => setViewMode('review')}>
+                        <ListChecks className="mr-2 h-4 w-4" /> Review All Questions
+                    </Button>
+                    <Button onClick={() => {
+                        setViewMode('take_quiz');
+                        setQuizAttemptAnswers(null);
+                    }} size="lg">
+                        <RefreshCcw className="mr-2 h-5 w-5" /> Retake Quiz
+                    </Button>
+                </>
             )}
           </div>
         )}
-        {/* Action bar for when viewing results */}
-         {viewMode === 'show_results' && selectedQuizForDisplay && (
-            <div className="p-4 border-t border-border bg-background flex justify-end space-x-3">
-                <Button variant="outline" onClick={() => setViewMode('review')}>
-                    <ListChecks className="mr-2 h-4 w-4" /> Review All Questions
-                </Button>
-                <Button onClick={() => {
-                    setViewMode('take_quiz');
-                    setQuizAttemptAnswers(null);
-                }} size="lg">
-                    <RefreshCcw className="mr-2 h-5 w-5" /> Retake Quiz
-                </Button>
-            </div>
-        )}
-
       </div>
     </div>
   );
