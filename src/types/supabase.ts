@@ -1,3 +1,4 @@
+
 export type Json =
   | string
   | number
@@ -44,7 +45,7 @@ export interface Database {
           user_id: string
           pdf_name: string | null
           num_questions: number
-          generated_quiz_data: Json | null
+          generated_quiz_data: Json | null // Actually { quiz: GeneratedQuizQuestion[] }
           status: "pending" | "processing" | "completed" | "failed"
           error_message: string | null
           created_at: string
@@ -110,8 +111,18 @@ export type Workspace = Database['public']['Tables']['workspaces']['Row'];
 export type NewWorkspace = Database['public']['Tables']['workspaces']['Insert'];
 export type Quiz = Database['public']['Tables']['quizzes']['Row'];
 export type NewQuiz = Database['public']['Tables']['quizzes']['Insert'];
+
 export type GeneratedQuizQuestion = {
   question: string;
-  options: string[];
+  options: string[]; // Should be 4 options
   answer: string;
+  explanation: string; // New field
 };
+
+// Type for the structure stored in generated_quiz_data
+export type StoredQuizData = {
+  quiz: GeneratedQuizQuestion[];
+};
+
+// Type for user's answers when taking a quiz
+export type UserAnswers = Record<number, string>; // questionIndex: selectedOption

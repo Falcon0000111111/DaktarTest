@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Generates a quiz from a PDF document.
@@ -26,10 +27,11 @@ const GenerateQuizOutputSchema = z.object({
   quiz: z.array(
     z.object({
       question: z.string().describe('The quiz question.'),
-      options: z.array(z.string()).describe('The possible answers to the question.'),
+      options: z.array(z.string()).length(4).describe('Exactly four possible answers to the question.'),
       answer: z.string().describe('The correct answer to the question.'),
+      explanation: z.string().describe('A brief explanation for why the answer is correct.'),
     })
-  ).describe('The generated quiz questions, options and answers.'),
+  ).describe('The generated quiz questions, options, answers, and explanations.'),
 });
 export type GenerateQuizOutput = z.infer<typeof GenerateQuizOutputSchema>;
 
@@ -41,17 +43,45 @@ const prompt = ai.definePrompt({
   name: 'generateQuizFromPdfPrompt',
   input: {schema: GenerateQuizInputSchema},
   output: {schema: GenerateQuizOutputSchema},
-  prompt: `You are a quiz generator. You will generate a quiz based on the content of the PDF document.
+  prompt: `You are an expert quiz generator. You will generate a quiz based on the content of the PDF document.
 
-    The quiz should have the following number of questions: {{{numberOfQuestions}}}
+    The quiz should have exactly {{{numberOfQuestions}}} questions.
 
     The PDF document is provided as a data URI:
     {{media url=pdfDataUri}}
 
-    Each question should have multiple choice options, with one correct answer.
-    The output should be a JSON array of question objects, each containing the question, options, and the correct answer.
-    The options should be an array of strings.
+    For each question:
+    1. Provide the question text.
+    2. Provide exactly four multiple-choice options. Ensure variety and plausibility in the distractors.
+    3. Clearly indicate which of the four options is the correct answer.
+    4. Provide a brief and clear explanation for why the correct answer is correct. The explanation should help someone understand the concept.
+
+    The output MUST be a JSON array of question objects, where each object contains:
+    - "question": The question text (string).
+    - "options": An array of exactly 4 strings representing the multiple-choice options.
+    - "answer": The correct answer text (string), which must be one of the provided options.
+    - "explanation": A brief explanation for the correct answer (string).
   `,
+    config: {
+    safetySettings: [
+      {
+        category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+        threshold: 'BLOCK_NONE', // Adjust if needed, but PDFs for quizzes might trigger this
+      },
+       {
+        category: 'HARM_CATEGORY_HATE_SPEECH',
+        threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+      },
+      {
+        category: 'HARM_CATEGORY_HARASSMENT',
+        threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+      },
+      {
+        category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+        threshold: 'BLOCK_LOW_AND_ABOVE',
+      },
+    ],
+  }
 });
 
 const generateQuizFromPdfFlow = ai.defineFlow(
@@ -62,6 +92,19 @@ const generateQuizFromPdfFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output) {
+      throw new Error("AI failed to generate quiz data in the expected format.");
+    }
+    // Validate that each question has 4 options and the answer is one of them
+    output.quiz.forEach(q => {
+      if (q.options.length !== 4) {
+        throw new Error(`Question "${q.question}" does not have 4 options.`);
+      }
+      if (!q.options.includes(q.answer)) {
+        throw new Error(`Answer for question "${q.question}" is not one of the provided options.`);
+      }
+    });
+    return output;
   }
 );
+

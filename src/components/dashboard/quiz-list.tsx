@@ -1,35 +1,41 @@
+
 "use client";
 
 import type { Quiz } from "@/types/supabase";
 import { QuizItem } from "./quiz-item";
-import { FileQuestion } from "lucide-react";
+import { FileQuestion, Inbox } from "lucide-react";
 
 interface QuizListProps {
   initialQuizzes: Quiz[];
-  workspaceId: string; // Used to potentially refresh or filter if needed client-side later
+  workspaceId: string;
+  onQuizSelect: (quizId: string) => void;
+  selectedQuizId?: string | null;
 }
 
-export function QuizList({ initialQuizzes }: QuizListProps) {
+export function QuizList({ initialQuizzes, onQuizSelect, selectedQuizId }: QuizListProps) {
   if (initialQuizzes.length === 0) {
     return (
-      <div className="text-center py-10 border-2 border-dashed rounded-lg">
-        <FileQuestion className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-        <h3 className="text-xl font-semibold">No Quizzes Generated Yet</h3>
-        <p className="text-muted-foreground">
-          Upload a PDF and generate your first quiz for this workspace.
+      <div className="text-center py-6 border-2 border-dashed rounded-lg mt-4">
+        <Inbox className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+        <h3 className="text-md font-semibold">No Quizzes Yet</h3>
+        <p className="text-sm text-muted-foreground px-2">
+          Click "+ Add" to generate your first quiz for this workspace.
         </p>
       </div>
     );
   }
 
-  // Sort quizzes by creation date, newest first
   const sortedQuizzes = [...initialQuizzes].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-2 mt-2">
       {sortedQuizzes.map((quiz) => (
-        <QuizItem key={quiz.id} quiz={quiz} />
+        <QuizItem 
+          key={quiz.id} 
+          quiz={quiz} 
+          onSelect={() => onQuizSelect(quiz.id)}
+          isSelected={quiz.id === selectedQuizId}
+        />
       ))}
     </div>
   );
