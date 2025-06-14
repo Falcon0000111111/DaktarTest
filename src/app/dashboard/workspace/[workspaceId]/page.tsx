@@ -4,7 +4,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { getWorkspaceById } from "@/lib/actions/workspace.actions";
 import { getQuizzesForWorkspace } from "@/lib/actions/quiz.actions";
-import type { Quiz, Workspace, GeneratedQuizQuestion, StoredQuizData, UserAnswers } from "@/types/supabase";
+import type { Quiz, Workspace, StoredQuizData, UserAnswers } from "@/types/supabase";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -16,9 +16,11 @@ import { UploadQuizDialog } from "@/components/dashboard/upload-quiz-dialog";
 import { QuizTakerForm } from "@/components/dashboard/quiz-taker-form";
 import { QuizResultsDisplay } from "@/components/dashboard/quiz-results-display";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 
 export default function WorkspacePage({ params }: { params: { workspaceId: string } }) {
+  const { workspaceId } = params; // Destructure workspaceId here
   const supabase = createClient();
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
@@ -47,13 +49,13 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
         }
         setUser(authUser);
 
-        const ws = await getWorkspaceById(params.workspaceId);
+        const ws = await getWorkspaceById(workspaceId); // Use destructured workspaceId
         if (!ws) {
           setError("Workspace not found or access denied.");
           setWorkspace(null);
         } else {
           setWorkspace(ws);
-          const fetchedQuizzes = await getQuizzesForWorkspace(params.workspaceId);
+          const fetchedQuizzes = await getQuizzesForWorkspace(workspaceId); // Use destructured workspaceId
           setQuizzes(fetchedQuizzes);
         }
       } catch (e) {
@@ -64,7 +66,7 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
       }
     };
     fetchData();
-  }, [params.workspaceId, supabase]);
+  }, [workspaceId, supabase]); // Use destructured workspaceId in dependency array
 
   const handleQuizSelect = (quizId: string) => {
     const quiz = quizzes.find(q => q.id === quizId);
@@ -95,7 +97,7 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
       // Re-fetch quizzes
       const fetchQuizzes = async () => {
         try {
-          const fetchedQuizzes = await getQuizzesForWorkspace(params.workspaceId);
+          const fetchedQuizzes = await getQuizzesForWorkspace(workspaceId); // Use destructured workspaceId
           setQuizzes(fetchedQuizzes);
         } catch (e) {
           console.error("Error refetching quizzes:", e);
@@ -288,3 +290,4 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
     </div>
   );
 }
+
