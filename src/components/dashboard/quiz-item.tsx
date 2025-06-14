@@ -9,6 +9,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useState } // Added import
+from "react"; 
 // import { generateQuizFromPdfAction } from "@/lib/actions/quiz.actions"; // For retry, if implemented
 
 interface QuizItemProps {

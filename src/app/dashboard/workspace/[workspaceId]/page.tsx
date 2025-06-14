@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getWorkspaceById } from "@/lib/actions/workspace.actions";
 import { getQuizzesForWorkspace } from "@/lib/actions/quiz.actions";
 import type { Quiz, Workspace, StoredQuizData, UserAnswers } from "@/types/supabase";
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react"; // Import 'use'
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,8 +19,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 
-export default function WorkspacePage({ params }: { params: { workspaceId: string } }) {
-  const { workspaceId } = params; // Destructure workspaceId here
+// The type for params might need to be Promise<{ workspaceId: string }> if Next.js 15.3.3 truly makes it a promise.
+// For now, we'll keep the simpler type and cast to 'any' for `use()` if TypeScript complains,
+// assuming the runtime warning from Next.js is the source of truth for behavior.
+export default function WorkspacePage({ params: paramsProp }: { params: { workspaceId: string } }) {
+  // As per Next.js warning, unwrap params using React.use()
+  // Cast to 'any' for 'use' because the static type of paramsProp might not be a Promise.
+  // If Next.js passes a promise, 'use' will resolve it. If it passes an object, 'use' might just return it (behavior depends on 'use' implementation for non-promises).
+  const params = use(paramsProp as any); 
+  const { workspaceId } = params; 
+
   const supabase = createClient();
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
@@ -49,13 +57,13 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
         }
         setUser(authUser);
 
-        const ws = await getWorkspaceById(workspaceId); // Use destructured workspaceId
+        const ws = await getWorkspaceById(workspaceId); 
         if (!ws) {
           setError("Workspace not found or access denied.");
           setWorkspace(null);
         } else {
           setWorkspace(ws);
-          const fetchedQuizzes = await getQuizzesForWorkspace(workspaceId); // Use destructured workspaceId
+          const fetchedQuizzes = await getQuizzesForWorkspace(workspaceId); 
           setQuizzes(fetchedQuizzes);
         }
       } catch (e) {
@@ -65,8 +73,17 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
         setIsLoading(false);
       }
     };
-    fetchData();
-  }, [workspaceId, supabase]); // Use destructured workspaceId in dependency array
+    // Ensure workspaceId is valid before fetching
+    if (workspaceId) {
+      fetchData();
+    } else {
+      // Handle case where workspaceId might be undefined after 'use(paramsProp)'
+      // This might happen if paramsProp was not a promise or resolved to something unexpected.
+      // For safety, we can set an error or loading state.
+      setError("Workspace ID is not available.");
+      setIsLoading(false);
+    }
+  }, [workspaceId, supabase]); 
 
   const handleQuizSelect = (quizId: string) => {
     const quiz = quizzes.find(q => q.id === quizId);
@@ -96,8 +113,9 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
     if (refresh) {
       // Re-fetch quizzes
       const fetchQuizzes = async () => {
+        if (!workspaceId) return; // Guard against undefined workspaceId
         try {
-          const fetchedQuizzes = await getQuizzesForWorkspace(workspaceId); // Use destructured workspaceId
+          const fetchedQuizzes = await getQuizzesForWorkspace(workspaceId); 
           setQuizzes(fetchedQuizzes);
         } catch (e) {
           console.error("Error refetching quizzes:", e);
@@ -290,4 +308,3 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
     </div>
   );
 }
-
