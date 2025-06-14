@@ -1,26 +1,32 @@
 
-import { createClient } from "@/lib/supabase/server";
-import { FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CreateWorkspaceDialog } from "@/components/dashboard/create-workspace-dialog";
+import { getWorkspaces } from "@/lib/actions/workspace.actions";
+import { WorkspaceList } from "@/components/dashboard/workspace-list";
+import { PlusCircle, LayoutDashboard } from "lucide-react";
 
 export default async function DashboardPage() {
-  const supabase = createClient(); 
+  const workspaces = await getWorkspaces();
 
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    // This should ideally be handled by middleware, but as a fallback:
-    return <p>You need to be logged in to view this page.</p>;
-  }
-
-  // The main content for the dashboard when no workspace is selected
   return (
-    <div className="flex flex-col items-center justify-center h-full text-center animate-fade-in p-8">
-      <FileText className="h-24 w-24 text-primary mb-6" data-ai-hint="document file" />
-      <h1 className="text-3xl font-bold font-headline mb-2">Select a Workspace</h1>
-      <p className="text-muted-foreground max-w-md">
-        Choose a workspace from the sidebar to view your documents and quizzes, 
-        or create a new workspace to get started.
-      </p>
+    <div className="space-y-8 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <LayoutDashboard className="h-10 w-10 text-primary" />
+          <div>
+            <h1 className="text-3xl font-bold font-headline">Your Workspaces</h1>
+            <p className="text-muted-foreground">
+              Manage your study materials and generated quizzes.
+            </p>
+          </div>
+        </div>
+        <CreateWorkspaceDialog>
+          <Button>
+            <PlusCircle className="mr-2 h-5 w-5" /> New Workspace
+          </Button>
+        </CreateWorkspaceDialog>
+      </div>
+      <WorkspaceList initialWorkspaces={workspaces} />
     </div>
   );
 }
