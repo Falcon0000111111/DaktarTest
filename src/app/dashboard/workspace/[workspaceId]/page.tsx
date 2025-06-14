@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getWorkspaceById } from "@/lib/actions/workspace.actions";
 import { getQuizzesForWorkspace } from "@/lib/actions/quiz.actions";
 import type { Quiz, Workspace, StoredQuizData, UserAnswers } from "@/types/supabase";
-import { use, useEffect, useState } from "react"; // Import 'use'
+import { use, useEffect, useState } from "react"; 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,13 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 
-// The type for params might need to be Promise<{ workspaceId: string }> if Next.js 15.3.3 truly makes it a promise.
-// For now, we'll keep the simpler type and cast to 'any' for `use()` if TypeScript complains,
-// assuming the runtime warning from Next.js is the source of truth for behavior.
 export default function WorkspacePage({ params: paramsProp }: { params: { workspaceId: string } }) {
-  // As per Next.js warning, unwrap params using React.use()
-  // Cast to 'any' for 'use' because the static type of paramsProp might not be a Promise.
-  // If Next.js passes a promise, 'use' will resolve it. If it passes an object, 'use' might just return it (behavior depends on 'use' implementation for non-promises).
   const params = use(paramsProp as any); 
   const { workspaceId } = params; 
 
@@ -34,7 +28,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null); // Consider using Supabase User type
+  const [user, setUser] = useState<any>(null);
 
   const [selectedQuizForDisplay, setSelectedQuizForDisplay] = useState<Quiz | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
@@ -46,6 +40,11 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!workspaceId) {
+        setError("Workspace ID is not available.");
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
       setError(null);
       try {
@@ -73,36 +72,21 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
         setIsLoading(false);
       }
     };
-    // Ensure workspaceId is valid before fetching
-    if (workspaceId) {
-      fetchData();
-    } else {
-      // Handle case where workspaceId might be undefined after 'use(paramsProp)'
-      // This might happen if paramsProp was not a promise or resolved to something unexpected.
-      // For safety, we can set an error or loading state.
-      setError("Workspace ID is not available.");
-      setIsLoading(false);
-    }
+    fetchData();
   }, [workspaceId, supabase]); 
 
   const handleQuizSelect = (quizId: string) => {
     const quiz = quizzes.find(q => q.id === quizId);
-    if (quiz && quiz.status === 'completed' && quiz.generated_quiz_data) {
+    if (quiz) {
       setSelectedQuizForDisplay(quiz);
-      setShowQuizResults(false); // Reset results view
-      setQuizAttemptAnswers(null); // Reset previous attempt
-    } else if (quiz) {
-      setSelectedQuizForDisplay(quiz); // Show it even if not completable, e.g. processing/failed
-      setShowQuizResults(false);
-      setQuizAttemptAnswers(null);
+      setShowQuizResults(false); 
+      setQuizAttemptAnswers(null); 
     }
   };
 
   const handleQuizSubmit = async (answers: UserAnswers) => {
     setIsSubmittingQuiz(true);
-    // In a real app, you might want to save the attempt to the backend
-    // For now, we'll just process it client-side for display
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 500)); 
     setQuizAttemptAnswers(answers);
     setShowQuizResults(true);
     setIsSubmittingQuiz(false);
@@ -111,15 +95,13 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
   const handleUploadDialogClose = (refresh?: boolean) => {
     setShowUploadDialog(false);
     if (refresh) {
-      // Re-fetch quizzes
       const fetchQuizzes = async () => {
-        if (!workspaceId) return; // Guard against undefined workspaceId
+        if (!workspaceId) return;
         try {
           const fetchedQuizzes = await getQuizzesForWorkspace(workspaceId); 
           setQuizzes(fetchedQuizzes);
         } catch (e) {
           console.error("Error refetching quizzes:", e);
-          // Optionally set an error state for quiz list
         }
       };
       fetchQuizzes();
@@ -130,7 +112,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-[calc(100vh-var(--header-height,4rem))]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="ml-4 text-lg">Loading workspace...</p>
       </div>
@@ -139,7 +121,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
 
   if (error) {
     return (
-      <div className="text-center py-10 animate-fade-in">
+      <div className="text-center py-10 animate-fade-in h-[calc(100vh-var(--header-height,4rem))] flex flex-col justify-center items-center">
         <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
         <h2 className="text-2xl font-semibold font-headline">Error Loading Workspace</h2>
         <p className="text-muted-foreground max-w-md mx-auto">{error}</p>
@@ -151,9 +133,8 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
   }
 
   if (!workspace) {
-     // This case should ideally be covered by the error state, but as a fallback
     return (
-      <div className="text-center py-10">
+      <div className="text-center py-10 h-[calc(100vh-var(--header-height,4rem))] flex flex-col justify-center items-center">
         <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
         <h2 className="text-2xl font-semibold">Workspace Not Found</h2>
         <Button asChild className="mt-4">
@@ -168,19 +149,17 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
     : [];
 
   return (
-    <div className="flex h-[calc(100vh-var(--header-height,4rem))]"> {/* Adjust header height if necessary */}
-      {/* Collapsible Left Sidebar for Quizzes */}
+    <div className="flex h-[calc(100vh-var(--header-height,4rem))]">
       <div className={cn(
-        "transition-all duration-300 ease-in-out bg-card border-r",
-        isSidebarOpen ? "w-80 p-4" : "w-12 p-2 pt-4 items-center justify-center"
+        "transition-all duration-300 ease-in-out bg-card border-r flex flex-col",
+        isSidebarOpen ? "w-80 p-4" : "w-12 p-2 pt-4 items-center" 
       )}>
-        <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mb-4 hidden md:flex">
+        <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mb-1 hidden md:flex self-start">
             <ChevronsLeftRight className={cn("h-5 w-5", !isSidebarOpen && "rotate-180")} />
         </Button>
-         <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mb-4 md:hidden absolute top-20 left-2 z-50 bg-card">
+         <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mb-1 md:hidden absolute top-20 left-2 z-50 bg-card">
             <ChevronsLeftRight className={cn("h-5 w-5", !isSidebarOpen && "rotate-180")} />
         </Button>
-
 
         {isSidebarOpen && (
           <>
@@ -196,7 +175,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
             
             <Separator className="my-4" />
 
-            <div>
+            <div className="flex flex-col flex-1 min-h-0">
               <div className="flex justify-between items-center mb-2">
                 <h2 className="text-lg font-semibold font-headline flex items-center">
                   <ListChecks className="mr-2 h-5 w-5 text-primary" />
@@ -208,12 +187,12 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                   open={showUploadDialog}
                   onDialogClose={handleUploadDialogClose}
                 >
-                  <Button variant="outline" size="sm">
-                    <PlusSquare className="mr-2 h-4 w-4" /> Add
+                  <Button variant="outline" size="sm" className="px-2 py-1 h-auto">
+                    <PlusSquare className="mr-1.5 h-4 w-4" /> Add
                   </Button>
                 </UploadQuizDialog>
               </div>
-              <ScrollArea className="h-[calc(100vh-var(--header-height,4rem)-220px)]"> {/* Adjust height as needed */}
+              <ScrollArea className="flex-1"> {}
                 <QuizList
                     initialQuizzes={quizzes}
                     workspaceId={workspace.id}
@@ -225,10 +204,10 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
           </>
         )}
          {!isSidebarOpen && quizzes.length > 0 && (
-           <div className="mt-10 space-y-2">
+           <div className="mt-10 space-y-2 flex flex-col items-center">
             {quizzes.slice(0,5).map(q => (
               <Button key={q.id} variant="ghost" size="icon" title={q.pdf_name || "Quiz"} onClick={() => handleQuizSelect(q.id)}
-                className={cn(selectedQuizForDisplay?.id === q.id && "bg-primary/20")}>
+                className={cn("w-9 h-9",selectedQuizForDisplay?.id === q.id && "bg-primary/20")}>
                 <FileText className="h-5 w-5" />
               </Button>
             ))}
@@ -236,7 +215,6 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
          )}
       </div>
 
-      {/* Main Content Area */}
       <div className="flex-1 p-6 overflow-y-auto bg-background">
         {!selectedQuizForDisplay && (
           <div className="flex flex-col items-center justify-center h-full text-center">
@@ -250,21 +228,25 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
         )}
 
         {selectedQuizForDisplay && (
-          <div className="animate-fade-in">
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle className="font-headline text-2xl flex items-center">
-                  <FileText className="mr-3 h-7 w-7 text-primary" />
-                  {selectedQuizForDisplay.pdf_name || "Untitled Quiz"}
-                </CardTitle>
-                <CardDescription>
-                  {selectedQuizForDisplay.num_questions} questions &bull; Status: {selectedQuizForDisplay.status}
-                  {selectedQuizForDisplay.status === 'failed' && selectedQuizForDisplay.error_message && (
-                    <span className="text-destructive ml-2">Error: {selectedQuizForDisplay.error_message}</span>
-                  )}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+          <div className="animate-fade-in space-y-6">
+            <div>
+                <div className="flex items-center mb-1">
+                    <FileText className="mr-3 h-7 w-7 text-primary" />
+                    <h2 className="font-headline text-2xl font-bold">
+                    {selectedQuizForDisplay.pdf_name || "Untitled Quiz"}
+                    </h2>
+                </div>
+                <p className="text-muted-foreground text-sm ml-10">
+                    {selectedQuizForDisplay.num_questions} questions &bull; Status: {selectedQuizForDisplay.status}
+                    {selectedQuizForDisplay.status === 'failed' && selectedQuizForDisplay.error_message && (
+                        <span className="text-destructive ml-2">Error: {selectedQuizForDisplay.error_message}</span>
+                    )}
+                </p>
+            </div>
+            
+            <Separator />
+
+            <div>
                 {selectedQuizForDisplay.status === 'processing' && (
                   <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
                     <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -275,7 +257,6 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                   <div className="flex flex-col items-center justify-center py-10 text-destructive">
                     <AlertCircle className="h-12 w-12 mb-4" />
                     <p>Quiz generation failed. You may try again or check the error message.</p>
-                     {/* TODO: Add a retry button here if desired, linking to generateQuizFromPdfAction with existingQuizIdToUpdate */}
                   </div>
                 )}
                 {selectedQuizForDisplay.status === 'completed' && parsedQuizDataForTaking && parsedQuizDataForTaking.length > 0 && !showQuizResults && (
@@ -300,11 +281,11 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                         <p className="text-sm">It might have been generated incorrectly or the data is missing.</p>
                     </div>
                 )}
-              </CardContent>
-            </Card>
+            </div>
           </div>
         )}
       </div>
     </div>
   );
 }
+
