@@ -1,13 +1,9 @@
-import { createClient } from "@/lib/supabase/server"; // Updated import
-import { cookies } from 'next/headers'; // Required for server client
-import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
-import { CreateWorkspaceDialog } from "@/components/dashboard/create-workspace-dialog";
-import { WorkspaceList } from "@/components/dashboard/workspace-list";
-import { getWorkspaces } from "@/lib/actions/workspace.actions";
+
+import { createClient } from "@/lib/supabase/server";
+import { FileText } from "lucide-react";
 
 export default async function DashboardPage() {
-  const supabase = createClient(); // Updated client creation
+  const supabase = createClient(); 
 
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -16,23 +12,15 @@ export default async function DashboardPage() {
     return <p>You need to be logged in to view this page.</p>;
   }
 
-  const workspaces = await getWorkspaces();
-
+  // The main content for the dashboard when no workspace is selected
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between animate-fade-in">
-        <div>
-          <h1 className="text-3xl font-headline font-bold tracking-tight">Your Workspaces</h1>
-          <p className="text-muted-foreground">Organize your quizzes by creating and managing workspaces.</p>
-        </div>
-        <CreateWorkspaceDialog>
-          <Button>
-            <PlusCircle className="mr-2 h-5 w-5" />
-            New Workspace
-          </Button>
-        </CreateWorkspaceDialog>
-      </div>
-      <WorkspaceList initialWorkspaces={workspaces} />
+    <div className="flex flex-col items-center justify-center h-full text-center animate-fade-in p-8">
+      <FileText className="h-24 w-24 text-primary mb-6" data-ai-hint="document file" />
+      <h1 className="text-3xl font-bold font-headline mb-2">Select a Workspace</h1>
+      <p className="text-muted-foreground max-w-md">
+        Choose a workspace from the sidebar to view your documents and quizzes, 
+        or create a new workspace to get started.
+      </p>
     </div>
   );
 }
