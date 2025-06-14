@@ -5,21 +5,38 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, useEffect } from "react";
 import { generateQuizFromPdfAction } from "@/lib/actions/quiz.actions";
-import { FileUp, Wand2, Loader2, X } from "lucide-react";
+import { FileUp, Wand2, Loader2, X, Info } from "lucide-react";
 
 interface UploadQuizFormProps {
   workspaceId: string;
-  onUploadComplete: () => void; // Callback for successful upload
-  onCancel: () => void; // Callback for cancellation
+  onUploadComplete: () => void; 
+  onCancel: () => void; 
+  initialNumQuestions?: number;
+  existingQuizIdToUpdate?: string;
+  initialPdfNameHint?: string;
 }
 
-export function UploadQuizForm({ workspaceId, onUploadComplete, onCancel }: UploadQuizFormProps) {
+export function UploadQuizForm({ 
+    workspaceId, 
+    onUploadComplete, 
+    onCancel, 
+    initialNumQuestions,
+    existingQuizIdToUpdate,
+    initialPdfNameHint
+}: UploadQuizFormProps) {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [numQuestions, setNumQuestions] = useState(5);
+  const [numQuestions, setNumQuestions] = useState(initialNumQuestions || 5);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (initialNumQuestions !== undefined) {
+      setNumQuestions(initialNumQuestions);
+    }
+  }, [initialNumQuestions]);
+
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
@@ -42,17 +59,13 @@ export function UploadQuizForm({ workspaceId, onUploadComplete, onCancel }: Uplo
 
   const handleNumQuestionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    // Allow empty string temporarily, or parse if not empty
     if (value === "") {
-      // Keep current valid number, or set a default if you prefer the field to clear
-      // For now, let's allow it to be "empty" visually but numQuestions holds last valid
+      // Let it be empty for a moment, handleSubmit will validate
+      // Or clamp: setNumQuestions(1); 
     } else {
       const parsedValue = parseInt(value, 10);
-      if (!isNaN(parsedValue) && parsedValue >= 1 && parsedValue <= 20) {
+      if (!isNaN(parsedValue)) { // Allow any number temporarily, validation on submit
         setNumQuestions(parsedValue);
-      } else if (!isNaN(parsedValue) && (parsedValue < 1 || parsedValue > 20)) {
-        // If out of range, don't update, or clamp, or show error
-        // For now, we let the native input validation handle min/max messages
       }
     }
   };
@@ -81,14 +94,18 @@ export function UploadQuizForm({ workspaceId, onUploadComplete, onCancel }: Uplo
             pdfName: pdfFile.name,
             pdfDataUri,
             numberOfQuestions: numQuestions,
+            existingQuizIdToUpdate: existingQuizIdToUpdate, // Pass this along
           });
-          toast({ title: "Quiz Generation Started", description: "Your quiz is being generated. This may take a few moments." });
+          toast({ 
+            title: existingQuizIdToUpdate ? "Quiz Re-Generation Started" : "Quiz Generation Started", 
+            description: "Your quiz is being processed. This may take a few moments." 
+          });
           setPdfFile(null);
           (document.getElementById('pdf-upload-form-in-dialog') as HTMLFormElement)?.reset(); 
-          onUploadComplete(); // Call parent callback
+          onUploadComplete(); 
         } catch (error) {
           console.error("Error in generateQuizFromPdfAction call:", error);
-          toast({ title: "Error Generating Quiz", description: (error as Error).message, variant: "destructive" });
+          toast({ title: existingQuizIdToUpdate ? "Error Re-Generating Quiz" : "Error Generating Quiz", description: (error as Error).message, variant: "destructive" });
         } finally {
           setLoading(false);
         }
@@ -107,6 +124,12 @@ export function UploadQuizForm({ workspaceId, onUploadComplete, onCancel }: Uplo
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 py-4" id="pdf-upload-form-in-dialog">
+      {initialPdfNameHint && (
+        <div className="p-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-center">
+            <Info className="h-4 w-4 mr-2 flex-shrink-0" />
+            <span>Re-generating for: <strong>{initialPdfNameHint}</strong>. Please re-select the PDF file.</span>
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="pdf-file-dialog" className="flex items-center">
           <FileUp className="mr-2 h-5 w-5" /> PDF Document
@@ -126,7 +149,7 @@ export function UploadQuizForm({ workspaceId, onUploadComplete, onCancel }: Uplo
         <Input
           id="num-questions-dialog"
           type="number"
-          value={numQuestions} // Controlled component
+          value={numQuestions.toString()} // Ensure value is string for input
           onChange={handleNumQuestionsChange}
           min="1"
           max="20"
@@ -143,7 +166,7 @@ export function UploadQuizForm({ workspaceId, onUploadComplete, onCancel }: Uplo
             ) : (
               <Wand2 className="mr-2 h-4 w-4" />
             )}
-            {loading ? "Generating..." : "Generate Quiz"}
+            {loading ? (existingQuizIdToUpdate ? "Re-Generating..." : "Generating...") : (existingQuizIdToUpdate ? "Re-Generate Quiz" : "Generate Quiz")}
           </Button>
       </div>
     </form>

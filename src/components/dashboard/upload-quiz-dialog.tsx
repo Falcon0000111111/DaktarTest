@@ -17,11 +17,14 @@ import type { ReactNode } from "react";
 import { FileUp } from "lucide-react";
 
 interface UploadQuizDialogProps {
-  children: ReactNode; // Trigger element
+  children: ReactNode; 
   workspaceId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onDialogClose: (refresh?: boolean) => void; // Callback when dialog closes, optionally indicating refresh
+  onDialogClose: (refresh?: boolean) => void;
+  initialPdfName?: string;
+  initialNumQuestions?: number;
+  existingQuizIdToUpdate?: string;
 }
 
 export function UploadQuizDialog({
@@ -30,32 +33,40 @@ export function UploadQuizDialog({
   open,
   onOpenChange,
   onDialogClose,
+  initialPdfName,
+  initialNumQuestions,
+  existingQuizIdToUpdate,
 }: UploadQuizDialogProps) {
   
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
       onOpenChange(isOpen);
       if (!isOpen) {
-        // Assuming no refresh by default when just closing by 'x' or overlay click
-        // The form submission will call onDialogClose(true)
+         onDialogClose(false); // Explicitly call with false if dialog is closed without form submission
       }
     }}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-headline flex items-center">
-            <FileUp className="mr-2 h-5 w-5 text-primary" /> Generate New Quiz
+            <FileUp className="mr-2 h-5 w-5 text-primary" /> 
+            {existingQuizIdToUpdate ? "Re-Generate Quiz" : "Generate New Quiz"}
           </DialogTitle>
           <DialogDescription>
-            Upload a PDF document and specify the number of questions.
-            The AI will generate a quiz based on the document content.
+            {existingQuizIdToUpdate 
+              ? `Re-generating quiz for "${initialPdfName || 'document'}". You may need to re-upload the PDF.` 
+              : "Upload a PDF document and specify the number of questions. The AI will generate a quiz based on the document content."
+            }
           </DialogDescription>
         </DialogHeader>
         
         <UploadQuizForm 
           workspaceId={workspaceId} 
-          onUploadComplete={() => onDialogClose(true)} // Pass refresh true on successful upload
-          onCancel={() => onOpenChange(false)} // Simply close dialog on form's cancel
+          onUploadComplete={() => onDialogClose(true)}
+          onCancel={() => onOpenChange(false)} // Form's cancel button
+          initialNumQuestions={initialNumQuestions}
+          existingQuizIdToUpdate={existingQuizIdToUpdate}
+          initialPdfNameHint={initialPdfName} // Pass PDF name as a hint
         />
 
       </DialogContent>

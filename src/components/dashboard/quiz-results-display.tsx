@@ -3,16 +3,19 @@
 
 import type { Quiz, GeneratedQuizQuestion, UserAnswers } from "@/types/supabase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, XCircle, HelpCircle, InfoIcon } from "lucide-react";
+import { CheckCircle, XCircle, HelpCircle, InfoIcon, RefreshCcw, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface QuizResultsDisplayProps {
   quiz: Quiz;
   quizData: GeneratedQuizQuestion[];
   userAnswers: UserAnswers;
+  onRetake: () => void;
+  onReviewAll: () => void;
 }
 
-export function QuizResultsDisplay({ quiz, quizData, userAnswers }: QuizResultsDisplayProps) {
+export function QuizResultsDisplay({ quiz, quizData, userAnswers, onRetake, onReviewAll }: QuizResultsDisplayProps) {
   if (!quizData || quizData.length === 0) {
     return <p className="text-muted-foreground">No quiz data available to display results.</p>;
   }
@@ -32,6 +35,14 @@ export function QuizResultsDisplay({ quiz, quizData, userAnswers }: QuizResultsD
         <p className="text-muted-foreground">
           You scored {score} out of {quizData.length} ({percentage}%)
         </p>
+        <div className="mt-4 flex space-x-3">
+            <Button onClick={onRetake}>
+                <RefreshCcw className="mr-2 h-4 w-4" /> Retake Quiz
+            </Button>
+            <Button variant="outline" onClick={onReviewAll}>
+                <ListChecks className="mr-2 h-4 w-4" /> Review All Questions
+            </Button>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -81,7 +92,6 @@ export function QuizResultsDisplay({ quiz, quizData, userAnswers }: QuizResultsD
                 {wasAttempted && !isCorrect && userAnswer && (
                     <p className="text-sm text-red-600 dark:text-red-400"><strong>Your Answer:</strong> {userAnswer}</p>
                 )}
-                 {/* <p className="text-sm text-green-700 dark:text-green-300"><strong>Correct Answer:</strong> {q.answer}</p> */}
                 
                 <div className="mt-3 pt-3 border-t border-border">
                     <p className="text-sm font-semibold mb-1 flex items-center">
