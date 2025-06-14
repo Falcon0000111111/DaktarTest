@@ -15,26 +15,32 @@ interface QuestionReviewCardProps {
 export function QuestionReviewCard({ question, questionNumber }: QuestionReviewCardProps) {
   const [showAnswer, setShowAnswer] = useState(false);
 
+  // Using a specific dark background for the card and light text for contrast
+  // This assumes the overall page theme might be light, but these cards are dark.
+  const cardBgClass = "bg-neutral-800"; // A dark gray from Tailwind's palette
+  const textColorClass = "text-gray-200"; // Light gray text for readability
+  const mutedTextColorClass = "text-gray-400"; // Muted text for explanations
+
   return (
-    <div className="bg-[#2B2B2B] dark:bg-neutral-800 p-5 rounded-lg shadow-md text-foreground"> {/* Using bg-neutral-800 for dark theme from Tailwind, or bg-[#2B2B2B] for specific color */}
+    <div className={cn(cardBgClass, "p-5 rounded-lg shadow-md")}>
       <div className="flex justify-between items-start mb-3">
-        <h3 className="text-lg font-semibold text-primary">
+        <h3 className={cn("text-lg font-semibold", textColorClass)}> 
           Question {questionNumber}
         </h3>
         <div className="flex space-x-2">
-          <Button variant="ghost" size="icon" onClick={() => setShowAnswer(!showAnswer)} title={showAnswer ? "Hide Answer" : "Show Answer"}>
+          <Button variant="ghost" size="icon" onClick={() => setShowAnswer(!showAnswer)} title={showAnswer ? "Hide Answer" : "Show Answer"} className={textColorClass /* Ensure icon buttons are also light */}>
             {showAnswer ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
           </Button>
-          <Button variant="ghost" size="icon" title="Edit Question (coming soon)" disabled>
+          <Button variant="ghost" size="icon" title="Edit Question (coming soon)" disabled className={cn(textColorClass, "opacity-50")}>
             <Edit className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon" title="Delete Question (coming soon)" disabled className="text-destructive hover:text-destructive">
+          <Button variant="ghost" size="icon" title="Delete Question (coming soon)" disabled className={cn("text-red-400 hover:text-red-300", "opacity-50")}>
             <Trash2 className="h-5 w-5" />
           </Button>
         </div>
       </div>
 
-      <p className="mb-4 text-base leading-relaxed">{question.question}</p>
+      <p className={cn("mb-4 text-base leading-relaxed", textColorClass)}>{question.question}</p>
 
       <ul className="space-y-2 mb-4">
         {question.options.map((option, index) => (
@@ -42,10 +48,13 @@ export function QuestionReviewCard({ question, questionNumber }: QuestionReviewC
             key={index}
             className={cn(
               "p-3 rounded-md border text-sm transition-colors",
+              // Base option style for dark card
+              "border-neutral-700 hover:bg-neutral-700/70", 
+              textColorClass,
               showAnswer && option === question.answer 
-                ? "bg-green-500/20 border-green-500 text-green-300 font-medium" 
-                : "border-border hover:bg-muted/10",
-              showAnswer && option !== question.answer && "opacity-70" // Dim incorrect options when answer is shown
+                ? "bg-green-600/30 border-green-500 text-green-300 font-medium" // Correct answer style
+                : "",
+              showAnswer && option !== question.answer && "opacity-60" // Dim incorrect options
             )}
           >
             {option}
@@ -55,12 +64,12 @@ export function QuestionReviewCard({ question, questionNumber }: QuestionReviewC
       </ul>
 
       {showAnswer && (
-        <div className="mt-4 p-3 bg-muted/10 rounded-md border border-border">
-          <p className="text-sm font-semibold mb-1 flex items-center text-primary">
-            <InfoIcon className="h-4 w-4 mr-2"/>
+        <div className="mt-4 p-3 bg-neutral-700/50 rounded-md border border-neutral-600">
+          <p className={cn("text-sm font-semibold mb-1 flex items-center", textColorClass)}>
+            <InfoIcon className="h-4 w-4 mr-2 text-blue-400"/>
             Explanation:
           </p>
-          <p className="text-sm text-muted-foreground">{question.explanation || "No explanation provided."}</p>
+          <p className={cn("text-sm", mutedTextColorClass)}>{question.explanation || "No explanation provided."}</p>
         </div>
       )}
     </div>

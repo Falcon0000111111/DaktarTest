@@ -1,26 +1,27 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 195 92% 94%; /* Light Blue #E1F5FE */
-    --foreground: 200 10% 20%; /* Dark Gray for text */
+    --background: 220 20% 96%; /* Very light cool gray #f5f7fa */
+    --foreground: 220 10% 25%; /* Dark cool gray #333b44 */
 
     --card: 0 0% 100%; /* White */
-    --card-foreground: 200 10% 20%;
+    --card-foreground: 220 10% 25%;
 
     --popover: 0 0% 100%; /* White */
-    --popover-foreground: 200 10% 20%;
+    --popover-foreground: 220 10% 25%;
 
     --primary: 197 71% 53%; /* Vibrant Blue #29ABE2 */
     --primary-foreground: 0 0% 100%; /* White */
 
-    --secondary: 195 50% 88%; /* Lighter, less saturated blue */
+    --secondary: 195 50% 88%; /* Lighter, less saturated blue #d1e7f8 */
     --secondary-foreground: 197 71% 30%; /* Darker blue text */
 
-    --muted: 195 30% 80%;
-    --muted-foreground: 195 20% 50%; /* Muted text color */
+    --muted: 220 15% 92%; /* Light muted gray #e8edf0 */
+    --muted-foreground: 220 10% 45%; /* Muted text color #646d79 */
 
     --accent: 291 64% 42%; /* Purple #9C27B0 */
     --accent-foreground: 0 0% 100%; /* White */
@@ -28,8 +29,8 @@
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 195 30% 85%;
-    --input: 195 30% 85%;
+    --border: 220 15% 88%; /* Light cool gray border #dde2e8 */
+    --input: 220 15% 88%;
     --ring: 197 71% 53%; /* Vibrant Blue for focus rings */
 
     --radius: 0.5rem;
@@ -41,44 +42,44 @@
     --chart-5: 27 87% 67%;
 
     /* Sidebar specific colors, can be adjusted if sidebar is heavily themed */
-    --sidebar-background: 195 80% 90%; /* Slightly darker than main background */
-    --sidebar-foreground: 200 10% 15%;
+    --sidebar-background: 220 30% 94%; /* Slightly darker than main background #eaf0f5 */
+    --sidebar-foreground: 220 10% 20%;
     --sidebar-primary: 197 71% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 291 64% 42%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 195 30% 80%;
+    --sidebar-border: 220 20% 85%;
     --sidebar-ring: 197 71% 53%;
   }
 
   .dark {
-    /* Basic dark theme, can be further customized */
-    --background: 200 10% 10%;
-    --foreground: 195 20% 90%;
+    /* Dark theme remains for potential future use or OS preference */
+    --background: 220 10% 10%; /* Dark slate blue #1A1D21 */
+    --foreground: 220 20% 90%; /* Light gray #E0E3E6 */
 
-    --card: 200 10% 15%;
-    --card-foreground: 195 20% 90%;
+    --card: 220 10% 15%; /* Darker slate blue #20242A */
+    --card-foreground: 220 20% 90%;
 
-    --popover: 200 10% 15%;
-    --popover-foreground: 195 20% 90%;
+    --popover: 220 10% 15%;
+    --popover-foreground: 220 20% 90%;
 
-    --primary: 197 71% 53%;
+    --primary: 197 71% 53%; 
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 200 10% 25%;
-    --secondary-foreground: 195 20% 85%;
+    --secondary: 220 10% 25%; /* #333942 */
+    --secondary-foreground: 220 20% 85%;
 
-    --muted: 200 10% 30%;
-    --muted-foreground: 195 20% 60%;
+    --muted: 220 10% 30%; /* #404752 */
+    --muted-foreground: 220 20% 60%;
 
-    --accent: 291 64% 50%;
+    --accent: 291 64% 50%; 
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 200 10% 25%;
-    --input: 200 10% 25%;
+    --border: 220 10% 25%; /* #333942 */
+    --input: 220 10% 25%;
     --ring: 197 71% 53%;
 
     --chart-1: 220 70% 50%;
@@ -87,13 +88,13 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
 
-    --sidebar-background: 200 10% 12%;
-    --sidebar-foreground: 195 20% 88%;
+    --sidebar-background: 220 10% 12%;
+    --sidebar-foreground: 220 20% 88%;
     --sidebar-primary: 197 71% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 291 64% 50%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 200 10% 20%;
+    --sidebar-border: 220 10% 20%;
     --sidebar-ring: 197 71% 53%;
   }
 }
