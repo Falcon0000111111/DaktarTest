@@ -3,23 +3,21 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { getWorkspaceById } from "@/lib/actions/workspace.actions";
-import { getQuizzesForWorkspace, generateQuizFromPdfAction } from "@/lib/actions/quiz.actions";
-import type { Quiz, Workspace, StoredQuizData, UserAnswers, GeneratedQuizQuestion } from "@/types/supabase";
+import { getQuizzesForWorkspace } from "@/lib/actions/quiz.actions";
+import type { Quiz, Workspace, StoredQuizData, UserAnswers } from "@/types/supabase";
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { AlertCircle, FileText, PlusSquare, Loader2, ChevronsLeftRight, Info, FileUp, CheckSquare, BookCopy, Edit, Trash2, Eye, PlayCircle, RefreshCcw } from "lucide-react";
+import { AlertCircle, FileText, PlusSquare, Loader2, ChevronsLeftRight, Info, BookCopy, CheckSquare, RefreshCcw, PlayCircle } from "lucide-react";
 import { QuizList } from "@/components/dashboard/quiz-list";
 import { SourceFileList } from "@/components/dashboard/source-file-list";
 import { UploadQuizDialog } from "@/components/dashboard/upload-quiz-dialog";
 import { QuizTakerForm } from "@/components/dashboard/quiz-taker-form";
 import { QuizResultsDisplay } from "@/components/dashboard/quiz-results-display";
 import { QuestionReviewCard } from "@/components/dashboard/question-review-card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-
 
 type ViewMode = "placeholder" | "review" | "take_quiz" | "show_results";
 
@@ -43,11 +41,9 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("placeholder");
 
-  // For re-generation
   const [initialNumQuestionsForUpload, setInitialNumQuestionsForUpload] = useState<number | undefined>(undefined);
   const [initialPdfNameForUpload, setInitialPdfNameForUpload] = useState<string | undefined>(undefined);
   const [existingQuizIdToUpdate, setExistingQuizIdToUpdate] = useState<string | undefined>(undefined);
-
 
   useEffect(() => {
     const fetchData = async () => {
@@ -78,7 +74,6 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
           const pdfs = new Set(fetchedQuizzes.map(q => q.pdf_name).filter(name => name !== null) as string[]);
           setUniquePdfNames(Array.from(pdfs));
 
-          // If a quiz was previously selected and data re-fetched, try to keep it selected
           if (selectedQuizForDisplay && fetchedQuizzes.some(q => q.id === selectedQuizForDisplay.id)) {
             const updatedSelectedQuiz = fetchedQuizzes.find(q => q.id === selectedQuizForDisplay.id);
             if (updatedSelectedQuiz) {
@@ -86,9 +81,9 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                  if (updatedSelectedQuiz.status === 'completed' && viewMode !== 'take_quiz' && viewMode !== 'show_results') {
                     setViewMode('review');
                 } else if (updatedSelectedQuiz.status === 'processing') {
-                    setViewMode('placeholder'); // Or a specific 'processing' view
+                    setViewMode('placeholder');
                 }
-            } else { // selected quiz no longer exists
+            } else {
                 setSelectedQuizForDisplay(null);
                 setViewMode('placeholder');
             }
@@ -104,7 +99,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
       }
     };
     fetchData();
-  }, [workspaceId, supabase]);
+  }, [workspaceId, supabase, viewMode]);
 
   const handleQuizSelect = (quizId: string) => {
     const quiz = quizzes.find(q => q.id === quizId);
@@ -113,7 +108,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
       if (quiz.status === 'completed') {
         setViewMode('review');
       } else {
-        setViewMode('placeholder'); // e.g. if status is processing or failed
+        setViewMode('placeholder'); 
       }
       setQuizAttemptAnswers(null);
     }
@@ -121,7 +116,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
 
   const handleQuizSubmit = async (answers: UserAnswers) => {
     setIsSubmittingQuiz(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 500)); 
     setQuizAttemptAnswers(answers);
     setViewMode('show_results');
     setIsSubmittingQuiz(false);
@@ -136,13 +131,12 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
       const fetchQuizzesAndPdfs = async () => {
         if (!workspaceId) return;
         try {
-          setIsLoading(true); // Show loading state while refetching
+          setIsLoading(true);
           const fetchedQuizzes = await getQuizzesForWorkspace(workspaceId);
           setQuizzes(fetchedQuizzes);
           const pdfs = new Set(fetchedQuizzes.map(q => q.pdf_name).filter(name => name !== null) as string[]);
           setUniquePdfNames(Array.from(pdfs));
           
-          // Update the selected quiz if it was being re-generated
           if (existingQuizIdToUpdate) {
             const reGeneratedQuiz = fetchedQuizzes.find(q => q.id === existingQuizIdToUpdate);
             if (reGeneratedQuiz) {
@@ -175,9 +169,9 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
   
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  if (isLoading && !selectedQuizForDisplay) { // Show full page loader only on initial load
+  if (isLoading && !selectedQuizForDisplay) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+      <div className="flex items-center justify-center h-full">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="ml-4 text-lg">Loading workspace...</p>
       </div>
@@ -186,7 +180,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
 
   if (error) {
     return (
-      <div className="text-center py-10 animate-fade-in h-[calc(100vh-4rem)] flex flex-col justify-center items-center">
+      <div className="text-center py-10 animate-fade-in h-full flex flex-col justify-center items-center">
         <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
         <h2 className="text-2xl font-semibold font-headline">Error Loading Workspace</h2>
         <p className="text-muted-foreground max-w-md mx-auto">{error}</p>
@@ -199,7 +193,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
 
   if (!workspace) {
     return (
-      <div className="text-center py-10 h-[calc(100vh-4rem)] flex flex-col justify-center items-center">
+      <div className="text-center py-10 h-full flex flex-col justify-center items-center">
         <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
         <h2 className="text-2xl font-semibold">Workspace Not Found</h2>
         <Button asChild className="mt-4">
@@ -214,21 +208,21 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
     : [];
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-background text-foreground">
+    <div className="flex h-full bg-background text-foreground"> {/* h-full ensures it takes space from parent (main) */}
       {/* Left Navigation Pane */}
       <div className={cn(
-        "transition-all duration-300 ease-in-out bg-card border-r flex flex-col h-full",
+        "transition-all duration-300 ease-in-out bg-card border-r flex flex-col h-full overflow-y-auto",
         isSidebarOpen ? "w-80 p-4" : "w-12 p-2 pt-4 items-center"
       )}>
-        <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mb-1 hidden md:flex self-start">
+        <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mb-1 hidden md:flex self-start sticky top-0 bg-card z-10">
             <ChevronsLeftRight className={cn("h-5 w-5", !isSidebarOpen && "rotate-180")} />
         </Button>
-         <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mb-1 md:hidden absolute top-20 left-2 z-50 bg-card">
+         <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mb-1 md:hidden absolute top-4 left-2 z-50 bg-card"> {/* Adjusted for dashboard layout */}
             <ChevronsLeftRight className={cn("h-5 w-5", !isSidebarOpen && "rotate-180")} />
         </Button>
 
         {isSidebarOpen && (
-          <div className="flex flex-col flex-1 min-h-0 h-full overflow-y-auto space-y-4">
+          <div className="space-y-4"> {/* Removed flex flex-col flex-1 min-h-0 h-full */}
             <div>
                 <Link href="/dashboard" className="text-sm text-primary hover:underline">
                     &larr; All Workspaces
@@ -238,8 +232,8 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                 </h1>
             </div>
             
-            <div className="space-y-2"> {/* Increased spacing */}
-              <div className="flex justify-between items-center mb-2"> {/* Increased spacing */}
+            <div className="space-y-3 mb-6"> 
+              <div className="flex justify-between items-center mb-1">
                 <h2 className="text-lg font-semibold font-headline flex items-center">
                   <BookCopy className="mr-2 h-5 w-5 text-primary" />
                   Knowledge Base
@@ -258,31 +252,27 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                   </Button>
                 </UploadQuizDialog>
               </div>
-              <ScrollArea className="max-h-60">
-                <SourceFileList pdfNames={uniquePdfNames} />
-              </ScrollArea>
+              <SourceFileList pdfNames={uniquePdfNames} />
             </div>
 
-            <Separator className="my-4" /> {/* Increased spacing */}
+            <Separator className="my-6" /> 
 
-            <div className="flex flex-col flex-1 min-h-0 space-y-2"> {/* Increased spacing */}
+            <div className="space-y-3"> 
               <h2 className="text-lg font-semibold font-headline flex items-center mb-1">
                 <CheckSquare className="mr-2 h-5 w-5 text-primary" />
                 Generated Quizzes
               </h2>
-              <ScrollArea className="flex-1">
-                <QuizList
-                    initialQuizzes={quizzes}
-                    workspaceId={workspace.id}
-                    onQuizSelect={handleQuizSelect}
-                    selectedQuizId={selectedQuizForDisplay?.id}
-                />
-              </ScrollArea>
+              <QuizList
+                  initialQuizzes={quizzes}
+                  workspaceId={workspace.id}
+                  onQuizSelect={handleQuizSelect}
+                  selectedQuizId={selectedQuizForDisplay?.id}
+              />
             </div>
           </div>
         )}
          {!isSidebarOpen && quizzes.length > 0 && (
-           <div className="mt-10 space-y-2 flex flex-col items-center overflow-y-auto h-full">
+           <div className="mt-10 space-y-2 flex flex-col items-center overflow-y-auto h-full"> {/* This handles its own scrolling when collapsed */}
             {quizzes.slice(0,10).map(q => (
               <Button key={q.id} variant="ghost" size="icon" title={q.pdf_name || "Quiz"} onClick={() => handleQuizSelect(q.id)}
                 className={cn("w-9 h-9",selectedQuizForDisplay?.id === q.id && "bg-primary/20")}>
@@ -330,7 +320,6 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
 
         {selectedQuizForDisplay && selectedQuizForDisplay.status === 'completed' && (
           <div className="max-w-4xl mx-auto space-y-6">
-            {/* Breadcrumb Style Title */}
             <div className="mb-6">
               <h2 className="text-2xl font-bold font-headline text-foreground">
                 {workspace.name} <span className="text-muted-foreground mx-1">&gt;</span> {selectedQuizForDisplay.pdf_name || "Untitled Quiz"}
@@ -403,4 +392,3 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
     </div>
   );
 }
-
