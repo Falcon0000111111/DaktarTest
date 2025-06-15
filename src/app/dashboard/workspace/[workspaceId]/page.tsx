@@ -7,7 +7,7 @@ import type { Workspace, Quiz, StoredQuizData, UserAnswers } from "@/types/supab
 import { useEffect, useState, type ReactNode, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings, BookOpen, RefreshCw, Send, Newspaper, ChevronLeft, PackageSearch, Inbox } from "lucide-react";
+import { Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings, BookOpen, RefreshCw, Send, Newspaper, ChevronLeft, PackageSearch, Inbox, FolderOpen } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { UploadQuizDialog } from "@/components/dashboard/upload-quiz-dialog";
@@ -16,7 +16,9 @@ import { QuizTakerForm } from "@/components/dashboard/quiz-taker-form";
 import { QuizResultsDisplay } from "@/components/dashboard/quiz-results-display";
 import { getQuizzesForWorkspace } from "@/lib/actions/quiz.actions";
 import { QuizList } from "@/components/dashboard/quiz-list";
-import { useParams } from "next/navigation"; // Import useParams
+import { useParams } from "next/navigation";
+import { SourceFileList } from "@/components/dashboard/source-file-list";
+
 
 interface DashboardActionCardProps {
   title: string;
@@ -43,11 +45,11 @@ const DashboardActionCard = ({ title, description, icon, onClick, disabled }: Da
   </Card>
 );
 
-type ViewMode = "dashboard_cards" | "quiz_review" | "quiz_taking" | "quiz_results" | "loading_quiz" | "quiz_list_selection";
+type ViewMode = "dashboard_cards" | "quiz_review" | "quiz_taking" | "quiz_results" | "loading_quiz" | "quiz_list_selection" | "source_pdf_list";
 
 export default function WorkspacePage() {
-  const routeParams = useParams(); // Use the hook
-  const workspaceId = routeParams.workspaceId as string; // Get workspaceId from hook
+  const routeParams = useParams(); 
+  const workspaceId = routeParams.workspaceId as string; 
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
@@ -100,11 +102,12 @@ export default function WorkspacePage() {
       viewMode === "quiz_review" ||
       viewMode === "quiz_taking" ||
       viewMode === "quiz_results" ||
-      viewMode === "quiz_list_selection"
+      viewMode === "quiz_list_selection" ||
+      viewMode === "source_pdf_list"
     ) {
       contentAreaRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     }
-  }, [viewMode, quizForDisplay, userAnswers, allQuizzes]); // Dependencies for scrolling effect
+  }, [viewMode, quizForDisplay, userAnswers, allQuizzes]); 
 
   const handleOpenUploadDialog = (existingQuiz?: Quiz) => {
     if (existingQuiz) {
@@ -196,6 +199,20 @@ export default function WorkspacePage() {
     }
   };
 
+  const handleViewSourcePdfs = async () => {
+    setIsLoadingQuizzesList(true);
+    try {
+      const quizzes = await getQuizzesForWorkspace(workspaceId); // Ensure quizzes are fetched
+      setAllQuizzes(quizzes);
+      setViewMode("source_pdf_list");
+    } catch (error) {
+      toast({ title: "Error fetching source documents", description: (error as Error).message, variant: "destructive" });
+      setViewMode("dashboard_cards");
+    } finally {
+      setIsLoadingQuizzesList(false);
+    }
+  };
+
   const handleQuizSelectionFromList = (quizId: string) => {
     const selectedQuiz = allQuizzes.find(q => q.id === quizId);
     if (selectedQuiz) {
@@ -230,6 +247,7 @@ export default function WorkspacePage() {
         setViewMode('quiz_list_selection');
         setActiveQuizDBEntry(null);
         setQuizForDisplay(null);
+        // Keep allQuizzes populated for the list view
         return;
       }
     }
@@ -299,6 +317,28 @@ export default function WorkspacePage() {
             <p className="text-lg text-muted-foreground">Preparing your quiz...</p>
           </div>
         );
+      case "source_pdf_list":
+        if (isLoadingQuizzesList) {
+          return (
+            <div className="flex flex-col items-center justify-center h-full">
+              <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+              <p className="text-lg text-muted-foreground">Fetching source documents...</p>
+            </div>
+          );
+        }
+        const pdfNames = Array.from(new Set(allQuizzes.map(q => q.pdf_name).filter(Boolean))) as string[];
+        if (pdfNames.length === 0) {
+          return (
+            <div className="text-center py-10">
+              <FolderOpen className="mx-auto h-16 w-16 text-muted-foreground mb-4" data-ai-hint="empty folder"/>
+              <h3 className="text-xl font-semibold">No Source Documents</h3>
+              <p className="text-muted-foreground mt-2">
+                No PDF documents have been used to generate quizzes in this workspace yet.
+              </p>
+            </div>
+          );
+        }
+        return <SourceFileList pdfNames={pdfNames} />;
       case "quiz_list_selection":
         if (isLoadingQuizzesList) {
           return (
@@ -394,9 +434,10 @@ export default function WorkspacePage() {
             />
             <DashboardActionCard 
               title="View Source PDF" 
-              description="Review the original document for this workspace." 
-              icon={<FileText className="h-8 w-8 mb-2 text-primary" />} 
-              onClick={() => toast({ title: "Feature Coming Soon", description: "Viewing source PDFs will be enabled shortly."})}
+              description="Review the original document names used in this workspace." 
+              icon={<Newspaper className="h-8 w-8 mb-2 text-primary" />} 
+              onClick={handleViewSourcePdfs}
+              disabled={isLoadingQuizzesList}
             />
             <DashboardActionCard 
               title="Review/Retake Quizzes" 
@@ -419,6 +460,7 @@ export default function WorkspacePage() {
   const getPageTitle = () => {
     if (viewMode === 'dashboard_cards') return `${workspace.name} Dashboard`;
     if (viewMode === 'quiz_list_selection') return `Select Quiz in ${workspace.name}`;
+    if (viewMode === 'source_pdf_list') return `Source Documents in ${workspace.name}`;
     if (activeQuizDBEntry?.pdf_name) {
         if (viewMode === 'quiz_review') return `Review: ${activeQuizDBEntry.pdf_name}`;
         if (viewMode === 'quiz_taking') return `Taking Quiz: ${activeQuizDBEntry.pdf_name}`;
@@ -431,6 +473,7 @@ export default function WorkspacePage() {
   const getPageDescription = () => {
     if (viewMode === 'dashboard_cards') return "Choose an action to get started with your study materials.";
     if (viewMode === 'quiz_list_selection') return "Choose a quiz from the list below to review its questions or retake it.";
+    if (viewMode === 'source_pdf_list') return "List of PDF documents that have been used to generate quizzes in this workspace.";
      if (activeQuizDBEntry) {
         if (viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed') return `Review the generated questions. You can then take the quiz or regenerate it.`;
         if (viewMode === 'quiz_review' && activeQuizDBEntry.status === 'failed') return `This quiz generation failed. You can try regenerating it.`;
@@ -453,7 +496,7 @@ export default function WorkspacePage() {
 
 
   return (
-    <div className="flex flex-col h-full"> {/* Ensure this takes full height from parent */}
+    <div className="flex flex-col h-full"> 
       <UploadQuizDialog
         workspaceId={workspaceId}
         open={isUploadDialogOpen}
@@ -466,7 +509,7 @@ export default function WorkspacePage() {
         initialPdfNameHint={activeQuizDBEntry?.pdf_name || undefined}
       />
       
-      {/* Static Header Part of Right Pane */}
+      
       <div className="p-6 md:p-8 border-b bg-card"> 
          {(viewMode !== 'dashboard_cards') && (
            <Button variant="link" className="text-sm text-primary self-start ml-[-0.75rem] mb-2 px-1 h-auto py-0 flex items-center" onClick={handleBackNavigation}>
@@ -481,14 +524,14 @@ export default function WorkspacePage() {
         </p>
       </div>
 
-      {/* Scrollable Content Area Part of Right Pane */}
+      
       <div ref={contentAreaRef} className="flex-1 overflow-y-auto p-6 md:p-8 min-h-0">
          <div className="w-full max-w-4xl mx-auto"> 
             {renderContent()}
          </div>
       </div>
 
-      {/* Fixed Action Bar (Footer) Part of Right Pane */}
+      
       {showActionButtonsFooter && (
         <div className="p-4 md:p-6 border-t bg-card flex justify-end space-x-4">
           {viewMode === 'quiz_review' && activeQuizDBEntry?.status === 'completed' && (
@@ -532,3 +575,6 @@ export default function WorkspacePage() {
     
 
 
+
+
+    
