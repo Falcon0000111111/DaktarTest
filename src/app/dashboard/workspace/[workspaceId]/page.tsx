@@ -3,11 +3,11 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { getWorkspaceById } from "@/lib/actions/workspace.actions";
-import type { Workspace, Quiz, StoredQuizData, UserAnswers, GeneratedQuizQuestion } from "@/types/supabase";
+import type { Workspace, Quiz, StoredQuizData, UserAnswers } from "@/types/supabase";
 import { useEffect, useState, type ReactNode, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings, BookOpen, RefreshCw, Send, Newspaper, ChevronLeft, PackageSearch } from "lucide-react";
+import { Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings, BookOpen, RefreshCw, Send, Newspaper, ChevronLeft, PackageSearch, Inbox } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { UploadQuizDialog } from "@/components/dashboard/upload-quiz-dialog";
@@ -16,7 +16,7 @@ import { QuizTakerForm } from "@/components/dashboard/quiz-taker-form";
 import { QuizResultsDisplay } from "@/components/dashboard/quiz-results-display";
 import { getQuizzesForWorkspace } from "@/lib/actions/quiz.actions";
 import { QuizList } from "@/components/dashboard/quiz-list";
-
+import { useParams } from "next/navigation"; // Import useParams
 
 interface DashboardActionCardProps {
   title: string;
@@ -45,8 +45,9 @@ const DashboardActionCard = ({ title, description, icon, onClick, disabled }: Da
 
 type ViewMode = "dashboard_cards" | "quiz_review" | "quiz_taking" | "quiz_results" | "loading_quiz" | "quiz_list_selection";
 
-export default function WorkspacePage({ params }: { params: { workspaceId: string } }) {
-  const { workspaceId } = params;
+export default function WorkspacePage() {
+  const routeParams = useParams(); // Use the hook
+  const workspaceId = routeParams.workspaceId as string; // Get workspaceId from hook
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
@@ -103,7 +104,7 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
     ) {
       contentAreaRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     }
-  }, [viewMode, quizForDisplay, userAnswers, allQuizzes]);
+  }, [viewMode, quizForDisplay, userAnswers, allQuizzes]); // Dependencies for scrolling effect
 
   const handleOpenUploadDialog = (existingQuiz?: Quiz) => {
     if (existingQuiz) {
@@ -119,10 +120,10 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
     setIsUploadDialogOpen(false); 
     setViewMode("loading_quiz"); 
     setIsGeneratingQuiz(false); 
-    setAllQuizzes([]); // Clear any old quiz list if a new one is generated
+    setAllQuizzes([]); 
   
     try {
-      const quizzesInWs = await getQuizzesForWorkspace(workspaceId); // Re-fetch to be sure
+      const quizzesInWs = await getQuizzesForWorkspace(workspaceId);
       const generatedQuiz = quizzesInWs.find(q => q.id === quizId);
   
       if (generatedQuiz && generatedQuiz.generated_quiz_data && generatedQuiz.status === 'completed') {
@@ -131,9 +132,9 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
         setViewMode("quiz_review");
       } else if (generatedQuiz && generatedQuiz.status === 'failed') {
         toast({ title: "Quiz Generation Failed", description: generatedQuiz.error_message || "The AI failed to generate the quiz.", variant: "destructive" });
-        setActiveQuizDBEntry(generatedQuiz); // So user can see the failed quiz and retry
+        setActiveQuizDBEntry(generatedQuiz);
         setQuizForDisplay(null);
-        setViewMode("quiz_review"); // Go to review to show failure and regenerate option
+        setViewMode("quiz_review"); 
       } else if (generatedQuiz && (generatedQuiz.status === 'processing' || generatedQuiz.status === 'pending')) {
          toast({ title: "Quiz is still processing", description: "Please wait a moment. The view will update when ready.", variant: "default" });
          setViewMode("dashboard_cards"); 
@@ -220,28 +221,23 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
   const handleBackNavigation = () => {
     if (
       (viewMode === "quiz_review" || viewMode === "quiz_taking" || viewMode === "quiz_results") &&
-      allQuizzes.length > 0 && // We have a list of quizzes (implies we came from list selection)
-      activeQuizDBEntry // And an active quiz that was selected from that list or just generated
+      allQuizzes.length > 0 && 
+      activeQuizDBEntry 
     ) {
-      // Check if the active quiz is part of the current allQuizzes list.
-      // This helps differentiate between a newly generated quiz (where allQuizzes might be empty or not yet reflecting it)
-      // and a quiz selected from a populated list.
       const isActiveQuizInList = allQuizzes.some(q => q.id === activeQuizDBEntry.id);
 
       if (isActiveQuizInList) {
         setViewMode('quiz_list_selection');
         setActiveQuizDBEntry(null);
         setQuizForDisplay(null);
-        // Keep allQuizzes and isLoadingQuizzesList for the list view
         return;
       }
     }
     
-    // Default back action: go to dashboard cards
     setViewMode('dashboard_cards');
     setActiveQuizDBEntry(null);
     setQuizForDisplay(null);
-    setAllQuizzes([]); // Clear the list of quizzes
+    setAllQuizzes([]); 
     setIsLoadingQuizzesList(false);
   };
 
@@ -260,7 +256,7 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
 
   if (isLoadingPage) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 h-full">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="ml-4 text-lg">Loading workspace dashboard...</p>
       </div>
@@ -269,7 +265,7 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
 
   if (errorPage) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center p-6 animate-fade-in">
+      <div className="flex-1 flex flex-col items-center justify-center text-center p-6 animate-fade-in h-full">
         <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
         <h2 className="text-2xl font-semibold font-headline">Error Loading Workspace</h2>
         <p className="text-muted-foreground max-w-md mx-auto">{errorPage}</p>
@@ -282,7 +278,7 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
 
   if (!workspace) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
+      <div className="flex-1 flex flex-col items-center justify-center text-center p-6 h-full">
         <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
         <h2 className="text-2xl font-semibold">Workspace Not Found</h2>
         <p className="text-muted-foreground">The workspace you are looking for does not exist or you do not have permission to access it.</p>
@@ -315,7 +311,7 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
         if (allQuizzes.length === 0) {
           return (
             <div className="text-center py-10">
-              <PackageSearch className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
+              <Inbox className="mx-auto h-16 w-16 text-muted-foreground mb-4" data-ai-hint="empty box" />
               <h3 className="text-xl font-semibold">No Quizzes Found</h3>
               <p className="text-muted-foreground mt-2">
                 There are no quizzes in this workspace yet. Try generating one!
@@ -389,7 +385,7 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
       default:
         return (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 text-left">
-            <DashboardActionCard 
+             <DashboardActionCard 
               title="Generate New Quiz" 
               description="Create a fresh set of questions from a PDF." 
               icon={<Wand2 className="h-8 w-8 mb-2 text-primary" />} 
@@ -445,13 +441,9 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
     return "Manage your study materials and quizzes.";
   }
   
-  const isLatestQuizSelected = activeQuizDBEntry && allQuizzes.length === 0 && !isLoadingQuizzesList; // Heuristic: if allQuizzes is empty, it's likely a newly generated one not from a list.
-                                                                                                   // Or, more robustly, if activeQuizDBEntry is the first in a sorted list if allQuizzes is populated.
-                                                                                                   // For now, this simpler heuristic is fine. We refine if complex cases arise.
-                                                                                                   // Better: if allQuizzes is empty AND activeQuiz is present, OR activeQuiz is the first in sorted allQuizzes
-
-  const isViewingLatestCompletedQuiz = activeQuizDBEntry?.status === 'completed' && 
-                                       (allQuizzes.length === 0 || (allQuizzes.length > 0 && allQuizzes[0]?.id === activeQuizDBEntry.id));
+  const sortedAllQuizzes = allQuizzes.length > 0 ? [...allQuizzes].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) : [];
+  const isLatestQuizSelected = activeQuizDBEntry && sortedAllQuizzes.length > 0 && sortedAllQuizzes[0].id === activeQuizDBEntry.id;
+  const isNewlyGeneratedQuizActive = activeQuizDBEntry && allQuizzes.length === 0 && !isLoadingQuizzesList;
 
 
   const showActionButtonsFooter = 
@@ -461,7 +453,7 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
 
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex flex-col h-full"> {/* Ensure this takes full height from parent */}
       <UploadQuizDialog
         workspaceId={workspaceId}
         open={isUploadDialogOpen}
@@ -474,6 +466,7 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
         initialPdfNameHint={activeQuizDBEntry?.pdf_name || undefined}
       />
       
+      {/* Static Header Part of Right Pane */}
       <div className="p-6 md:p-8 border-b bg-card"> 
          {(viewMode !== 'dashboard_cards') && (
            <Button variant="link" className="text-sm text-primary self-start ml-[-0.75rem] mb-2 px-1 h-auto py-0 flex items-center" onClick={handleBackNavigation}>
@@ -488,12 +481,14 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
         </p>
       </div>
 
-      <div ref={contentAreaRef} className="flex-1 overflow-y-auto min-h-0 p-6 md:p-8">
+      {/* Scrollable Content Area Part of Right Pane */}
+      <div ref={contentAreaRef} className="flex-1 overflow-y-auto p-6 md:p-8 min-h-0">
          <div className="w-full max-w-4xl mx-auto"> 
             {renderContent()}
          </div>
       </div>
 
+      {/* Fixed Action Bar (Footer) Part of Right Pane */}
       {showActionButtonsFooter && (
         <div className="p-4 md:p-6 border-t bg-card flex justify-end space-x-4">
           {viewMode === 'quiz_review' && activeQuizDBEntry?.status === 'completed' && (
@@ -535,4 +530,5 @@ export default function WorkspacePage({ params }: { params: { workspaceId: strin
     
 
     
+
 
