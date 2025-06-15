@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -17,11 +16,13 @@ import type { ReactNode } from "react";
 import { FileUp } from "lucide-react";
 
 interface UploadQuizDialogProps {
-  children: ReactNode; 
+  children?: ReactNode; // Make children optional if dialog is opened programmatically
   workspaceId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onDialogClose: (refresh?: boolean) => void;
+  onDialogClose: (refresh?: boolean) => void; // Keep this for general close handling
+  onQuizGenerationStart: () => void; // Callback when generation starts
+  onQuizGenerated: (quizId: string) => void; // Callback with new/updated quiz ID
   initialPdfName?: string;
   initialNumQuestions?: number;
   existingQuizIdToUpdate?: string;
@@ -33,6 +34,8 @@ export function UploadQuizDialog({
   open,
   onOpenChange,
   onDialogClose,
+  onQuizGenerationStart,
+  onQuizGenerated,
   initialPdfName,
   initialNumQuestions,
   existingQuizIdToUpdate,
@@ -42,10 +45,10 @@ export function UploadQuizDialog({
     <Dialog open={open} onOpenChange={(isOpen) => {
       onOpenChange(isOpen);
       if (!isOpen) {
-         onDialogClose(false); // Explicitly call with false if dialog is closed without form submission
+         onDialogClose(false); 
       }
     }}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-headline flex items-center">
@@ -62,13 +65,19 @@ export function UploadQuizDialog({
         
         <UploadQuizForm 
           workspaceId={workspaceId} 
-          onUploadComplete={() => onDialogClose(true)}
-          onCancel={() => onOpenChange(false)} // Form's cancel button
+          onUploadStarted={onQuizGenerationStart} // Pass down the start callback
+          onUploadComplete={(quizId) => {
+            onQuizGenerated(quizId); // Notify parent with quizId
+            onOpenChange(false); // Close dialog on successful generation
+          }}
+          onCancel={() => {
+            onOpenChange(false);
+            onDialogClose(false); // Also call dialog close if form is cancelled
+          }}
           initialNumQuestions={initialNumQuestions}
           existingQuizIdToUpdate={existingQuizIdToUpdate}
-          initialPdfNameHint={initialPdfName} // Pass PDF name as a hint
+          initialPdfNameHint={initialPdfName}
         />
-
       </DialogContent>
     </Dialog>
   );

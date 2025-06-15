@@ -1,24 +1,30 @@
-
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
 import { getWorkspaceById } from "@/lib/actions/workspace.actions";
-import type { Workspace } from "@/types/supabase";
+import type { Workspace, Quiz, StoredQuizData, UserAnswers, GeneratedQuizQuestion } from "@/types/supabase";
 import { use, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings } from "lucide-react";
+import { Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings, BookOpen, RefreshCw, Send } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { UploadQuizDialog } from "@/components/dashboard/upload-quiz-dialog";
+import { QuizReviewDisplay } from "@/components/dashboard/quiz-review-display";
+import { QuizTakerForm } from "@/components/dashboard/quiz-taker-form";
+import { QuizResultsDisplay } from "@/components/dashboard/quiz-results-display";
+import { getQuizzesForWorkspace } from "@/lib/actions/quiz.actions";
+
 
 interface DashboardActionCardProps {
   title: string;
   description: string;
   icon?: ReactNode;
-  onClick?: () => void;
+  onClick?: () -> void;
+  disabled?: boolean;
 }
 
-const DashboardActionCard = ({ title, description, icon, onClick }: DashboardActionCardProps) => (
+const DashboardActionCard = ({ title, description, icon, onClick, disabled }: DashboardActionCardProps) => (
   <Card className="hover:shadow-lg transition-shadow duration-200 flex flex-col">
     <CardHeader className="items-center text-center">
       {icon}
@@ -28,50 +34,131 @@ const DashboardActionCard = ({ title, description, icon, onClick }: DashboardAct
       <p className="text-sm text-muted-foreground">{description}</p>
     </CardContent>
     <CardFooter className="justify-center pt-4">
-      <Button variant="outline" onClick={onClick} className="w-full sm:w-auto">
+      <Button variant="outline" onClick={onClick} className="w-full sm:w-auto" disabled={disabled}>
         Go
       </Button>
     </CardFooter>
   </Card>
 );
 
+type ViewMode = "dashboard_cards" | "quiz_review" | "quiz_taking" | "quiz_results" | "loading_quiz";
+
 export default function WorkspacePage({ params: paramsProp }: { params: { workspaceId: string } }) {
   const resolvedParams = use(paramsProp as any); 
   const { workspaceId } = resolvedParams;
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoadingPage, setIsLoadingPage] = useState(true);
+  const [errorPage, setErrorPage] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const [viewMode, setViewMode] = useState<ViewMode>("dashboard_cards");
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [quizForDisplay, setQuizForDisplay] = useState<StoredQuizData | null>(null);
+  const [activeQuizDBEntry, setActiveQuizDBEntry] = useState<Quiz | null>(null);
+  const [userAnswers, setUserAnswers] = useState<UserAnswers | null>(null);
+  const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false);
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+
 
   useEffect(() => {
     const fetchWorkspaceData = async () => {
       if (!workspaceId) {
-        setError("Workspace ID is not available.");
-        setIsLoading(false);
+        setErrorPage("Workspace ID is not available.");
+        setIsLoadingPage(false);
         return;
       }
-      setIsLoading(true);
-      setError(null);
+      setIsLoadingPage(true);
+      setErrorPage(null);
       try {
         const ws = await getWorkspaceById(workspaceId);
         if (!ws) {
-          setError("Workspace not found or access denied.");
+          setErrorPage("Workspace not found or access denied.");
           setWorkspace(null);
         } else {
           setWorkspace(ws);
         }
       } catch (e) {
-        setError((e as Error).message);
+        setErrorPage((e as Error).message);
         console.error("Error fetching workspace data:", e);
       } finally {
-        setIsLoading(false);
+        setIsLoadingPage(false);
       }
     };
     fetchWorkspaceData();
   }, [workspaceId]);
 
-  if (isLoading) {
+  const handleOpenUploadDialog = () => {
+    // Reset any previous quiz context if opening for a brand new quiz
+    if (viewMode === 'dashboard_cards') {
+        setActiveQuizDBEntry(null);
+        setQuizForDisplay(null);
+    }
+    setIsUploadDialogOpen(true);
+  };
+
+  const handleQuizGenerationComplete = async (quizId: string) => {
+    setIsUploadDialogOpen(false);
+    setViewMode("loading_quiz"); // Show loading while fetching/preparing
+    try {
+      // Fetch the latest quiz data, assuming generateQuizFromPdfAction has updated it
+      // This is a simplification; in a real app, you might get this data directly or via a more robust mechanism
+      const quizzes = await getQuizzesForWorkspace(workspaceId);
+      const generatedQuiz = quizzes.find(q => q.id === quizId);
+
+      if (generatedQuiz && generatedQuiz.generated_quiz_data && generatedQuiz.status === 'completed') {
+        setActiveQuizDBEntry(generatedQuiz);
+        setQuizForDisplay(generatedQuiz.generated_quiz_data as StoredQuizData);
+        setViewMode("quiz_review");
+      } else if (generatedQuiz && generatedQuiz.status === 'failed') {
+        toast({ title: "Quiz Generation Failed", description: generatedQuiz.error_message || "The AI failed to generate the quiz.", variant: "destructive" });
+        setViewMode("dashboard_cards"); // Go back to dashboard
+      } else if (generatedQuiz && (generatedQuiz.status === 'processing' || generatedQuiz.status === 'pending')) {
+         toast({ title: "Quiz is still processing", description: "Please wait a moment and refresh or check the quiz list.", variant: "default" });
+         // Potentially set up polling or a refresh mechanism here
+         setViewMode("dashboard_cards");
+      }
+      else {
+        toast({ title: "Error", description: "Could not load the generated quiz. It might still be processing or an error occurred.", variant: "destructive" });
+        setViewMode("dashboard_cards");
+      }
+    } catch (error) {
+      toast({ title: "Error loading quiz", description: (error as Error).message, variant: "destructive" });
+      setViewMode("dashboard_cards");
+    } finally {
+      setIsGeneratingQuiz(false); // Reset generating state
+    }
+  };
+  
+  const handleUploadDialogClose = (refresh?: boolean) => {
+    setIsUploadDialogOpen(false);
+    if (refresh) {
+      // Potentially re-fetch quiz list or handle based on your app's logic for "refresh"
+      // For now, closing the dialog might not need an immediate full refresh of underlying data
+      // if the onUploadComplete handles the newly generated quiz.
+    }
+  };
+
+
+  const handleTakeQuiz = () => {
+    if (quizForDisplay) {
+      setUserAnswers(null); // Reset previous answers
+      setViewMode("quiz_taking");
+    }
+  };
+
+  const handleRegenerateQuiz = () => {
+    // activeQuizDBEntry should be set if we are in review mode
+    // The UploadQuizDialog will handle the regeneration using existingQuizIdToUpdate
+    setIsUploadDialogOpen(true);
+  };
+
+  const handleSubmitQuiz = (answers: UserAnswers) => {
+    setUserAnswers(answers);
+    setViewMode("quiz_results");
+  };
+
+  if (isLoadingPage) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-foreground bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -80,12 +167,12 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
     );
   }
 
-  if (error) {
+  if (errorPage) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center p-6 animate-fade-in text-foreground bg-background">
         <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
         <h2 className="text-2xl font-semibold font-headline">Error Loading Workspace</h2>
-        <p className="text-muted-foreground max-w-md mx-auto">{error}</p>
+        <p className="text-muted-foreground max-w-md mx-auto">{errorPage}</p>
         <Button asChild className="mt-6">
           <Link href="/dashboard">Back to Dashboard</Link>
         </Button>
@@ -106,52 +193,141 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
     );
   }
 
-  const handleCardClick = (action: string) => {
-    toast({ title: "Action Clicked", description: `${action} card was clicked. Implement action.` });
-  };
 
-  return (
-    <div className="flex-1 flex flex-col text-foreground bg-background animate-fade-in">
-      <div className="w-full max-w-5xl mx-auto flex flex-col flex-1 p-6 md:p-10">
-        {/* Header Section (Non-scrollable) */}
-        <div className="mb-8 md:mb-12">
-          <Button asChild variant="link" className="text-sm text-primary self-start ml-[-0.5rem] md:ml-0 block text-left mb-2">
-              <Link href="/dashboard">← All Workspaces</Link>
-          </Button>
-          <h1 className="text-3xl md:text-4xl font-bold font-headline text-center">
-            {workspace.name} Dashboard
-          </h1>
-        </div>
-
-        {/* Scrollable Content Section (for the grid) */}
-        <div className="flex-1 overflow-y-auto min-h-0 pb-6"> {/* Added pb-6 for bottom padding within scroll area */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 text-left"> {/* Changed to lg:grid-cols-2 for 4 cards */}
+  const renderContent = () => {
+    switch (viewMode) {
+      case "loading_quiz":
+        return (
+          <div className="flex flex-col items-center justify-center h-full">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+            <p className="text-lg text-muted-foreground">Preparing your quiz...</p>
+          </div>
+        );
+      case "quiz_review":
+        if (!quizForDisplay || !activeQuizDBEntry) return <p>Error: Quiz data not available for review.</p>;
+        return (
+          <div className="w-full max-w-3xl mx-auto">
+            <QuizReviewDisplay 
+              quizData={quizForDisplay.quiz} 
+              quizName={activeQuizDBEntry.pdf_name || "Untitled Quiz"}
+            />
+            <div className="mt-8 flex justify-end space-x-4">
+              <Button variant="outline" onClick={handleRegenerateQuiz}>
+                <RefreshCw className="mr-2 h-4 w-4" /> Regenerate Quiz
+              </Button>
+              <Button onClick={handleTakeQuiz}>
+                <BookOpen className="mr-2 h-4 w-4" /> Take the Quiz
+              </Button>
+            </div>
+          </div>
+        );
+      case "quiz_taking":
+        if (!quizForDisplay || !activeQuizDBEntry) return <p>Error: Quiz data not available for taking.</p>;
+        return (
+          <div className="w-full max-w-3xl mx-auto">
+            <h2 className="text-2xl font-semibold font-headline mb-2 text-center">
+                {activeQuizDBEntry.pdf_name || "Quiz"}
+            </h2>
+            <p className="text-sm text-muted-foreground mb-6 text-center">
+                Select the best answer for each question.
+            </p>
+            <QuizTakerForm
+              quiz={activeQuizDBEntry} // Pass the full Quiz object
+              quizData={quizForDisplay.quiz}
+              onSubmit={handleSubmitQuiz}
+              isSubmitting={isSubmittingQuiz}
+            />
+          </div>
+        );
+      case "quiz_results":
+        if (!quizForDisplay || !userAnswers || !activeQuizDBEntry) return <p>Error: Quiz results not available.</p>;
+        return (
+          <div className="w-full max-w-3xl mx-auto">
+             <QuizResultsDisplay
+              quiz={activeQuizDBEntry}
+              quizData={quizForDisplay.quiz}
+              userAnswers={userAnswers}
+              onRetake={() => {
+                setUserAnswers(null);
+                setViewMode("quiz_taking");
+              }}
+              onReviewAll={() => {
+                // This could be enhanced to show a more detailed review if needed,
+                // or simply go back to the initial review mode.
+                setUserAnswers(null); 
+                setViewMode("quiz_review");
+              }}
+            />
+          </div>
+        );
+      case "dashboard_cards":
+      default:
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 text-left">
             <DashboardActionCard 
               title="Generate New Quiz" 
               description="Create a fresh set of questions from a PDF." 
               icon={<Wand2 className="h-8 w-8 mb-2 text-primary" />} 
-              onClick={() => handleCardClick("Generate New Quiz")}
+              onClick={handleOpenUploadDialog}
+              disabled={isGeneratingQuiz}
             />
             <DashboardActionCard 
               title="View Source PDF" 
               description="Review the original document for this workspace." 
               icon={<FileText className="h-8 w-8 mb-2 text-primary" />} 
-              onClick={() => handleCardClick("View Source PDF")}
+              onClick={() => toast({ title: "Feature Coming Soon", description: "Viewing source PDFs will be enabled shortly."})}
             />
             <DashboardActionCard 
               title="Review/Retake Quizzes" 
-              description="Look over and manage previously generated quizzes. Test your knowledge." 
+              description="Look over and manage previously generated quizzes." 
               icon={<ListChecks className="h-8 w-8 mb-2 text-primary" />} 
-              onClick={() => handleCardClick("Review/Retake Quizzes")}
+              onClick={() => toast({ title: "Feature Coming Soon", description: "Managing past quizzes will be available soon."})}
             />
             <DashboardActionCard 
               title="Workspace Settings" 
               description="Manage settings and options for this workspace." 
               icon={<Settings className="h-8 w-8 mb-2 text-primary" />} 
-              onClick={() => handleCardClick("Workspace Settings")}
+              onClick={() => toast({ title: "Feature Coming Soon", description: "Workspace settings are on the way."})}
             />
           </div>
-        </div>
+        );
+    }
+  };
+
+  return (
+    <div className="flex-1 flex flex-col text-foreground bg-background">
+      <UploadQuizDialog
+        workspaceId={workspaceId}
+        open={isUploadDialogOpen}
+        onOpenChange={setIsUploadDialogOpen}
+        onDialogClose={handleUploadDialogClose}
+        onQuizGenerationStart={() => setIsGeneratingQuiz(true)}
+        onQuizGenerated={handleQuizGenerationComplete}
+        initialNumQuestions={activeQuizDBEntry?.num_questions}
+        existingQuizIdToUpdate={activeQuizDBEntry?.id}
+        initialPdfNameHint={activeQuizDBEntry?.pdf_name || undefined}
+      />
+      
+      {/* Header Section (Non-scrollable) */}
+      <div className="p-6 md:p-10 border-b">
+         {viewMode !== 'dashboard_cards' && (
+           <Button asChild variant="link" className="text-sm text-primary self-start ml-[-0.5rem] mb-2" onClick={() => setViewMode('dashboard_cards')}>
+             <Link href="#">← Back to {workspace.name} Dashboard</Link>
+           </Button>
+         )}
+        <h1 className="text-3xl md:text-4xl font-bold font-headline text-center">
+          {viewMode === 'dashboard_cards' ? `${workspace.name} Dashboard` : (activeQuizDBEntry?.pdf_name || workspace.name)}
+        </h1>
+        {viewMode === 'dashboard_cards' && (
+            <p className="text-center text-muted-foreground mt-2">Choose an action to get started.</p>
+        )}
+      </div>
+
+      {/* Scrollable Content Section */}
+      <div className="flex-1 overflow-y-auto min-h-0 p-6 md:p-10">
+         <div className="w-full max-w-5xl mx-auto">
+            {renderContent()}
+         </div>
       </div>
     </div>
   );

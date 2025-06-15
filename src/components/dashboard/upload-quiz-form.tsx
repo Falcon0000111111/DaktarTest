@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -8,10 +7,12 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, type FormEvent, useEffect } from "react";
 import { generateQuizFromPdfAction } from "@/lib/actions/quiz.actions";
 import { FileUp, Wand2, Loader2, X, Info } from "lucide-react";
+import type { Quiz } from "@/types/supabase";
 
 interface UploadQuizFormProps {
   workspaceId: string;
-  onUploadComplete: () => void; 
+  onUploadStarted: () => void; // Callback when the upload/generation process begins
+  onUploadComplete: (quizId: string) => void; // Callback with the ID of the generated/updated quiz
   onCancel: () => void; 
   initialNumQuestions?: number;
   existingQuizIdToUpdate?: string;
@@ -20,6 +21,7 @@ interface UploadQuizFormProps {
 
 export function UploadQuizForm({ 
     workspaceId, 
+    onUploadStarted,
     onUploadComplete, 
     onCancel, 
     initialNumQuestions,
@@ -61,10 +63,9 @@ export function UploadQuizForm({
     const value = e.target.value;
     if (value === "") {
       // Let it be empty for a moment, handleSubmit will validate
-      // Or clamp: setNumQuestions(1); 
     } else {
       const parsedValue = parseInt(value, 10);
-      if (!isNaN(parsedValue)) { // Allow any number temporarily, validation on submit
+      if (!isNaN(parsedValue)) { 
         setNumQuestions(parsedValue);
       }
     }
@@ -83,18 +84,20 @@ export function UploadQuizForm({
     }
 
     setLoading(true);
+    onUploadStarted(); // Notify parent that generation is starting
+
     try {
       const reader = new FileReader();
       reader.readAsDataURL(pdfFile);
       reader.onloadend = async () => {
         const pdfDataUri = reader.result as string;
         try {
-          await generateQuizFromPdfAction({
+          const generatedQuiz: Quiz = await generateQuizFromPdfAction({
             workspaceId,
             pdfName: pdfFile.name,
             pdfDataUri,
             numberOfQuestions: numQuestions,
-            existingQuizIdToUpdate: existingQuizIdToUpdate, // Pass this along
+            existingQuizIdToUpdate: existingQuizIdToUpdate,
           });
           toast({ 
             title: existingQuizIdToUpdate ? "Quiz Re-Generation Started" : "Quiz Generation Started", 
@@ -102,10 +105,11 @@ export function UploadQuizForm({
           });
           setPdfFile(null);
           (document.getElementById('pdf-upload-form-in-dialog') as HTMLFormElement)?.reset(); 
-          onUploadComplete(); 
+          onUploadComplete(generatedQuiz.id); // Pass the ID of the generated/updated quiz
         } catch (error) {
           console.error("Error in generateQuizFromPdfAction call:", error);
           toast({ title: existingQuizIdToUpdate ? "Error Re-Generating Quiz" : "Error Generating Quiz", description: (error as Error).message, variant: "destructive" });
+          // Notify parent of failure if needed, or parent can infer from lack of onUploadComplete
         } finally {
           setLoading(false);
         }
@@ -124,7 +128,13 @@ export function UploadQuizForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 py-4" id="pdf-upload-form-in-dialog">
-      {initialPdfNameHint && (
+      {initialPdfNameHint && !existingQuizIdToUpdate && ( // Show hint only if it's not a re-generation of an existing quiz
+        <div className="p-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-center">
+            <Info className="h-4 w-4 mr-2 flex-shrink-0" />
+            <span>Generating for new quiz based on hint: <strong>{initialPdfNameHint}</strong>. Please select the PDF file.</span>
+        </div>
+      )}
+       {existingQuizIdToUpdate && initialPdfNameHint && (
         <div className="p-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-center">
             <Info className="h-4 w-4 mr-2 flex-shrink-0" />
             <span>Re-generating for: <strong>{initialPdfNameHint}</strong>. Please re-select the PDF file.</span>
@@ -149,7 +159,7 @@ export function UploadQuizForm({
         <Input
           id="num-questions-dialog"
           type="number"
-          value={numQuestions.toString()} // Ensure value is string for input
+          value={numQuestions.toString()} 
           onChange={handleNumQuestionsChange}
           min="1"
           max="20"
