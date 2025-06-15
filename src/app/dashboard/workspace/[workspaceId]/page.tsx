@@ -1,3 +1,4 @@
+
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
@@ -6,7 +7,7 @@ import type { Workspace, Quiz, StoredQuizData, UserAnswers, GeneratedQuizQuestio
 import { use, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings, BookOpen, RefreshCw, Send } from "lucide-react";
+import { Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings, BookOpen, RefreshCw, Send, Newspaper } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { UploadQuizDialog } from "@/components/dashboard/upload-quiz-dialog";
@@ -20,7 +21,7 @@ interface DashboardActionCardProps {
   title: string;
   description: string;
   icon?: ReactNode;
-  onClick?: () -> void;
+  onClick?: () => void;
   disabled?: boolean;
 }
 
@@ -88,69 +89,82 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
     fetchWorkspaceData();
   }, [workspaceId]);
 
-  const handleOpenUploadDialog = () => {
-    // Reset any previous quiz context if opening for a brand new quiz
-    if (viewMode === 'dashboard_cards') {
-        setActiveQuizDBEntry(null);
-        setQuizForDisplay(null);
+  const handleOpenUploadDialog = (existingQuiz?: Quiz) => {
+    if (existingQuiz) {
+      setActiveQuizDBEntry(existingQuiz); // Set context for re-generation
+      setQuizForDisplay(existingQuiz.generated_quiz_data as StoredQuizData);
+    } else {
+      setActiveQuizDBEntry(null); // Reset for new quiz
+      setQuizForDisplay(null);
     }
     setIsUploadDialogOpen(true);
   };
+  
 
   const handleQuizGenerationComplete = async (quizId: string) => {
-    setIsUploadDialogOpen(false);
+    setIsUploadDialogOpen(false); // Close the dialog first
     setViewMode("loading_quiz"); // Show loading while fetching/preparing
+    setIsGeneratingQuiz(false); // Reset generating state once dialog is closed and process moves on
+  
     try {
-      // Fetch the latest quiz data, assuming generateQuizFromPdfAction has updated it
-      // This is a simplification; in a real app, you might get this data directly or via a more robust mechanism
       const quizzes = await getQuizzesForWorkspace(workspaceId);
       const generatedQuiz = quizzes.find(q => q.id === quizId);
-
+  
       if (generatedQuiz && generatedQuiz.generated_quiz_data && generatedQuiz.status === 'completed') {
         setActiveQuizDBEntry(generatedQuiz);
         setQuizForDisplay(generatedQuiz.generated_quiz_data as StoredQuizData);
         setViewMode("quiz_review");
       } else if (generatedQuiz && generatedQuiz.status === 'failed') {
         toast({ title: "Quiz Generation Failed", description: generatedQuiz.error_message || "The AI failed to generate the quiz.", variant: "destructive" });
-        setViewMode("dashboard_cards"); // Go back to dashboard
+        setActiveQuizDBEntry(generatedQuiz); // Keep context of failed quiz
+        setQuizForDisplay(null); // No valid data to display
+        setViewMode("dashboard_cards"); // Or a specific 'failed_review' view if needed
       } else if (generatedQuiz && (generatedQuiz.status === 'processing' || generatedQuiz.status === 'pending')) {
-         toast({ title: "Quiz is still processing", description: "Please wait a moment and refresh or check the quiz list.", variant: "default" });
-         // Potentially set up polling or a refresh mechanism here
+         toast({ title: "Quiz is still processing", description: "Please wait a moment. The view will update when ready.", variant: "default" });
+         // Stay in loading_quiz or transition to a view that indicates processing
+         // For now, if we reach here unexpectedly, we might fallback.
+         // The main expectation is that generateQuizFromPdfAction handles the final status.
+         // Potentially, a polling mechanism or real-time subscription could update this.
+         // Fallback to dashboard if quiz isn't immediately 'completed' or 'failed' in this callback.
          setViewMode("dashboard_cards");
       }
       else {
-        toast({ title: "Error", description: "Could not load the generated quiz. It might still be processing or an error occurred.", variant: "destructive" });
+        toast({ title: "Error", description: "Could not load the generated quiz data. It might still be processing or an error occurred.", variant: "destructive" });
         setViewMode("dashboard_cards");
       }
     } catch (error) {
-      toast({ title: "Error loading quiz", description: (error as Error).message, variant: "destructive" });
+      toast({ title: "Error loading generated quiz", description: (error as Error).message, variant: "destructive" });
       setViewMode("dashboard_cards");
-    } finally {
-      setIsGeneratingQuiz(false); // Reset generating state
     }
   };
   
   const handleUploadDialogClose = (refresh?: boolean) => {
     setIsUploadDialogOpen(false);
+    setIsGeneratingQuiz(false); // Ensure loading state is reset if dialog is manually closed
     if (refresh) {
-      // Potentially re-fetch quiz list or handle based on your app's logic for "refresh"
-      // For now, closing the dialog might not need an immediate full refresh of underlying data
-      // if the onUploadComplete handles the newly generated quiz.
+      // Might re-fetch all quizzes or workspace data if needed
+      // For now, onQuizGenerated handles the specific quiz.
     }
   };
 
 
   const handleTakeQuiz = () => {
-    if (quizForDisplay) {
+    if (quizForDisplay && activeQuizDBEntry?.status === 'completed') {
       setUserAnswers(null); // Reset previous answers
       setViewMode("quiz_taking");
+    } else {
+      toast({title: "Cannot take quiz", description: "The quiz is not available or has not been completed successfully.", variant: "destructive"});
     }
   };
 
   const handleRegenerateQuiz = () => {
-    // activeQuizDBEntry should be set if we are in review mode
-    // The UploadQuizDialog will handle the regeneration using existingQuizIdToUpdate
-    setIsUploadDialogOpen(true);
+    if (activeQuizDBEntry) {
+        handleOpenUploadDialog(activeQuizDBEntry);
+    } else {
+        // This case should ideally not happen if the button is shown correctly
+        toast({title: "Error", description: "No quiz context for regeneration.", variant: "destructive"});
+        handleOpenUploadDialog(); // Open for new quiz
+    }
   };
 
   const handleSubmitQuiz = (answers: UserAnswers) => {
@@ -160,7 +174,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
 
   if (isLoadingPage) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-foreground bg-background">
+      <div className="flex-1 flex flex-col items-center justify-center p-6">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="ml-4 text-lg">Loading workspace dashboard...</p>
       </div>
@@ -169,7 +183,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
 
   if (errorPage) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center p-6 animate-fade-in text-foreground bg-background">
+      <div className="flex-1 flex flex-col items-center justify-center text-center p-6 animate-fade-in">
         <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
         <h2 className="text-2xl font-semibold font-headline">Error Loading Workspace</h2>
         <p className="text-muted-foreground max-w-md mx-auto">{errorPage}</p>
@@ -182,7 +196,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
 
   if (!workspace) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-foreground bg-background">
+      <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
         <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
         <h2 className="text-2xl font-semibold">Workspace Not Found</h2>
         <p className="text-muted-foreground">The workspace you are looking for does not exist or you do not have permission to access it.</p>
@@ -232,7 +246,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                 Select the best answer for each question.
             </p>
             <QuizTakerForm
-              quiz={activeQuizDBEntry} // Pass the full Quiz object
+              quiz={activeQuizDBEntry} 
               quizData={quizForDisplay.quiz}
               onSubmit={handleSubmitQuiz}
               isSubmitting={isSubmittingQuiz}
@@ -252,8 +266,6 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                 setViewMode("quiz_taking");
               }}
               onReviewAll={() => {
-                // This could be enhanced to show a more detailed review if needed,
-                // or simply go back to the initial review mode.
                 setUserAnswers(null); 
                 setViewMode("quiz_review");
               }}
@@ -268,7 +280,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
               title="Generate New Quiz" 
               description="Create a fresh set of questions from a PDF." 
               icon={<Wand2 className="h-8 w-8 mb-2 text-primary" />} 
-              onClick={handleOpenUploadDialog}
+              onClick={() => handleOpenUploadDialog()}
               disabled={isGeneratingQuiz}
             />
             <DashboardActionCard 
@@ -295,7 +307,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
   };
 
   return (
-    <div className="flex-1 flex flex-col text-foreground bg-background">
+    <div className="flex-1 flex flex-col">
       <UploadQuizDialog
         workspaceId={workspaceId}
         open={isUploadDialogOpen}
@@ -308,22 +320,33 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
         initialPdfNameHint={activeQuizDBEntry?.pdf_name || undefined}
       />
       
-      {/* Header Section (Non-scrollable) */}
       <div className="p-6 md:p-10 border-b">
          {viewMode !== 'dashboard_cards' && (
-           <Button asChild variant="link" className="text-sm text-primary self-start ml-[-0.5rem] mb-2" onClick={() => setViewMode('dashboard_cards')}>
+           <Button asChild variant="link" className="text-sm text-primary self-start ml-[-0.5rem] mb-2" onClick={() => {
+             setViewMode('dashboard_cards');
+             // Optionally reset active quiz context if going fully back
+             // setActiveQuizDBEntry(null); 
+             // setQuizForDisplay(null);
+           }}>
              <Link href="#">← Back to {workspace.name} Dashboard</Link>
            </Button>
          )}
         <h1 className="text-3xl md:text-4xl font-bold font-headline text-center">
-          {viewMode === 'dashboard_cards' ? `${workspace.name} Dashboard` : (activeQuizDBEntry?.pdf_name || workspace.name)}
+          {viewMode === 'dashboard_cards' 
+            ? `${workspace.name} Dashboard` 
+            : (activeQuizDBEntry?.pdf_name || workspace.name)
+          }
         </h1>
         {viewMode === 'dashboard_cards' && (
             <p className="text-center text-muted-foreground mt-2">Choose an action to get started.</p>
         )}
+         {viewMode === 'quiz_review' && activeQuizDBEntry && (
+            <p className="text-center text-muted-foreground mt-2">
+                Review the generated questions for "{activeQuizDBEntry.pdf_name || 'your quiz'}". You can then take the quiz or regenerate it.
+            </p>
+        )}
       </div>
 
-      {/* Scrollable Content Section */}
       <div className="flex-1 overflow-y-auto min-h-0 p-6 md:p-10">
          <div className="w-full max-w-5xl mx-auto">
             {renderContent()}
@@ -333,3 +356,4 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
   );
 }
 
+    
