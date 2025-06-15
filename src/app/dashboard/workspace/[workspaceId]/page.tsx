@@ -4,7 +4,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { getWorkspaceById } from "@/lib/actions/workspace.actions";
 import type { Workspace, Quiz, StoredQuizData, UserAnswers, GeneratedQuizQuestion } from "@/types/supabase";
-import { use, useEffect, useState, type ReactNode, useRef } from "react";
+import { useEffect, useState, type ReactNode, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings, BookOpen, RefreshCw, Send, Newspaper, ChevronLeft, PackageSearch } from "lucide-react";
@@ -45,9 +45,8 @@ const DashboardActionCard = ({ title, description, icon, onClick, disabled }: Da
 
 type ViewMode = "dashboard_cards" | "quiz_review" | "quiz_taking" | "quiz_results" | "loading_quiz" | "quiz_list_selection";
 
-export default function WorkspacePage({ params: paramsProp }: { params: { workspaceId: string } }) {
-  const resolvedParams = use(paramsProp as any); 
-  const { workspaceId } = resolvedParams;
+export default function WorkspacePage({ params }: { params: { workspaceId: string } }) {
+  const { workspaceId } = params;
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
@@ -109,7 +108,6 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
   const handleOpenUploadDialog = (existingQuiz?: Quiz) => {
     if (existingQuiz) {
       setActiveQuizDBEntry(existingQuiz); 
-      // No need to set quizForDisplay here as dialog re-fetches or generates new
     } else {
       setActiveQuizDBEntry(null); 
     }
@@ -121,12 +119,10 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
     setIsUploadDialogOpen(false); 
     setViewMode("loading_quiz"); 
     setIsGeneratingQuiz(false); 
+    setAllQuizzes([]); // Clear any old quiz list if a new one is generated
   
     try {
-      // It's better to fetch just the single quiz if possible, or rely on re-fetch of all quizzes
-      // For now, let's refetch all quizzes in the workspace to get the updated one.
-      const quizzesInWs = await getQuizzesForWorkspace(workspaceId);
-      setAllQuizzes(quizzesInWs); // Update the list if it's being displayed elsewhere or for consistency
+      const quizzesInWs = await getQuizzesForWorkspace(workspaceId); // Re-fetch to be sure
       const generatedQuiz = quizzesInWs.find(q => q.id === quizId);
   
       if (generatedQuiz && generatedQuiz.generated_quiz_data && generatedQuiz.status === 'completed') {
@@ -135,13 +131,13 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
         setViewMode("quiz_review");
       } else if (generatedQuiz && generatedQuiz.status === 'failed') {
         toast({ title: "Quiz Generation Failed", description: generatedQuiz.error_message || "The AI failed to generate the quiz.", variant: "destructive" });
-        // We might want to set activeQuizDBEntry here to show the failed state if we have a view for it
-        setViewMode("dashboard_cards"); 
+        setActiveQuizDBEntry(generatedQuiz); // So user can see the failed quiz and retry
+        setQuizForDisplay(null);
+        setViewMode("quiz_review"); // Go to review to show failure and regenerate option
       } else if (generatedQuiz && (generatedQuiz.status === 'processing' || generatedQuiz.status === 'pending')) {
          toast({ title: "Quiz is still processing", description: "Please wait a moment. The view will update when ready.", variant: "default" });
-         setViewMode("dashboard_cards"); // Or a specific view showing processing quizzes
-      }
-      else {
+         setViewMode("dashboard_cards"); 
+      } else {
         toast({ title: "Error", description: "Could not load the generated quiz data. It might still be processing or an error occurred.", variant: "destructive" });
         setViewMode("dashboard_cards");
       }
@@ -193,7 +189,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
       setViewMode("quiz_list_selection");
     } catch (error) {
       toast({ title: "Error fetching quizzes", description: (error as Error).message, variant: "destructive" });
-      setViewMode("dashboard_cards"); // Revert to dashboard on error
+      setViewMode("dashboard_cards"); 
     } finally {
       setIsLoadingQuizzesList(false);
     }
@@ -208,11 +204,9 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
         setViewMode('quiz_review');
       } else if (selectedQuiz.status === 'failed') {
         toast({ title: "Cannot Review", description: `This quiz (${selectedQuiz.pdf_name || 'Untitled'}) failed during generation. You can try regenerating it.`, variant: "destructive" });
-        // Optionally, set activeQuizDBEntry and go to review to show a "failed" state or offer regeneration directly.
-        // For now, stay in list or go to cards. Let's try setting it up for regeneration.
-        setActiveQuizDBEntry(selectedQuiz); // So regenerate knows which one
+        setActiveQuizDBEntry(selectedQuiz); 
         setQuizForDisplay(null);
-        setViewMode('quiz_review'); // This view will then show appropriate message or regenerate button
+        setViewMode('quiz_review'); 
       } else if (selectedQuiz.status === 'processing' || selectedQuiz.status === 'pending') {
          toast({ title: "Still Processing", description: `This quiz (${selectedQuiz.pdf_name || 'Untitled'}) is still being generated. Please wait.`, variant: "default" });
       } else {
@@ -223,13 +217,46 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
     }
   };
 
-  const handleBackToDashboardCards = () => {
+  const handleBackNavigation = () => {
+    if (
+      (viewMode === "quiz_review" || viewMode === "quiz_taking" || viewMode === "quiz_results") &&
+      allQuizzes.length > 0 && // We have a list of quizzes (implies we came from list selection)
+      activeQuizDBEntry // And an active quiz that was selected from that list or just generated
+    ) {
+      // Check if the active quiz is part of the current allQuizzes list.
+      // This helps differentiate between a newly generated quiz (where allQuizzes might be empty or not yet reflecting it)
+      // and a quiz selected from a populated list.
+      const isActiveQuizInList = allQuizzes.some(q => q.id === activeQuizDBEntry.id);
+
+      if (isActiveQuizInList) {
+        setViewMode('quiz_list_selection');
+        setActiveQuizDBEntry(null);
+        setQuizForDisplay(null);
+        // Keep allQuizzes and isLoadingQuizzesList for the list view
+        return;
+      }
+    }
+    
+    // Default back action: go to dashboard cards
     setViewMode('dashboard_cards');
-    setActiveQuizDBEntry(null); 
+    setActiveQuizDBEntry(null);
     setQuizForDisplay(null);
-    setAllQuizzes([]);
+    setAllQuizzes([]); // Clear the list of quizzes
     setIsLoadingQuizzesList(false);
   };
+
+  const getBackButtonText = () => {
+    if (
+      (viewMode === "quiz_review" || viewMode === "quiz_taking" || viewMode === "quiz_results") &&
+      allQuizzes.length > 0 &&
+      activeQuizDBEntry &&
+      allQuizzes.some(q => q.id === activeQuizDBEntry.id)
+    ) {
+      return "Back to Quiz List";
+    }
+    return `Back to ${workspace?.name || 'Workspace'} Dashboard`;
+  };
+
 
   if (isLoadingPage) {
     return (
@@ -254,8 +281,6 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
   }
 
   if (!workspace) {
-    // This should ideally be caught by errorPage if getWorkspaceById returns null due to error
-    // But as a fallback:
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
         <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
@@ -303,7 +328,6 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
             initialQuizzes={allQuizzes} 
             workspaceId={workspaceId}
             onQuizSelect={handleQuizSelectionFromList}
-            // selectedQuizId can be used if QuizList has internal selection highlighting
           />
         );
       case "quiz_review":
@@ -357,7 +381,6 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                 setViewMode("quiz_taking");
               }}
               onReviewAll={() => {
-                // UserAnswers are kept to show them in the review if needed, but view changes
                 setViewMode("quiz_review"); 
               }}
             />
@@ -400,26 +423,41 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
   const getPageTitle = () => {
     if (viewMode === 'dashboard_cards') return `${workspace.name} Dashboard`;
     if (viewMode === 'quiz_list_selection') return `Select Quiz in ${workspace.name}`;
-    if (viewMode === 'quiz_review' && activeQuizDBEntry?.pdf_name) return `Review: ${activeQuizDBEntry.pdf_name}`;
-    if (viewMode === 'quiz_review' && activeQuizDBEntry?.status === 'failed') return `Failed Quiz: ${activeQuizDBEntry.pdf_name || 'Untitled'}`;
-    if (viewMode === 'quiz_taking' && activeQuizDBEntry?.pdf_name) return `Taking Quiz: ${activeQuizDBEntry.pdf_name}`;
-    if (viewMode === 'quiz_results' && activeQuizDBEntry?.pdf_name) return `Results: ${activeQuizDBEntry.pdf_name}`;
-    return workspace.name; // Fallback
+    if (activeQuizDBEntry?.pdf_name) {
+        if (viewMode === 'quiz_review') return `Review: ${activeQuizDBEntry.pdf_name}`;
+        if (viewMode === 'quiz_taking') return `Taking Quiz: ${activeQuizDBEntry.pdf_name}`;
+        if (viewMode === 'quiz_results') return `Results: ${activeQuizDBEntry.pdf_name}`;
+    }
+    if (viewMode === 'loading_quiz') return 'Loading Quiz...';
+    return workspace.name; 
   };
 
   const getPageDescription = () => {
     if (viewMode === 'dashboard_cards') return "Choose an action to get started with your study materials.";
     if (viewMode === 'quiz_list_selection') return "Choose a quiz from the list below to review its questions or retake it.";
-    if (viewMode === 'quiz_review' && activeQuizDBEntry?.status === 'completed') return `Review the generated questions. You can then take the quiz or regenerate it.`;
-    if (viewMode === 'quiz_review' && activeQuizDBEntry?.status === 'failed') return `This quiz generation failed. You can try regenerating it.`;
-    if (viewMode === 'quiz_taking') return `Select the best answer for each question.`;
-    if (viewMode === 'quiz_results') return `Here's how you performed. Review your answers and explanations.`;
+     if (activeQuizDBEntry) {
+        if (viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed') return `Review the generated questions. You can then take the quiz or regenerate it.`;
+        if (viewMode === 'quiz_review' && activeQuizDBEntry.status === 'failed') return `This quiz generation failed. You can try regenerating it.`;
+        if (viewMode === 'quiz_taking') return `Select the best answer for each question.`;
+        if (viewMode === 'quiz_results') return `Here's how you performed. Review your answers and explanations.`;
+     }
     if (viewMode === 'loading_quiz') return `Loading your quiz...`;
     return "Manage your study materials and quizzes.";
   }
   
-  const showActionButtons = viewMode === 'quiz_review' && activeQuizDBEntry && activeQuizDBEntry.status === 'completed';
-  const showResultsButtons = viewMode === 'quiz_results' && activeQuizDBEntry;
+  const isLatestQuizSelected = activeQuizDBEntry && allQuizzes.length === 0 && !isLoadingQuizzesList; // Heuristic: if allQuizzes is empty, it's likely a newly generated one not from a list.
+                                                                                                   // Or, more robustly, if activeQuizDBEntry is the first in a sorted list if allQuizzes is populated.
+                                                                                                   // For now, this simpler heuristic is fine. We refine if complex cases arise.
+                                                                                                   // Better: if allQuizzes is empty AND activeQuiz is present, OR activeQuiz is the first in sorted allQuizzes
+
+  const isViewingLatestCompletedQuiz = activeQuizDBEntry?.status === 'completed' && 
+                                       (allQuizzes.length === 0 || (allQuizzes.length > 0 && allQuizzes[0]?.id === activeQuizDBEntry.id));
+
+
+  const showActionButtonsFooter = 
+    (viewMode === 'quiz_review' && activeQuizDBEntry && activeQuizDBEntry.status === 'completed') ||
+    (viewMode === 'quiz_review' && activeQuizDBEntry && activeQuizDBEntry.status === 'failed') ||
+    (viewMode === 'quiz_results' && activeQuizDBEntry);
 
 
   return (
@@ -436,11 +474,10 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
         initialPdfNameHint={activeQuizDBEntry?.pdf_name || undefined}
       />
       
-      {/* Header for the right pane content */}
       <div className="p-6 md:p-8 border-b bg-card"> 
          {(viewMode !== 'dashboard_cards') && (
-           <Button variant="link" className="text-sm text-primary self-start ml-[-0.75rem] mb-2 px-1 h-auto py-0 flex items-center" onClick={handleBackToDashboardCards}>
-             <ChevronLeft className="h-4 w-4 mr-1" /> Back to {workspace.name} Dashboard
+           <Button variant="link" className="text-sm text-primary self-start ml-[-0.75rem] mb-2 px-1 h-auto py-0 flex items-center" onClick={handleBackNavigation}>
+             <ChevronLeft className="h-4 w-4 mr-1" /> {getBackButtonText()}
            </Button>
          )}
         <h1 className="text-2xl md:text-3xl font-bold font-headline">
@@ -451,30 +488,32 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
         </p>
       </div>
 
-      {/* Scrollable content area for the right pane */}
       <div ref={contentAreaRef} className="flex-1 overflow-y-auto min-h-0 p-6 md:p-8">
-         <div className="w-full max-w-4xl mx-auto"> {/* Max width for content inside scrollable area */}
+         <div className="w-full max-w-4xl mx-auto"> 
             {renderContent()}
          </div>
       </div>
 
-      {/* Fixed Action Bar at the bottom of the right pane */}
-      {(showActionButtons || showResultsButtons) && (
+      {showActionButtonsFooter && (
         <div className="p-4 md:p-6 border-t bg-card flex justify-end space-x-4">
-          {showActionButtons && activeQuizDBEntry && activeQuizDBEntry.status === 'completed' && (
+          {viewMode === 'quiz_review' && activeQuizDBEntry?.status === 'completed' && (
             <>
               <Button variant="outline" onClick={handleRegenerateQuiz}>
-                  <RefreshCw className="mr-2 h-4 w-4" /> Regenerate Quiz
+                  <RefreshCw className="mr-2 h-4 w-4" /> Re-Generate Quiz
               </Button>
               <Button onClick={handleTakeQuiz}>
                   <BookOpen className="mr-2 h-4 w-4" /> Take the Quiz
               </Button>
             </>
           )}
-          {showResultsButtons && (
+           {viewMode === 'quiz_review' && activeQuizDBEntry?.status === 'failed' && (
+             <Button onClick={handleRegenerateQuiz}>
+                <RefreshCw className="mr-2 h-4 w-4" /> Re-Generate Quiz
+             </Button>
+           )}
+          {viewMode === 'quiz_results' && (
             <>
               <Button variant="outline" onClick={() => {
-                  setUserAnswers(null); // Clear answers if re-reviewing
                   setViewMode("quiz_review");
               }}>
                   <ListChecks className="mr-2 h-4 w-4" /> Review All Questions
@@ -489,7 +528,6 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
           )}
         </div>
       )}
-      {/* The QuizTakerForm has its own submit button internally */}
     </div>
   );
 }
@@ -497,3 +535,4 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
     
 
     
+
