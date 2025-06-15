@@ -7,7 +7,7 @@ import type { Workspace } from "@/types/supabase";
 import { use, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertCircle, FileText, Wand2, ListChecks, PlayCircle, SettingsIcon as Settings, Newspaper } from "lucide-react";
+import { Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
@@ -125,13 +125,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
 
         {/* Scrollable Content Section (for the grid) */}
         <div className="flex-1 overflow-y-auto min-h-0 pb-6"> {/* Added pb-6 for bottom padding within scroll area */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
-            <DashboardActionCard 
-              title="View Source PDF" 
-              description="Review the original document for this workspace." 
-              icon={<FileText className="h-8 w-8 mb-2 text-primary" />} 
-              onClick={() => handleCardClick("View Source PDF")}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 text-left"> {/* Changed to lg:grid-cols-2 for 4 cards */}
             <DashboardActionCard 
               title="Generate New Quiz" 
               description="Create a fresh set of questions from a PDF." 
@@ -139,22 +133,16 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
               onClick={() => handleCardClick("Generate New Quiz")}
             />
             <DashboardActionCard 
-              title="Review Quizzes" 
-              description="Look over and manage previously generated quizzes." 
+              title="View Source PDF" 
+              description="Review the original document for this workspace." 
+              icon={<FileText className="h-8 w-8 mb-2 text-primary" />} 
+              onClick={() => handleCardClick("View Source PDF")}
+            />
+            <DashboardActionCard 
+              title="Review/Retake Quizzes" 
+              description="Look over and manage previously generated quizzes. Test your knowledge." 
               icon={<ListChecks className="h-8 w-8 mb-2 text-primary" />} 
-              onClick={() => handleCardClick("Review Quizzes")}
-            />
-            <DashboardActionCard 
-              title="Practice Quiz" 
-              description="Test your knowledge with an existing quiz." 
-              icon={<PlayCircle className="h-8 w-8 mb-2 text-primary" />} 
-              onClick={() => handleCardClick("Practice Quiz")}
-            />
-            <DashboardActionCard 
-              title="Flashcards" 
-              description="Study with AI-generated flashcards." 
-              icon={<Newspaper className="h-8 w-8 mb-2 text-primary" />} // Changed icon to Newspaper
-              onClick={() => handleCardClick("Flashcards")}
+              onClick={() => handleCardClick("Review/Retake Quizzes")}
             />
             <DashboardActionCard 
               title="Workspace Settings" 
