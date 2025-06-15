@@ -4,7 +4,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { getWorkspaceById } from "@/lib/actions/workspace.actions";
 import type { Workspace, Quiz, StoredQuizData, UserAnswers, GeneratedQuizQuestion } from "@/types/supabase";
-import { use, useEffect, useState, type ReactNode } from "react";
+import { use, useEffect, useState, type ReactNode, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings, BookOpen, RefreshCw, Send, Newspaper } from "lucide-react";
@@ -60,6 +60,7 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
   const [userAnswers, setUserAnswers] = useState<UserAnswers | null>(null);
   const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const contentAreaRef = useRef<HTMLDivElement>(null);
 
 
   useEffect(() => {
@@ -91,10 +92,10 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
 
   const handleOpenUploadDialog = (existingQuiz?: Quiz) => {
     if (existingQuiz) {
-      setActiveQuizDBEntry(existingQuiz); // Set context for re-generation
+      setActiveQuizDBEntry(existingQuiz); 
       setQuizForDisplay(existingQuiz.generated_quiz_data as StoredQuizData);
     } else {
-      setActiveQuizDBEntry(null); // Reset for new quiz
+      setActiveQuizDBEntry(null); 
       setQuizForDisplay(null);
     }
     setIsUploadDialogOpen(true);
@@ -102,9 +103,9 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
   
 
   const handleQuizGenerationComplete = async (quizId: string) => {
-    setIsUploadDialogOpen(false); // Close the dialog first
-    setViewMode("loading_quiz"); // Show loading while fetching/preparing
-    setIsGeneratingQuiz(false); // Reset generating state once dialog is closed and process moves on
+    setIsUploadDialogOpen(false); 
+    setViewMode("loading_quiz"); 
+    setIsGeneratingQuiz(false); 
   
     try {
       const quizzes = await getQuizzesForWorkspace(workspaceId);
@@ -114,18 +115,14 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
         setActiveQuizDBEntry(generatedQuiz);
         setQuizForDisplay(generatedQuiz.generated_quiz_data as StoredQuizData);
         setViewMode("quiz_review");
+        contentAreaRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       } else if (generatedQuiz && generatedQuiz.status === 'failed') {
         toast({ title: "Quiz Generation Failed", description: generatedQuiz.error_message || "The AI failed to generate the quiz.", variant: "destructive" });
-        setActiveQuizDBEntry(generatedQuiz); // Keep context of failed quiz
-        setQuizForDisplay(null); // No valid data to display
-        setViewMode("dashboard_cards"); // Or a specific 'failed_review' view if needed
+        setActiveQuizDBEntry(generatedQuiz); 
+        setQuizForDisplay(null); 
+        setViewMode("dashboard_cards"); 
       } else if (generatedQuiz && (generatedQuiz.status === 'processing' || generatedQuiz.status === 'pending')) {
          toast({ title: "Quiz is still processing", description: "Please wait a moment. The view will update when ready.", variant: "default" });
-         // Stay in loading_quiz or transition to a view that indicates processing
-         // For now, if we reach here unexpectedly, we might fallback.
-         // The main expectation is that generateQuizFromPdfAction handles the final status.
-         // Potentially, a polling mechanism or real-time subscription could update this.
-         // Fallback to dashboard if quiz isn't immediately 'completed' or 'failed' in this callback.
          setViewMode("dashboard_cards");
       }
       else {
@@ -140,18 +137,18 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
   
   const handleUploadDialogClose = (refresh?: boolean) => {
     setIsUploadDialogOpen(false);
-    setIsGeneratingQuiz(false); // Ensure loading state is reset if dialog is manually closed
+    setIsGeneratingQuiz(false); 
     if (refresh) {
       // Might re-fetch all quizzes or workspace data if needed
-      // For now, onQuizGenerated handles the specific quiz.
     }
   };
 
 
   const handleTakeQuiz = () => {
     if (quizForDisplay && activeQuizDBEntry?.status === 'completed') {
-      setUserAnswers(null); // Reset previous answers
+      setUserAnswers(null); 
       setViewMode("quiz_taking");
+      contentAreaRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       toast({title: "Cannot take quiz", description: "The quiz is not available or has not been completed successfully.", variant: "destructive"});
     }
@@ -161,15 +158,22 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
     if (activeQuizDBEntry) {
         handleOpenUploadDialog(activeQuizDBEntry);
     } else {
-        // This case should ideally not happen if the button is shown correctly
         toast({title: "Error", description: "No quiz context for regeneration.", variant: "destructive"});
-        handleOpenUploadDialog(); // Open for new quiz
+        handleOpenUploadDialog();
     }
   };
 
   const handleSubmitQuiz = (answers: UserAnswers) => {
     setUserAnswers(answers);
     setViewMode("quiz_results");
+    contentAreaRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackToDashboardCards = () => {
+    setViewMode('dashboard_cards');
+    // Optionally reset active quiz context
+    // setActiveQuizDBEntry(null); 
+    // setQuizForDisplay(null);
   };
 
   if (isLoadingPage) {
@@ -220,12 +224,12 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
       case "quiz_review":
         if (!quizForDisplay || !activeQuizDBEntry) return <p>Error: Quiz data not available for review.</p>;
         return (
-          <div className="w-full max-w-3xl mx-auto">
+          <>
             <QuizReviewDisplay 
               quizData={quizForDisplay.quiz} 
               quizName={activeQuizDBEntry.pdf_name || "Untitled Quiz"}
             />
-            <div className="mt-8 flex justify-end space-x-4">
+            <div className="mt-8 flex justify-end space-x-4"> {/* Actions for review mode */}
               <Button variant="outline" onClick={handleRegenerateQuiz}>
                 <RefreshCw className="mr-2 h-4 w-4" /> Regenerate Quiz
               </Button>
@@ -233,15 +237,12 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
                 <BookOpen className="mr-2 h-4 w-4" /> Take the Quiz
               </Button>
             </div>
-          </div>
+          </>
         );
       case "quiz_taking":
         if (!quizForDisplay || !activeQuizDBEntry) return <p>Error: Quiz data not available for taking.</p>;
         return (
-          <div className="w-full max-w-3xl mx-auto">
-            <h2 className="text-2xl font-semibold font-headline mb-2 text-center">
-                {activeQuizDBEntry.pdf_name || "Quiz"}
-            </h2>
+          <>
             <p className="text-sm text-muted-foreground mb-6 text-center">
                 Select the best answer for each question.
             </p>
@@ -251,12 +252,12 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
               onSubmit={handleSubmitQuiz}
               isSubmitting={isSubmittingQuiz}
             />
-          </div>
+          </>
         );
       case "quiz_results":
         if (!quizForDisplay || !userAnswers || !activeQuizDBEntry) return <p>Error: Quiz results not available.</p>;
         return (
-          <div className="w-full max-w-3xl mx-auto">
+          <>
              <QuizResultsDisplay
               quiz={activeQuizDBEntry}
               quizData={quizForDisplay.quiz}
@@ -264,13 +265,15 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
               onRetake={() => {
                 setUserAnswers(null);
                 setViewMode("quiz_taking");
+                contentAreaRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               onReviewAll={() => {
                 setUserAnswers(null); 
                 setViewMode("quiz_review");
+                contentAreaRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
               }}
             />
-          </div>
+          </>
         );
       case "dashboard_cards":
       default:
@@ -306,8 +309,23 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
     }
   };
 
+  const getPageTitle = () => {
+    if (viewMode === 'dashboard_cards') return `${workspace.name} Dashboard`;
+    if (activeQuizDBEntry?.pdf_name) return activeQuizDBEntry.pdf_name;
+    return workspace.name; // Fallback
+  };
+
+  const getPageDescription = () => {
+    if (viewMode === 'dashboard_cards') return "Choose an action to get started.";
+    if (viewMode === 'quiz_review' && activeQuizDBEntry) return `Review the generated questions for "${activeQuizDBEntry.pdf_name || 'your quiz'}". You can then take the quiz or regenerate it.`;
+    if (viewMode === 'quiz_taking') return `Taking quiz: ${activeQuizDBEntry?.pdf_name || 'Untitled Quiz'}`;
+    if (viewMode === 'quiz_results') return `Results for quiz: ${activeQuizDBEntry?.pdf_name || 'Untitled Quiz'}`;
+    if (viewMode === 'loading_quiz') return `Loading quiz...`;
+    return "";
+  }
+
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col overflow-hidden">
       <UploadQuizDialog
         workspaceId={workspaceId}
         open={isUploadDialogOpen}
@@ -320,40 +338,34 @@ export default function WorkspacePage({ params: paramsProp }: { params: { worksp
         initialPdfNameHint={activeQuizDBEntry?.pdf_name || undefined}
       />
       
-      <div className="p-6 md:p-10 border-b">
+      {/* Header for the right pane content */}
+      <div className="p-6 md:p-8 border-b">
          {viewMode !== 'dashboard_cards' && (
-           <Button asChild variant="link" className="text-sm text-primary self-start ml-[-0.5rem] mb-2" onClick={() => {
-             setViewMode('dashboard_cards');
-             // Optionally reset active quiz context if going fully back
-             // setActiveQuizDBEntry(null); 
-             // setQuizForDisplay(null);
-           }}>
-             <Link href="#">← Back to {workspace.name} Dashboard</Link>
+           <Button variant="link" className="text-sm text-primary self-start ml-[-0.75rem] mb-2 px-1" onClick={handleBackToDashboardCards}>
+             ← Back to {workspace.name} Dashboard
            </Button>
          )}
-        <h1 className="text-3xl md:text-4xl font-bold font-headline text-center">
-          {viewMode === 'dashboard_cards' 
-            ? `${workspace.name} Dashboard` 
-            : (activeQuizDBEntry?.pdf_name || workspace.name)
-          }
+        <h1 className="text-2xl md:text-3xl font-bold font-headline">
+          {getPageTitle()}
         </h1>
-        {viewMode === 'dashboard_cards' && (
-            <p className="text-center text-muted-foreground mt-2">Choose an action to get started.</p>
-        )}
-         {viewMode === 'quiz_review' && activeQuizDBEntry && (
-            <p className="text-center text-muted-foreground mt-2">
-                Review the generated questions for "{activeQuizDBEntry.pdf_name || 'your quiz'}". You can then take the quiz or regenerate it.
-            </p>
-        )}
+        <p className="text-muted-foreground mt-1 text-sm">
+            {getPageDescription()}
+        </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto min-h-0 p-6 md:p-10">
-         <div className="w-full max-w-5xl mx-auto">
+      {/* Scrollable content area for the right pane */}
+      <div ref={contentAreaRef} className="flex-1 overflow-y-auto min-h-0 p-6 md:p-8">
+         <div className="w-full max-w-4xl mx-auto"> {/* Max width for content inside scrollable area */}
             {renderContent()}
          </div>
       </div>
+
+      {/* Fixed Action Bar at the bottom of the right pane - may be conditionally rendered or have content changed */}
+      {/* Example: only show if in review mode */}
+      {/* This section might be better integrated directly into renderContent for more complex conditional logic */}
     </div>
   );
 }
+    
 
     
