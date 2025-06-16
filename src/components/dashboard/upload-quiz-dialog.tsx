@@ -52,8 +52,8 @@ export function UploadQuizDialog({
       }
     }}>
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
-      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col overflow-hidden p-0">
+        <DialogHeader className="p-6 pb-4 flex-shrink-0"> {/* Added padding to header */}
           <DialogTitle className="font-headline flex items-center">
             <FileUp className="mr-2 h-5 w-5 text-primary" /> 
             {isRegenerationMode ? "Re-Generate Quiz" : "Generate New Quiz(zes)"}
@@ -79,7 +79,7 @@ export function UploadQuizDialog({
           initialNumQuestions={initialNumQuestions}
           existingQuizIdToUpdate={existingQuizIdToUpdate}
           initialPdfNameHint={initialPdfName}
-          className="flex-1 min-h-0" // Allows form to take available space and handle internal scroll
+          className="flex-1 min-h-0 px-5" // Pass className for flex behavior, adjust padding
         />
       </DialogContent>
     </Dialog>

@@ -22,11 +22,12 @@ interface UploadQuizFormProps {
   initialNumQuestions?: number;
   existingQuizIdToUpdate?: string;
   initialPdfNameHint?: string;
+  className?: string; // Added className prop
 }
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_TOTAL_FILES = 5;
-const MAX_QUESTIONS = 50; // Updated max questions
+const MAX_QUESTIONS = 50;
 
 const questionStyleOptions = [
   { id: "multiple-choice", label: "Multiple choice questions" },
@@ -41,7 +42,8 @@ export function UploadQuizForm({
     onCancel,
     initialNumQuestions,
     existingQuizIdToUpdate,
-    initialPdfNameHint
+    initialPdfNameHint,
+    className, // Consumed className prop
 }: UploadQuizFormProps) {
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const [numQuestions, setNumQuestions] = useState(initialNumQuestions || 5);
@@ -234,22 +236,24 @@ export function UploadQuizForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 py-4 flex flex-col h-full" id="pdf-upload-form-in-dialog">
-      {isRegenerationMode && initialPdfNameHint && (
-        <div className="p-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-start flex-shrink-0">
-            <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-            <span>Re-generating for: <strong>{initialPdfNameHint}</strong>. Please re-select the PDF file. Advanced options below will apply.</span>
-        </div>
-      )}
-      {!isRegenerationMode && pdfFiles.length > 0 && (
-         <div className="p-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-start flex-shrink-0">
-            <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-            <span>A single quiz with {numQuestions} questions will be generated from the selected {pdfFiles.length} document(s).</span>
-        </div>
-      )}
+    <form onSubmit={handleSubmit} className={cn("flex flex-col", className)} id="pdf-upload-form-in-dialog">
+      <div className="px-1 pt-1 flex-shrink-0"> {/* Wrapper for info messages */}
+        {isRegenerationMode && initialPdfNameHint && (
+          <div className="p-3 mb-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-start">
+              <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
+              <span>Re-generating for: <strong>{initialPdfNameHint}</strong>. Please re-select the PDF file. Advanced options below will apply.</span>
+          </div>
+        )}
+        {!isRegenerationMode && pdfFiles.length > 0 && (
+           <div className="p-3 mb-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-start">
+              <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
+              <span>A single quiz with {numQuestions} questions will be generated from the selected {pdfFiles.length} document(s).</span>
+          </div>
+        )}
+      </div>
 
-      <ScrollArea className="flex-grow h-96 pr-1"> {/* Adjusted height and added pr for scrollbar */}
-        <div className="space-y-4 pr-3"> {/* Added pr for content padding from scrollbar */}
+      <ScrollArea className="flex-1 min-h-0 pr-1"> {/* Scrollable area uses flex-1 */}
+        <div className="px-1 space-y-4 pb-4 pr-2"> {/* Padding inside scrollable area */}
           <div className="space-y-2">
             <Label htmlFor="pdf-file-dialog" className="flex items-center">
               <FileUp className="mr-2 h-5 w-5" />
@@ -377,18 +381,20 @@ export function UploadQuizForm({
         </div>
       </ScrollArea>
 
-      <div className="flex justify-end space-x-2 pt-4 flex-shrink-0">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
-            <X className="mr-2 h-4 w-4" /> Cancel
-          </Button>
-          <Button type="submit" disabled={loading || pdfFiles.length === 0}>
-            {loading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Wand2 className="mr-2 h-4 w-4" />
-            )}
-            {loading ? (isRegenerationMode ? "Re-Generating..." : "Generating...") : (isRegenerationMode ? "Re-Generate Quiz" : "Generate Quiz")}
-          </Button>
+      <div className="px-1 pt-4 pb-1 flex-shrink-0"> {/* Wrapper for action buttons */}
+        <div className="flex justify-end space-x-2">
+            <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
+              <X className="mr-2 h-4 w-4" /> Cancel
+            </Button>
+            <Button type="submit" disabled={loading || pdfFiles.length === 0}>
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Wand2 className="mr-2 h-4 w-4" />
+              )}
+              {loading ? (isRegenerationMode ? "Re-Generating..." : "Generating...") : (isRegenerationMode ? "Re-Generate Quiz" : "Generate Quiz")}
+            </Button>
+        </div>
       </div>
     </form>
   );
