@@ -24,7 +24,7 @@ interface UploadQuizDialogProps {
   onDialogClose: (refresh?: boolean) => void; 
   onQuizGenerationStart: () => void; 
   onQuizGenerated: (quizId: string) => void; 
-  initialPdfNameHint?: string; // Changed from initialPdfName
+  initialPdfNameHint?: string;
   initialNumQuestions?: number;
   existingQuizIdToUpdate?: string;
 }
@@ -95,14 +95,14 @@ export function UploadQuizDialog({
           initialNumQuestions={initialNumQuestions}
           existingQuizIdToUpdate={existingQuizIdToUpdate}
           initialPdfNameHint={initialPdfNameHint}
-          className="flex-1 min-h-0 px-6" // Horizontal padding here, form manages its vertical needs
+          className="flex-1 min-h-0 px-6" // This UploadQuizForm instance is the middle content that grows
           formSubmitRef={formSubmitButtonRef}
           onActualCancel={() => { 
             onOpenChange(false);
             handleDialogClose(false);
           }}
         />
-        <DialogFooter className="p-6 pt-4 border-t flex-shrink-0">
+        <DialogFooter className="p-6 pt-4 flex-shrink-0 border-t">
             <Button type="button" variant="outline" onClick={() => {
                 onOpenChange(false);
                 handleDialogClose(false);

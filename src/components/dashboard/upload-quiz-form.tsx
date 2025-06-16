@@ -23,7 +23,7 @@ interface UploadQuizFormProps {
   initialNumQuestions?: number;
   existingQuizIdToUpdate?: string;
   initialPdfNameHint?: string;
-  className?: string;
+  className?: string; // Will receive "flex-1 min-h-0 px-6" from parent
   formSubmitRef: RefObject<HTMLButtonElement>; 
 }
 
@@ -46,7 +46,7 @@ export function UploadQuizForm({
     initialNumQuestions,
     existingQuizIdToUpdate,
     initialPdfNameHint,
-    className,
+    className, // Consumes className from props
     formSubmitRef,
 }: UploadQuizFormProps) {
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
@@ -76,6 +76,7 @@ export function UploadQuizForm({
         setTopicsToFocus("");
         setTopicsToDrop("");
     } else {
+        // Retain previous settings or default for regeneration if needed, currently resetting
         setSelectedQuestionStyles(["multiple-choice"]);
         setHardMode(false);
         setTopicsToFocus("");
@@ -250,12 +251,12 @@ export function UploadQuizForm({
   return (
     <form 
         onSubmit={handleSubmit} 
-        className={cn("flex flex-col h-full", className)} // className contains px-6 from parent
+        className={cn("flex flex-col", className)} // className from props includes flex-1 min-h-0 and px-6
         id="pdf-upload-form-in-dialog"
     >
       <button type="submit" ref={formSubmitRef} style={{ display: 'none' }} aria-hidden="true" />
 
-      <div className="pt-2 flex-shrink-0"> {/* Info messages wrapper, pt-2 for top padding */}
+      <div className="flex-shrink-0 pt-2"> {/* Info messages wrapper */}
         {isRegenerationMode && initialPdfNameHint && (
           <div className="p-3 mb-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-start">
               <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
@@ -270,8 +271,9 @@ export function UploadQuizForm({
         )}
       </div>
 
-      <ScrollArea className="flex-1 min-h-0"> {/* Scrollable area, pr-2 is for scrollbar space */}
-        <div className="space-y-4 pb-4 pr-2"> {/* Content inside scrollable area, pb-4 for bottom padding */}
+      {/* This ScrollArea is the flex-grow:1 and overflow-y:auto part */}
+      <ScrollArea className="flex-1 min-h-0"> 
+        <div className="space-y-4 pb-4 pr-2"> {/* Content inside scrollable area, pr-2 for scrollbar */}
           <div className="space-y-2">
             <Label htmlFor="pdf-file-dialog" className="flex items-center">
               <FileUp className="mr-2 h-5 w-5" />
