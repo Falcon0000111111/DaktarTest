@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useState, type FormEvent, useEffect, ChangeEvent } from "react";
-import { generateQuizFromPdfAction } from "@/lib/actions/quiz.actions";
+import { generateQuizFromPdfsAction } from "@/lib/actions/quiz.actions"; // Updated action import
 import { FileUp, Wand2, Loader2, X, Info, FileText, BadgeAlert } from "lucide-react";
 import type { Quiz } from "@/types/supabase";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -22,7 +22,7 @@ interface UploadQuizFormProps {
 }
 
 const MAX_FILE_SIZE_MB = 10;
-const MAX_TOTAL_FILES = 5; // Limit total number of files to prevent abuse
+const MAX_TOTAL_FILES = 5; 
 
 export function UploadQuizForm({ 
     workspaceId, 
@@ -51,21 +51,20 @@ export function UploadQuizForm({
       const filesArray = Array.from(event.target.files);
       const newValidFiles: File[] = [];
       let filesSkipped = 0;
+      let currentFileCount = 0;
 
-      if (!isRegenerationMode && filesArray.length > MAX_TOTAL_FILES) {
-        toast({ 
-          title: "Too Many Files", 
-          description: `Please select a maximum of ${MAX_TOTAL_FILES} PDF files at a time.`, 
-          variant: "destructive" 
-        });
-        event.target.value = ""; // Clear the input
-        setPdfFiles([]); // Clear current selection
-        return;
-      }
-      
-      const filesToProcess = isRegenerationMode ? filesArray.slice(0,1) : filesArray;
+      const maxFilesAllowed = isRegenerationMode ? 1 : MAX_TOTAL_FILES;
 
-      for (const file of filesToProcess) {
+      for (const file of filesArray) {
+        if (currentFileCount >= maxFilesAllowed) {
+            toast({
+                title: "File Limit Reached",
+                description: `You can select a maximum of ${maxFilesAllowed} file(s) ${isRegenerationMode ? 'for regeneration' : 'at a time'}. Additional files were skipped.`,
+                variant: "destructive"
+            });
+            break; 
+        }
+
         if (file.type !== "application/pdf") {
           toast({ title: "Invalid File Type", description: `"${file.name}" is not a PDF and was skipped.`, variant: "destructive" });
           filesSkipped++;
@@ -77,10 +76,13 @@ export function UploadQuizForm({
           continue;
         }
         newValidFiles.push(file);
+        currentFileCount++;
       }
       setPdfFiles(newValidFiles);
       if (filesSkipped === filesArray.length && filesArray.length > 0) {
-         event.target.value = ""; // Clear input if all files were skipped
+         event.target.value = ""; 
+      } else if (newValidFiles.length === 0 && filesArray.length > 0) {
+         event.target.value = ""; // Clear if all new selections were invalid but some were attempted
       }
     }
   };
@@ -103,66 +105,62 @@ export function UploadQuizForm({
       toast({ title: "No PDF Selected", description: "Please select at least one PDF file.", variant: "destructive" });
       return;
     }
-    if (numQuestions < 1 || numQuestions > 20) {
-      toast({ title: "Invalid Question Count", description: "Number of questions must be between 1 and 20.", variant: "destructive" });
+    if (numQuestions < 1 || numQuestions > 20) { // Consider adjusting max based on LLM capabilities with multiple docs
+      toast({ title: "Invalid Question Count", description: "Total number of questions must be between 1 and 20.", variant: "destructive" });
       return;
     }
 
     setLoading(true);
     onUploadStarted(); 
 
-    let lastGeneratedQuizId: string | null = null;
-    let filesProcessedSuccessfully = 0;
+    try {
+      const pdfDocumentsInput = await Promise.all(
+        pdfFiles.map(async (file) => {
+          const reader = new FileReader();
+          const promise = new Promise<string>((resolve, reject) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = () => reject(reader.error);
+          });
+          reader.readAsDataURL(file);
+          const dataUri = await promise;
+          return { name: file.name, dataUri };
+        })
+      );
 
-    const filesToSubmit = isRegenerationMode ? pdfFiles.slice(0,1) : pdfFiles;
-
-    for (const pdfFile of filesToSubmit) {
-      try {
-        const reader = new FileReader();
-        const promise = new Promise<string>((resolve, reject) => {
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = () => reject(reader.error);
-        });
-        reader.readAsDataURL(pdfFile);
-        const pdfDataUri = await promise;
-
-        toast({ 
-          title: `Processing: ${pdfFile.name}`, 
-          description: "Quiz generation has started for this file. This may take a moment." 
-        });
-
-        const generatedQuiz: Quiz = await generateQuizFromPdfAction({
-          workspaceId,
-          pdfName: pdfFile.name,
-          pdfDataUri,
-          numberOfQuestions: numQuestions,
-          existingQuizIdToUpdate: isRegenerationMode ? existingQuizIdToUpdate : undefined, 
-        });
-        lastGeneratedQuizId = generatedQuiz.id;
-        filesProcessedSuccessfully++;
-      } catch (error) {
-        console.error(`Error processing file ${pdfFile.name}:`, error);
-        toast({ title: `Error: ${pdfFile.name}`, description: (error as Error).message || "Failed to process this PDF.", variant: "destructive" });
+      let quizTitle = initialPdfNameHint;
+      if (!isRegenerationMode && pdfDocumentsInput.length > 1) {
+        quizTitle = `Quiz from ${pdfDocumentsInput.length} documents`;
+      } else if (!isRegenerationMode && pdfDocumentsInput.length === 1) {
+        quizTitle = pdfDocumentsInput[0].name;
       }
-    }
+      // For regeneration, initialPdfNameHint is used, which should be the existing quiz's name
 
-    setLoading(false);
-    if (lastGeneratedQuizId) {
-        if(filesToSubmit.length > 1 && filesProcessedSuccessfully > 0) {
-            toast({
-                title: "Processing Complete",
-                description: `${filesProcessedSuccessfully} of ${filesToSubmit.length} quizzes started generation. You'll be taken to the last one. Check 'Review/Retake Quizzes' for others.`
-            });
-        }
-      onUploadComplete(lastGeneratedQuizId);
-    } else if (filesProcessedSuccessfully === 0 && filesToSubmit.length > 0) {
-      // No quiz ID to pass, but need to signify that dialog can close if all failed
-      onCancel(); // Effectively closing the dialog as if generation failed for all
+      toast({ 
+        title: `Processing Document(s)`, 
+        description: "Quiz generation has started. This may take a moment." 
+      });
+
+      const generatedQuiz: Quiz = await generateQuizFromPdfsAction({
+        workspaceId,
+        pdfDocuments: pdfDocumentsInput,
+        totalNumberOfQuestions: numQuestions,
+        quizTitle: quizTitle, 
+        existingQuizIdToUpdate: isRegenerationMode ? existingQuizIdToUpdate : undefined,
+      });
+      
+      onUploadComplete(generatedQuiz.id);
+
+    } catch (error) {
+      console.error(`Error processing files:`, error);
+      toast({ title: `Error Generating Quiz`, description: (error as Error).message || "Failed to process the PDF(s).", variant: "destructive" });
+      // Call onCancel or a specific error handler if the entire batch fails before AI call
+      onCancel(); 
+    } finally {
+      setLoading(false);
+      setPdfFiles([]);
+      const formElement = document.getElementById('pdf-upload-form-in-dialog') as HTMLFormElement;
+      formElement?.reset(); // Reset the actual file input
     }
-    
-    setPdfFiles([]);
-    const formElement = document.getElementById('pdf-upload-form-in-dialog') as HTMLFormElement;
-    formElement?.reset();
   };
 
   return (
@@ -173,24 +171,26 @@ export function UploadQuizForm({
             <span>Re-generating for: <strong>{initialPdfNameHint}</strong>. Please re-select the PDF file.</span>
         </div>
       )}
-      {!isRegenerationMode && initialPdfNameHint && ( 
-        <div className="p-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-start">
+      {!isRegenerationMode && pdfFiles.length > 0 && (
+         <div className="p-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-start">
             <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-            <span>Generating new quiz. Hint from previous: <strong>{initialPdfNameHint}</strong>. Select new PDF(s).</span>
+            <span>A single quiz with {numQuestions} questions will be generated from the selected {pdfFiles.length} document(s).</span>
         </div>
       )}
 
+
       <div className="space-y-2">
         <Label htmlFor="pdf-file-dialog" className="flex items-center">
-          <FileUp className="mr-2 h-5 w-5" /> {isRegenerationMode ? "PDF Document" : `PDF Document(s) (Max ${MAX_TOTAL_FILES})`}
+          <FileUp className="mr-2 h-5 w-5" /> 
+          {isRegenerationMode ? "PDF Document (Single File)" : `PDF Document(s) (Max ${MAX_TOTAL_FILES})`}
         </Label>
         <Input
           id="pdf-file-dialog"
           type="file"
           accept="application/pdf"
           onChange={handleFileChange}
-          multiple={!isRegenerationMode} // Allow multiple only if not regenerating
-          required={pdfFiles.length === 0} // Required only if no files are yet in state (e.g. after a clear)
+          multiple={!isRegenerationMode} 
+          required={pdfFiles.length === 0} 
           className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
         />
       </div>
@@ -213,13 +213,13 @@ export function UploadQuizForm({
        {pdfFiles.length === 0 && !loading && (
          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-700 flex items-start">
             <BadgeAlert className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-            <span>{isRegenerationMode ? "Please select a PDF file to re-generate the quiz." : "Please select one or more PDF files to generate quizzes."}</span>
+            <span>{isRegenerationMode ? "Please select a PDF file to re-generate the quiz." : "Please select one or more PDF files to generate a quiz."}</span>
         </div>
        )}
 
 
       <div className="space-y-2">
-        <Label htmlFor="num-questions-dialog">Number of Questions (1-20)</Label>
+        <Label htmlFor="num-questions-dialog">Total Number of Questions (1-20)</Label>
         <Input
           id="num-questions-dialog"
           type="number"
@@ -240,7 +240,7 @@ export function UploadQuizForm({
             ) : (
               <Wand2 className="mr-2 h-4 w-4" />
             )}
-            {loading ? (isRegenerationMode ? "Re-Generating..." : "Generating...") : (isRegenerationMode ? "Re-Generate Quiz" : "Generate Quiz(zes)")}
+            {loading ? (isRegenerationMode ? "Re-Generating..." : "Generating...") : (isRegenerationMode ? "Re-Generate Quiz" : "Generate Quiz")}
           </Button>
       </div>
     </form>

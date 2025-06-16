@@ -1,20 +1,25 @@
+
 "use server";
 
 import { createClient } from "@/lib/supabase/server"; 
-import { generateQuizFromPdf, type GenerateQuizInput, type GenerateQuizOutput } from "@/ai/flows/generate-quiz-from-pdf";
+import { generateQuizFromPdfs, type GenerateQuizInput, type GenerateQuizOutput } from "@/ai/flows/generate-quiz-from-pdf"; // Updated import
 import type { Quiz, NewQuiz } from "@/types/supabase";
 import { revalidatePath } from "next/cache";
 
+interface PdfDocumentInput {
+  name: string;
+  dataUri: string;
+}
 
-interface GenerateQuizParams {
+interface GenerateQuizFromPdfsParams {
   workspaceId: string;
-  pdfName: string;
-  pdfDataUri: string;
-  numberOfQuestions: number;
+  pdfDocuments: PdfDocumentInput[];
+  totalNumberOfQuestions: number;
+  quizTitle?: string; 
   existingQuizIdToUpdate?: string; 
 }
 
-export async function generateQuizFromPdfAction(params: GenerateQuizParams): Promise<Quiz> {
+export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsParams): Promise<Quiz> {
   const supabase = createClient(); 
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -22,20 +27,33 @@ export async function generateQuizFromPdfAction(params: GenerateQuizParams): Pro
     throw new Error("User not authenticated.");
   }
 
-  const { workspaceId, pdfName, pdfDataUri, numberOfQuestions, existingQuizIdToUpdate } = params;
+  const { workspaceId, pdfDocuments, totalNumberOfQuestions, quizTitle, existingQuizIdToUpdate } = params;
+
+  if (!pdfDocuments || pdfDocuments.length === 0) {
+    throw new Error("At least one PDF document is required.");
+  }
 
   let quizEntryId = existingQuizIdToUpdate;
-  let operationType: 'insert' | 'update' = 'insert';
+  
+  // Determine the name for the quiz entry
+  let dbQuizName = quizTitle;
+  if (!dbQuizName) {
+    if (pdfDocuments.length > 1) {
+      dbQuizName = `Quiz from ${pdfDocuments.length} documents`;
+    } else {
+      dbQuizName = pdfDocuments[0].name;
+    }
+  }
 
 
-  if (!quizEntryId) {
+  if (!quizEntryId) { // Creating a new quiz entry
     const initialQuizData: NewQuiz = {
       workspace_id: workspaceId,
       user_id: user.id,
-      pdf_name: pdfName,
-      num_questions: numberOfQuestions,
+      pdf_name: dbQuizName, // Use the determined name
+      num_questions: totalNumberOfQuestions,
       status: "processing",
-      error_message: null, // Ensure error message is cleared on new attempt
+      error_message: null,
     };
 
     const { data: newQuizEntry, error: createError } = await supabase
@@ -49,15 +67,14 @@ export async function generateQuizFromPdfAction(params: GenerateQuizParams): Pro
       throw new Error(createError?.message || "Failed to create quiz entry.");
     }
     quizEntryId = newQuizEntry.id;
-  } else {
-    operationType = 'update';
+  } else { // Updating an existing quiz entry (e.g., for regeneration)
      const { error: updateToProcessingError } = await supabase
       .from("quizzes")
       .update({ 
         status: "processing", 
-        error_message: null, // Clear previous errors
-        num_questions: numberOfQuestions, // Update num_questions in case it changed
-        pdf_name: pdfName, // Update pdf_name in case it changed (though less likely for re-gen)
+        error_message: null, 
+        num_questions: totalNumberOfQuestions, 
+        pdf_name: dbQuizName, // Update name in case it changes (e.g. different # of docs)
         updated_at: new Date().toISOString() 
       })
       .eq("id", quizEntryId)
@@ -69,17 +86,16 @@ export async function generateQuizFromPdfAction(params: GenerateQuizParams): Pro
     }
   }
   
-  // Revalidate immediately after setting to "processing" so UI updates
   revalidatePath(`/dashboard/workspace/${workspaceId}`);
-  revalidatePath(`/dashboard`); // Also revalidate main dashboard if quiz lists are there
+  revalidatePath(`/dashboard`);
 
   try {
     const aiInput: GenerateQuizInput = {
-      pdfDataUri,
-      numberOfQuestions,
+      pdfDocuments: pdfDocuments.map(doc => ({ name: doc.name, dataUri: doc.dataUri })),
+      totalNumberOfQuestions: totalNumberOfQuestions,
     };
     
-    const generatedData: GenerateQuizOutput = await generateQuizFromPdf(aiInput);
+    const generatedData: GenerateQuizOutput = await generateQuizFromPdfs(aiInput);
 
     const { data: updatedQuiz, error: updateError } = await supabase
       .from("quizzes")
@@ -96,7 +112,6 @@ export async function generateQuizFromPdfAction(params: GenerateQuizParams): Pro
 
     if (updateError || !updatedQuiz) {
       console.error("Error updating quiz with generated data:", updateError);
-      // Attempt to set status to failed if update fails
       await supabase
         .from("quizzes")
         .update({ status: "failed", error_message: "Failed to save generated quiz content.", updated_at: new Date().toISOString() })
@@ -125,7 +140,7 @@ export async function generateQuizFromPdfAction(params: GenerateQuizParams): Pro
     
     revalidatePath(`/dashboard/workspace/${workspaceId}`);
     revalidatePath(`/dashboard`);
-    throw new Error(errorMessage); // Re-throw the specific error
+    throw new Error(errorMessage); 
   }
 }
 
