@@ -30,19 +30,19 @@ const GenerateQuizInputSchema = z.object({
   preferredQuestionStyles: z
     .string()
     .optional()
-    .describe('Optional comma-separated list of preferred styles for questions (e.g., "multiple-choice, short-descriptions, fill-in-the-blanks"). All output must ultimately be in Multiple Choice Question (MCQ) format. If "short-descriptions" or "fill-in-the-blanks" are requested, they should be adapted into MCQs.'),
+    .describe('Optional comma-separated list of preferred styles for questions (e.g., "multiple-choice, short-descriptions, fill-in-the-blanks"). All output must ultimately be in Multiple Choice Question (MCQ) format. If "short-descriptions" or "fill-in-the-blanks" are requested, they MUST be adapted into MCQs.'),
   hardMode: z
     .boolean()
     .optional()
-    .describe('If true, questions should be made more challenging.'),
+    .describe('If true, questions MUST be made significantly more challenging, requiring deeper understanding or synthesis of information. This is not a suggestion but a requirement.'),
   topicsToFocus: z
     .string()
     .optional()
-    .describe('Optional comma-separated list of topics or keywords to prioritize for questions.'),
+    .describe('Optional comma-separated list of topics or keywords. AI MUST prioritize generating questions related to these specific topics.'),
   topicsToDrop: z
     .string()
     .optional()
-    .describe('Optional comma-separated list of topics or keywords to avoid for questions.'),
+    .describe('Optional comma-separated list of topics or keywords. AI MUST avoid generating questions related to these specific topics.'),
 });
 export type GenerateQuizInput = z.infer<typeof GenerateQuizInputSchema>;
 

@@ -26,7 +26,7 @@ interface UploadQuizFormProps {
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_TOTAL_FILES = 5;
-const MAX_QUESTIONS = 50;
+const MAX_QUESTIONS = 50; // Updated max questions
 
 const questionStyleOptions = [
   { id: "multiple-choice", label: "Multiple choice questions" },
@@ -234,147 +234,150 @@ export function UploadQuizForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 py-4" id="pdf-upload-form-in-dialog">
+    <form onSubmit={handleSubmit} className="space-y-4 py-4 flex flex-col h-full" id="pdf-upload-form-in-dialog">
       {isRegenerationMode && initialPdfNameHint && (
-        <div className="p-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-start">
+        <div className="p-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-start flex-shrink-0">
             <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
             <span>Re-generating for: <strong>{initialPdfNameHint}</strong>. Please re-select the PDF file. Advanced options below will apply.</span>
         </div>
       )}
       {!isRegenerationMode && pdfFiles.length > 0 && (
-         <div className="p-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-start">
+         <div className="p-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-start flex-shrink-0">
             <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
             <span>A single quiz with {numQuestions} questions will be generated from the selected {pdfFiles.length} document(s).</span>
         </div>
       )}
 
-      <div className="space-y-2">
-        <Label htmlFor="pdf-file-dialog" className="flex items-center">
-          <FileUp className="mr-2 h-5 w-5" />
-          {isRegenerationMode ? "PDF Document (Single File)" : `PDF Document(s) (Max ${MAX_TOTAL_FILES})`}
-        </Label>
-        <Input
-          id="pdf-file-dialog"
-          type="file"
-          accept="application/pdf"
-          onChange={handleFileChange}
-          multiple={!isRegenerationMode}
-          className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-          disabled={loading || (pdfFiles.length >= MAX_TOTAL_FILES && !isRegenerationMode) || (isRegenerationMode && pdfFiles.length >=1)}
-        />
-         {pdfFiles.length >= MAX_TOTAL_FILES && !isRegenerationMode && (
-            <p className="text-xs text-muted-foreground">Maximum of {MAX_TOTAL_FILES} files reached.</p>
-        )}
-        {isRegenerationMode && pdfFiles.length >= 1 && (
-             <p className="text-xs text-muted-foreground">Maximum of 1 file for re-generation.</p>
-        )}
-      </div>
+      <ScrollArea className="flex-grow h-96 pr-1"> {/* Adjusted height and added pr for scrollbar */}
+        <div className="space-y-4 pr-3"> {/* Added pr for content padding from scrollbar */}
+          <div className="space-y-2">
+            <Label htmlFor="pdf-file-dialog" className="flex items-center">
+              <FileUp className="mr-2 h-5 w-5" />
+              {isRegenerationMode ? "PDF Document (Single File)" : `PDF Document(s) (Max ${MAX_TOTAL_FILES})`}
+            </Label>
+            <Input
+              id="pdf-file-dialog"
+              type="file"
+              accept="application/pdf"
+              onChange={handleFileChange}
+              multiple={!isRegenerationMode}
+              className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+              disabled={loading || (pdfFiles.length >= MAX_TOTAL_FILES && !isRegenerationMode) || (isRegenerationMode && pdfFiles.length >=1)}
+            />
+            {pdfFiles.length >= MAX_TOTAL_FILES && !isRegenerationMode && (
+                <p className="text-xs text-muted-foreground">Maximum of {MAX_TOTAL_FILES} files reached.</p>
+            )}
+            {isRegenerationMode && pdfFiles.length >= 1 && (
+                <p className="text-xs text-muted-foreground">Maximum of 1 file for re-generation.</p>
+            )}
+          </div>
 
-      {pdfFiles.length > 0 && (
-        <div className="space-y-2">
-            <Label className="text-sm">Selected file(s):</Label>
-            <ScrollArea className="h-24 w-full rounded-md border p-2 bg-muted/50">
-                 <ul className="space-y-1.5">
-                    {pdfFiles.map((file, index) => (
-                    <li key={index} className="text-xs flex items-center justify-between group p-1 hover:bg-background/50 rounded">
-                        <div className="flex items-center truncate">
-                            <FileText className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 text-muted-foreground" />
-                            <span className="truncate" title={file.name}>{file.name}</span>
-                        </div>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 opacity-50 group-hover:opacity-100 focus:opacity-100 text-destructive hover:text-destructive"
-                            onClick={() => handleRemoveFile(index)}
-                            disabled={loading}
-                            title={`Remove ${file.name}`}
-                        >
-                            <X className="h-3.5 w-3.5" />
-                        </Button>
-                    </li>
-                    ))}
-                </ul>
-            </ScrollArea>
-        </div>
-      )}
-       {pdfFiles.length === 0 && !loading && (
-         <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-700 flex items-start">
-            <BadgeAlert className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-            <span>{isRegenerationMode ? "Please select a PDF file to re-generate the quiz." : "Please select one or more PDF files to generate a quiz."}</span>
-        </div>
-       )}
-
-      <div className="space-y-2">
-        <Label htmlFor="num-questions-dialog">Total Number of Questions (1-{MAX_QUESTIONS})</Label>
-        <Input
-          id="num-questions-dialog"
-          type="number"
-          value={numQuestions.toString()}
-          onChange={handleNumQuestionsChange}
-          min="1"
-          max={MAX_QUESTIONS.toString()}
-          required
-          disabled={loading}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label>Preferred Question Styles (Optional)</Label>
-        <p className="text-xs text-muted-foreground">Output will be MCQs. Styles like "Short Descriptions" or "Fill in the blanks" will be adapted into an MCQ format.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 pt-1">
-          {questionStyleOptions.map((style) => (
-            <div key={style.id} className="flex items-center space-x-2">
-              <Checkbox
-                id={`style-${style.id}`}
-                checked={selectedQuestionStyles.includes(style.id)}
-                onCheckedChange={(checked) => handleQuestionStyleChange(style.id, !!checked)}
-                disabled={loading}
-              />
-              <Label htmlFor={`style-${style.id}`} className="text-sm font-normal cursor-pointer">
-                {style.label}
-              </Label>
+          {pdfFiles.length > 0 && (
+            <div className="space-y-2">
+                <Label className="text-sm">Selected file(s):</Label>
+                <ScrollArea className="h-24 w-full rounded-md border p-2 bg-muted/50">
+                    <ul className="space-y-1.5">
+                        {pdfFiles.map((file, index) => (
+                        <li key={index} className="text-xs flex items-center justify-between group p-1 hover:bg-background/50 rounded">
+                            <div className="flex items-center truncate">
+                                <FileText className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 text-muted-foreground" />
+                                <span className="truncate" title={file.name}>{file.name}</span>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 opacity-50 group-hover:opacity-100 focus:opacity-100 text-destructive hover:text-destructive"
+                                onClick={() => handleRemoveFile(index)}
+                                disabled={loading}
+                                title={`Remove ${file.name}`}
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </Button>
+                        </li>
+                        ))}
+                    </ul>
+                </ScrollArea>
             </div>
-          ))}
+          )}
+          {pdfFiles.length === 0 && !loading && (
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-700 flex items-start">
+                <BadgeAlert className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
+                <span>{isRegenerationMode ? "Please select a PDF file to re-generate the quiz." : "Please select one or more PDF files to generate a quiz."}</span>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="num-questions-dialog">Total Number of Questions (1-{MAX_QUESTIONS})</Label>
+            <Input
+              id="num-questions-dialog"
+              type="number"
+              value={numQuestions.toString()}
+              onChange={handleNumQuestionsChange}
+              min="1"
+              max={MAX_QUESTIONS.toString()}
+              required
+              disabled={loading}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Preferred Question Styles (Optional)</Label>
+            <p className="text-xs text-muted-foreground">Output will be MCQs. Styles like "Short Descriptions" or "Fill in the blanks" will be adapted into an MCQ format.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 pt-1">
+              {questionStyleOptions.map((style) => (
+                <div key={style.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`style-${style.id}`}
+                    checked={selectedQuestionStyles.includes(style.id)}
+                    onCheckedChange={(checked) => handleQuestionStyleChange(style.id, !!checked)}
+                    disabled={loading}
+                  />
+                  <Label htmlFor={`style-${style.id}`} className="text-sm font-normal cursor-pointer">
+                    {style.label}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2 pt-2">
+            <Switch
+              id="hard-mode"
+              checked={hardMode}
+              onCheckedChange={setHardMode}
+              disabled={loading}
+            />
+            <Label htmlFor="hard-mode">Hard Mode (More challenging questions)</Label>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="topics-to-focus">Topics/Keywords to Focus On (Optional, comma-separated)</Label>
+            <Input
+              id="topics-to-focus"
+              type="text"
+              placeholder="e.g., photosynthesis, cell division"
+              value={topicsToFocus}
+              onChange={(e) => setTopicsToFocus(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="topics-to-drop">Topics/Keywords to Drop (Optional, comma-separated)</Label>
+            <Input
+              id="topics-to-drop"
+              type="text"
+              placeholder="e.g., historical background, specific dates"
+              value={topicsToDrop}
+              onChange={(e) => setTopicsToDrop(e.target.value)}
+              disabled={loading}
+            />
+          </div>
         </div>
-      </div>
-      
-      <div className="flex items-center space-x-2 pt-2">
-        <Switch
-          id="hard-mode"
-          checked={hardMode}
-          onCheckedChange={setHardMode}
-          disabled={loading}
-        />
-        <Label htmlFor="hard-mode">Hard Mode (More challenging questions)</Label>
-      </div>
+      </ScrollArea>
 
-      <div className="space-y-2">
-        <Label htmlFor="topics-to-focus">Topics/Keywords to Focus On (Optional, comma-separated)</Label>
-        <Input
-          id="topics-to-focus"
-          type="text"
-          placeholder="e.g., photosynthesis, cell division"
-          value={topicsToFocus}
-          onChange={(e) => setTopicsToFocus(e.target.value)}
-          disabled={loading}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="topics-to-drop">Topics/Keywords to Drop (Optional, comma-separated)</Label>
-        <Input
-          id="topics-to-drop"
-          type="text"
-          placeholder="e.g., historical background, specific dates"
-          value={topicsToDrop}
-          onChange={(e) => setTopicsToDrop(e.target.value)}
-          disabled={loading}
-        />
-      </div>
-
-
-      <div className="flex justify-end space-x-2 pt-4">
+      <div className="flex justify-end space-x-2 pt-4 flex-shrink-0">
           <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
             <X className="mr-2 h-4 w-4" /> Cancel
           </Button>
