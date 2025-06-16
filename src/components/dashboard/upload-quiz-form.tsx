@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useState, type FormEvent, useEffect, ChangeEvent } from "react";
 import { generateQuizFromPdfsAction } from "@/lib/actions/quiz.actions"; // Updated action import
-import { FileUp, Wand2, Loader2, X, Info, FileText, BadgeAlert } from "lucide-react";
+import { FileUp, Wand2, Loader2, X, Info, FileText, BadgeAlert, Trash2 } from "lucide-react";
 import type { Quiz } from "@/types/supabase";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 interface UploadQuizFormProps {
   workspaceId: string;
@@ -23,6 +24,7 @@ interface UploadQuizFormProps {
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_TOTAL_FILES = 5; 
+const MAX_QUESTIONS = 50;
 
 export function UploadQuizForm({ 
     workspaceId, 
@@ -51,17 +53,22 @@ export function UploadQuizForm({
       const filesArray = Array.from(event.target.files);
       const newValidFiles: File[] = [];
       let filesSkipped = 0;
-      let currentFileCount = 0;
-
+      
       const maxFilesAllowed = isRegenerationMode ? 1 : MAX_TOTAL_FILES;
+      const currentAndNewTotal = pdfFiles.length + filesArray.length;
+
+      if (!isRegenerationMode && currentAndNewTotal > maxFilesAllowed) {
+         toast({
+            title: "File Limit Exceeded",
+            description: `You can select a maximum of ${maxFilesAllowed} files. ${currentAndNewTotal - maxFilesAllowed} additional file(s) were skipped.`,
+            variant: "destructive"
+        });
+      }
+      
+      let acceptedCount = pdfFiles.length;
 
       for (const file of filesArray) {
-        if (currentFileCount >= maxFilesAllowed) {
-            toast({
-                title: "File Limit Reached",
-                description: `You can select a maximum of ${maxFilesAllowed} file(s) ${isRegenerationMode ? 'for regeneration' : 'at a time'}. Additional files were skipped.`,
-                variant: "destructive"
-            });
+        if (acceptedCount >= maxFilesAllowed) {
             break; 
         }
 
@@ -76,21 +83,38 @@ export function UploadQuizForm({
           continue;
         }
         newValidFiles.push(file);
-        currentFileCount++;
+        acceptedCount++;
       }
-      setPdfFiles(newValidFiles);
+      
+      if (isRegenerationMode) {
+        setPdfFiles(newValidFiles.slice(0, 1)); // Only one file for regeneration
+      } else {
+        setPdfFiles(prevFiles => [...prevFiles, ...newValidFiles].slice(0, MAX_TOTAL_FILES));
+      }
+
+      // Smart reset of file input: only if all *newly selected* files were invalid
       if (filesSkipped === filesArray.length && filesArray.length > 0) {
          event.target.value = ""; 
-      } else if (newValidFiles.length === 0 && filesArray.length > 0) {
-         event.target.value = ""; // Clear if all new selections were invalid but some were attempted
       }
     }
   };
 
+  const handleRemoveFile = (indexToRemove: number) => {
+    setPdfFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
+    // Reset file input if all files are removed to allow re-selection of the same file
+    if (pdfFiles.length === 1 && indexToRemove === 0) {
+        const fileInput = document.getElementById('pdf-file-dialog') as HTMLInputElement;
+        if (fileInput) {
+            fileInput.value = "";
+        }
+    }
+  };
+
+
   const handleNumQuestionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value === "") {
-      // Allow empty for a moment
+      // Allow empty for a moment, handle validation on submit
     } else {
       const parsedValue = parseInt(value, 10);
       if (!isNaN(parsedValue)) { 
@@ -105,8 +129,8 @@ export function UploadQuizForm({
       toast({ title: "No PDF Selected", description: "Please select at least one PDF file.", variant: "destructive" });
       return;
     }
-    if (numQuestions < 1 || numQuestions > 20) { // Consider adjusting max based on LLM capabilities with multiple docs
-      toast({ title: "Invalid Question Count", description: "Total number of questions must be between 1 and 20.", variant: "destructive" });
+    if (numQuestions < 1 || numQuestions > MAX_QUESTIONS) { 
+      toast({ title: "Invalid Question Count", description: `Total number of questions must be between 1 and ${MAX_QUESTIONS}.`, variant: "destructive" });
       return;
     }
 
@@ -133,16 +157,17 @@ export function UploadQuizForm({
       } else if (!isRegenerationMode && pdfDocumentsInput.length === 1) {
         quizTitle = pdfDocumentsInput[0].name;
       }
-      // For regeneration, initialPdfNameHint is used, which should be the existing quiz's name
+      
+      const filesToProcess = isRegenerationMode ? pdfDocumentsInput.slice(0,1) : pdfDocumentsInput;
 
       toast({ 
         title: `Processing Document(s)`, 
-        description: "Quiz generation has started. This may take a moment." 
+        description: `Quiz generation has started for ${filesToProcess.length} document(s). This may take a moment.` 
       });
 
       const generatedQuiz: Quiz = await generateQuizFromPdfsAction({
         workspaceId,
-        pdfDocuments: pdfDocumentsInput,
+        pdfDocuments: filesToProcess,
         totalNumberOfQuestions: numQuestions,
         quizTitle: quizTitle, 
         existingQuizIdToUpdate: isRegenerationMode ? existingQuizIdToUpdate : undefined,
@@ -152,14 +177,20 @@ export function UploadQuizForm({
 
     } catch (error) {
       console.error(`Error processing files:`, error);
-      toast({ title: `Error Generating Quiz`, description: (error as Error).message || "Failed to process the PDF(s).", variant: "destructive" });
-      // Call onCancel or a specific error handler if the entire batch fails before AI call
+      let errorMessage = "Failed to process the PDF(s).";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      toast({ title: `Error Generating Quiz`, description: errorMessage, variant: "destructive" });
       onCancel(); 
     } finally {
       setLoading(false);
       setPdfFiles([]);
       const formElement = document.getElementById('pdf-upload-form-in-dialog') as HTMLFormElement;
-      formElement?.reset(); // Reset the actual file input
+      formElement?.reset(); 
     }
   };
 
@@ -190,20 +221,37 @@ export function UploadQuizForm({
           accept="application/pdf"
           onChange={handleFileChange}
           multiple={!isRegenerationMode} 
-          required={pdfFiles.length === 0} 
+          required={pdfFiles.length === 0 && !isRegenerationMode} 
           className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+          disabled={loading || (pdfFiles.length >= MAX_TOTAL_FILES && !isRegenerationMode)}
         />
+         {pdfFiles.length >= MAX_TOTAL_FILES && !isRegenerationMode && (
+            <p className="text-xs text-muted-foreground">Maximum of {MAX_TOTAL_FILES} files reached.</p>
+        )}
       </div>
 
       {pdfFiles.length > 0 && (
         <div className="space-y-2">
             <Label className="text-sm">Selected file(s):</Label>
             <ScrollArea className="h-24 w-full rounded-md border p-2 bg-muted/50">
-                 <ul className="space-y-1">
+                 <ul className="space-y-1.5">
                     {pdfFiles.map((file, index) => (
-                    <li key={index} className="text-xs flex items-center">
-                        <FileText className="h-3 w-3 mr-1.5 flex-shrink-0 text-muted-foreground" />
-                        <span className="truncate" title={file.name}>{file.name}</span>
+                    <li key={index} className="text-xs flex items-center justify-between group p-1 hover:bg-background/50 rounded">
+                        <div className="flex items-center truncate">
+                            <FileText className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 text-muted-foreground" />
+                            <span className="truncate" title={file.name}>{file.name}</span>
+                        </div>
+                        <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-5 w-5 opacity-50 group-hover:opacity-100 focus:opacity-100 text-destructive hover:text-destructive"
+                            onClick={() => handleRemoveFile(index)}
+                            disabled={loading}
+                            title={`Remove ${file.name}`}
+                        >
+                            <X className="h-3.5 w-3.5" />
+                        </Button>
                     </li>
                     ))}
                 </ul>
@@ -219,15 +267,16 @@ export function UploadQuizForm({
 
 
       <div className="space-y-2">
-        <Label htmlFor="num-questions-dialog">Total Number of Questions (1-20)</Label>
+        <Label htmlFor="num-questions-dialog">Total Number of Questions (1-{MAX_QUESTIONS})</Label>
         <Input
           id="num-questions-dialog"
           type="number"
           value={numQuestions.toString()} 
           onChange={handleNumQuestionsChange}
           min="1"
-          max="20"
+          max={MAX_QUESTIONS.toString()}
           required
+          disabled={loading}
         />
       </div>
       <div className="flex justify-end space-x-2 pt-4">
@@ -246,3 +295,4 @@ export function UploadQuizForm({
     </form>
   );
 }
+
