@@ -24,7 +24,7 @@ interface UploadQuizDialogProps {
   onDialogClose: (refresh?: boolean) => void; 
   onQuizGenerationStart: () => void; 
   onQuizGenerated: (quizId: string) => void; 
-  initialPdfName?: string;
+  initialPdfNameHint?: string; // Changed from initialPdfName
   initialNumQuestions?: number;
   existingQuizIdToUpdate?: string;
 }
@@ -37,7 +37,7 @@ export function UploadQuizDialog({
   onDialogClose,
   onQuizGenerationStart,
   onQuizGenerated,
-  initialPdfName,
+  initialPdfNameHint,
   initialNumQuestions,
   existingQuizIdToUpdate,
 }: UploadQuizDialogProps) {
@@ -49,7 +49,7 @@ export function UploadQuizDialog({
 
 
   const handleDialogClose = (refresh?: boolean) => {
-    setIsFormSubmitting(false); // Reset submitting state on close
+    setIsFormSubmitting(false); 
     onDialogClose(refresh);
   }
 
@@ -68,14 +68,14 @@ export function UploadQuizDialog({
     <Dialog open={open} onOpenChange={handleOpenChangeWithReset}>
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col overflow-hidden p-0">
-        <DialogHeader className="p-6 pb-4 flex-shrink-0">
+        <DialogHeader className="p-6 pb-4 flex-shrink-0 border-b">
           <DialogTitle className="font-headline flex items-center">
             <FileUp className="mr-2 h-5 w-5 text-primary" /> 
             {isRegenerationMode ? "Re-Generate Quiz" : "Generate New Quiz(zes)"}
           </DialogTitle>
           <DialogDescription>
             {isRegenerationMode 
-              ? `Re-generating quiz for "${initialPdfName || 'document'}". You will need to re-upload the PDF.` 
+              ? `Re-generating quiz for "${initialPdfNameHint || 'document'}". You will need to re-upload the PDF.` 
               : "Upload one or more PDF documents (max 5) and specify the number of questions. The AI will generate a quiz based on each document's content."
             }
           </DialogDescription>
@@ -92,13 +92,12 @@ export function UploadQuizDialog({
             onQuizGenerated(quizId); 
           }}
           onFormValidityChange={setIsFormValidForSubmission}
-          // Note: onCancel is effectively handled by DialogFooter's cancel button + onOpenChange
           initialNumQuestions={initialNumQuestions}
           existingQuizIdToUpdate={existingQuizIdToUpdate}
-          initialPdfNameHint={initialPdfName}
-          className="flex-1 min-h-0 px-6 pt-2 pb-1" // Ensure form takes space and has padding for its scrollable content
-          formSubmitRef={formSubmitButtonRef} // Pass ref for programmatic submission
-          onActualCancel={() => { // form's internal cancel, e.g. if it had its own "reset"
+          initialPdfNameHint={initialPdfNameHint}
+          className="flex-1 min-h-0 px-6" // Horizontal padding here, form manages its vertical needs
+          formSubmitRef={formSubmitButtonRef}
+          onActualCancel={() => { 
             onOpenChange(false);
             handleDialogClose(false);
           }}

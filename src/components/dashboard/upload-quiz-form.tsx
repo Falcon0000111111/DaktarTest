@@ -18,13 +18,13 @@ interface UploadQuizFormProps {
   workspaceId: string;
   onUploadStarted: () => void;
   onUploadComplete: (quizId: string) => void;
-  onActualCancel: () => void; // Renamed to avoid confusion with dialog's cancel
+  onActualCancel: () => void; 
   onFormValidityChange: (isValid: boolean) => void;
   initialNumQuestions?: number;
   existingQuizIdToUpdate?: string;
   initialPdfNameHint?: string;
   className?: string;
-  formSubmitRef: RefObject<HTMLButtonElement>; // Ref for programmatic submission
+  formSubmitRef: RefObject<HTMLButtonElement>; 
 }
 
 const MAX_FILE_SIZE_MB = 10;
@@ -55,7 +55,7 @@ export function UploadQuizForm({
   const [hardMode, setHardMode] = useState(false);
   const [topicsToFocus, setTopicsToFocus] = useState("");
   const [topicsToDrop, setTopicsToDrop] = useState("");
-  const [loading, setLoading] = useState(false); // This 'loading' is specific to form submission state
+  const [loading, setLoading] = useState(false); 
   const { toast } = useToast();
 
   const isRegenerationMode = !!existingQuizIdToUpdate;
@@ -71,14 +71,11 @@ export function UploadQuizForm({
       setNumQuestions(initialNumQuestions);
     }
     if (!isRegenerationMode) {
-        setSelectedQuestionStyles(["multiple-choice"]); // Default to MCQ
+        setSelectedQuestionStyles(["multiple-choice"]); 
         setHardMode(false);
         setTopicsToFocus("");
         setTopicsToDrop("");
     } else {
-        // For regeneration, we might pre-fill these if they were stored,
-        // but current schema doesn't store them on quiz row.
-        // So, for now, they reset or take initial defaults.
         setSelectedQuestionStyles(["multiple-choice"]);
         setHardMode(false);
         setTopicsToFocus("");
@@ -130,7 +127,6 @@ export function UploadQuizForm({
         setPdfFiles(prevFiles => [...prevFiles, ...newValidFiles].slice(0, MAX_TOTAL_FILES));
       }
       
-      // Reset file input if all selected files were skipped to allow re-selection easily
       if (filesSkipped === filesArray.length && filesArray.length > 0) {
          event.target.value = ""; 
       }
@@ -139,20 +135,18 @@ export function UploadQuizForm({
 
   const handleRemoveFile = (indexToRemove: number) => {
     setPdfFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
-    // If all files are removed, reset the file input field
     if (pdfFiles.length === 1 && indexToRemove === 0) {
         const fileInput = document.getElementById('pdf-file-dialog') as HTMLInputElement;
         if (fileInput) {
-            fileInput.value = ""; // Clears the file input
+            fileInput.value = ""; 
         }
     }
   };
 
   const handleNumQuestionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    // Allow empty input for intermediate typing, validate on submit or state change
     if (value === "") {
-      setNumQuestions(0); // Or some indicator for empty, handle in validation
+      setNumQuestions(0); 
     } else {
       const parsedValue = parseInt(value, 10);
       if (!isNaN(parsedValue)) {
@@ -178,8 +172,8 @@ export function UploadQuizForm({
       return;
     }
 
-    setLoading(true); // Form's internal loading state
-    onUploadStarted(); // Notify dialog
+    setLoading(true); 
+    onUploadStarted(); 
 
     try {
       const pdfDocumentsInput = await Promise.all(
@@ -223,7 +217,7 @@ export function UploadQuizForm({
         topicsToDrop: topicsToDrop || undefined,
       });
 
-      onUploadComplete(generatedQuiz.id); // Notify dialog of completion
+      onUploadComplete(generatedQuiz.id); 
 
     } catch (error) {
       console.error(`Error processing files:`, error);
@@ -237,32 +231,31 @@ export function UploadQuizForm({
       }
       
       toast({ title: `Error Generating Quiz`, description: errorMessage, variant: "destructive" });
-      // onActualCancel(); // Call this to close dialog on error if desired, or let user retry
     } finally {
-      setLoading(false); // Reset form's internal loading state
-      // Resetting fields might be aggressive if user wants to retry with minor changes.
-      // Consider if this reset is always desired or only on successful completion.
+      setLoading(false); 
       setPdfFiles([]);
       if (!isRegenerationMode) {
-        // setNumQuestions(initialNumQuestions || 5); // Reset to initial or default
         setSelectedQuestionStyles(["multiple-choice"]);
         setHardMode(false);
         setTopicsToFocus("");
         setTopicsToDrop("");
       }
       const formElement = document.getElementById('pdf-upload-form-in-dialog') as HTMLFormElement;
-      if (formElement) formElement.reset(); // This might be too broad
+      if (formElement) formElement.reset(); 
       const fileInput = document.getElementById('pdf-file-dialog') as HTMLInputElement;
       if (fileInput) fileInput.value = "";
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className={cn("flex flex-col h-full", className)} id="pdf-upload-form-in-dialog">
-      {/* Hidden submit button for programmatic triggering */}
+    <form 
+        onSubmit={handleSubmit} 
+        className={cn("flex flex-col h-full", className)} // className contains px-6 from parent
+        id="pdf-upload-form-in-dialog"
+    >
       <button type="submit" ref={formSubmitRef} style={{ display: 'none' }} aria-hidden="true" />
 
-      <div className="pt-1 flex-shrink-0"> {/* Wrapper for info messages, removed px-6 as form parent provides it */}
+      <div className="pt-2 flex-shrink-0"> {/* Info messages wrapper, pt-2 for top padding */}
         {isRegenerationMode && initialPdfNameHint && (
           <div className="p-3 mb-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-start">
               <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
@@ -277,8 +270,8 @@ export function UploadQuizForm({
         )}
       </div>
 
-      <ScrollArea className="flex-1 min-h-0"> {/* Scrollable area uses flex-1 */}
-        <div className="space-y-4 pb-4 pr-2"> {/* Padding inside scrollable area, removed px-6 */}
+      <ScrollArea className="flex-1 min-h-0"> {/* Scrollable area, pr-2 is for scrollbar space */}
+        <div className="space-y-4 pb-4 pr-2"> {/* Content inside scrollable area, pb-4 for bottom padding */}
           <div className="space-y-2">
             <Label htmlFor="pdf-file-dialog" className="flex items-center">
               <FileUp className="mr-2 h-5 w-5" />
@@ -354,7 +347,7 @@ export function UploadQuizForm({
           <div className="space-y-2">
             <Label>Preferred Question Styles (Optional)</Label>
             <p className="text-xs text-muted-foreground">Output will be MCQs. Styles like "Short Descriptions" or "Fill in the blanks" will be adapted into an MCQ format.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-1 gap-x-4 gap-y-2 pt-1"> {/* Changed to 1 column for better fit */}
+            <div className="grid grid-cols-1 sm:grid-cols-1 gap-x-4 gap-y-2 pt-1"> 
               {questionStyleOptions.map((style) => (
                 <div key={style.id} className="flex items-center space-x-2">
                   <Checkbox
@@ -406,7 +399,6 @@ export function UploadQuizForm({
           </div>
         </div>
       </ScrollArea>
-      {/* Action buttons are now in DialogFooter of UploadQuizDialog.tsx */}
     </form>
   );
 }
