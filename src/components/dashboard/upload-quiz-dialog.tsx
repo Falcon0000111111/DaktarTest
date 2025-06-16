@@ -67,7 +67,7 @@ export function UploadQuizDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChangeWithReset}>
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
-      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col overflow-hidden p-0">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col p-0">
         <DialogHeader className="p-6 pb-4 flex-shrink-0 border-b">
           <DialogTitle className="font-headline flex items-center">
             <FileUp className="mr-2 h-5 w-5 text-primary" /> 
@@ -95,12 +95,12 @@ export function UploadQuizDialog({
           initialNumQuestions={initialNumQuestions}
           existingQuizIdToUpdate={existingQuizIdToUpdate}
           initialPdfNameHint={initialPdfNameHint}
-          className="flex-1 min-h-0 px-6" // This makes UploadQuizForm the flexible middle part
           formSubmitRef={formSubmitButtonRef}
           onActualCancel={() => { 
             onOpenChange(false);
             handleDialogClose(false);
           }}
+          className="flex-1 min-h-0 px-6" // This makes UploadQuizForm the flexible middle part
         />
         <DialogFooter className="p-6 pt-4 flex-shrink-0 border-t">
             <Button type="button" variant="outline" onClick={() => {
