@@ -51,8 +51,8 @@ const GenerateQuizOutputSchema = z.object({
     z.object({
       question: z.string().describe('The quiz question.'),
       options: z.array(z.string()).length(4).describe('Exactly four possible answers to the question.'),
-      answer: z.string().describe('The correct answer to the question. This MUST be an exact, verbatim copy of one of the strings from the "options" array.'),
-      explanation: z.string().describe('A brief explanation for why the answer is correct.'),
+      answer: z.string().describe('The correct answer to the question. CRITICAL: This MUST be an exact, verbatim, character-for-character copy of one of the strings from the "options" array for THIS question. No extra text, no summaries.'),
+      explanation: z.string().describe('A brief explanation for why the answer is correct. This field can elaborate on the concept.'),
     })
   ).describe('The generated quiz questions, options, answers, and explanations.'),
 });
@@ -99,10 +99,10 @@ const prompt = ai.definePrompt({
     For each of the {{{totalNumberOfQuestions}}} questions:
     1. Provide the question text.
     2. Provide exactly four multiple-choice options. Ensure variety and plausibility in the distractors.
-    3. Clearly indicate which of the four options is the correct answer. The "answer" field in the output MUST be an exact, verbatim copy of one of the strings from the "options" array you provide for that question.
-    4. Provide a brief and clear explanation for why the correct answer is correct. The explanation should help someone understand the concept.
+    3. CRITICAL REQUIREMENT: The "answer" field for each question in your JSON output MUST be an EXACT, VERBATIM, CHARACTER-FOR-CHARACTER copy of one of the strings from the "options" array you provided for that specific question. DO NOT add any extra text, summarize, or modify the chosen option string in the "answer" field. It must be identical to one of the option strings.
+    4. Provide a brief and clear explanation in the "explanation" field for why the correct answer is correct. The explanation should help someone understand the concept and can elaborate beyond the option text.
 
-    The output MUST be a JSON array of question objects, correctly formatted.
+    The output MUST be a JSON array of question objects, correctly formatted according to the schema.
   `,
     config: {
     safetySettings: [
@@ -151,3 +151,4 @@ const generateQuizFromPdfFlow = ai.defineFlow(
     return output;
   }
 );
+
