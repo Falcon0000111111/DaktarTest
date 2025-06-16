@@ -30,7 +30,7 @@ const GenerateQuizInputSchema = z.object({
   preferredQuestionStyles: z
     .string()
     .optional()
-    .describe('Optional preferred styles for questions, e.g., "scenario-based", "fill-in-the-blanks if possible". Output must still primarily be MCQ.'),
+    .describe('Optional comma-separated list of preferred styles for questions (e.g., "multiple-choice, short-descriptions, fill-in-the-blanks"). All output must ultimately be in Multiple Choice Question (MCQ) format. If "short-descriptions" or "fill-in-the-blanks" are requested, they should be adapted into MCQs.'),
   hardMode: z
     .boolean()
     .optional()
@@ -51,7 +51,7 @@ const GenerateQuizOutputSchema = z.object({
     z.object({
       question: z.string().describe('The quiz question.'),
       options: z.array(z.string()).length(4).describe('Exactly four possible answers to the question.'),
-      answer: z.string().describe('The correct answer to the question. CRITICAL: This MUST be an exact, verbatim, character-for-character copy of one of the strings from the "options" array for THIS question. No extra text, no summaries.'),
+      answer: z.string().describe('The correct answer to the question. CRITICAL: This MUST be an exact, verbatim, character-for-character copy of one of the strings from the "options" array for THIS question. No extra text, no summaries, no modifications.'),
       explanation: z.string().describe('A brief explanation for why the answer is correct. This field can elaborate on the concept.'),
     })
   ).describe('The generated quiz questions, options, answers, and explanations.'),
@@ -81,8 +81,19 @@ const prompt = ai.definePrompt({
     {{/each}}
 
     ADDITIONAL INSTRUCTIONS:
+    ALL questions you generate MUST be in a Multiple Choice Question (MCQ) format. This means each question must have:
+    1. The question text.
+    2. Exactly four multiple-choice options. Ensure variety and plausibility in the distractors.
+    3. A correct answer field. CRITICAL REQUIREMENT: The "answer" field for each question in your JSON output MUST be an EXACT, VERBATIM, CHARACTER-FOR-CHARACTER copy of one of the strings from the "options" array you provided for that specific question. DO NOT add any extra text, summarize, or modify the chosen option string in the "answer" field. It must be identical to one of the option strings.
+    4. A brief and clear explanation in the "explanation" field for why the correct answer is correct.
+
     {{#if preferredQuestionStyles}}
-    - Preferred Question Styles: Attempt to incorporate the following styles or themes if possible: "{{{preferredQuestionStyles}}}". However, ensure the final output for each question strictly adheres to the multiple-choice format: a question, exactly four options, one correct answer, and an explanation.
+    - Preferred Question Styles: The user has indicated preferences for styles like: "{{{preferredQuestionStyles}}}".
+      - If "multiple-choice" is mentioned, this aligns with the primary requirement.
+      - If styles like "short-descriptions" or "fill-in-the-blanks" are mentioned, you should ADAPT these into an MCQ format. For example:
+        - For "short-descriptions": You could ask a question like "Which of the following best describes [concept]?" and the options would be descriptions.
+        - For "fill-in-the-blanks": You could present a sentence with a blank, and the options would be words or phrases to fill that blank.
+      - Regardless of the suggested styles, the final output for EACH question MUST strictly adhere to the MCQ format (question, 4 options, 1 verbatim answer, 1 explanation).
     {{/if}}
     {{#if hardMode}}
     - Difficulty Level: Hard Mode is ON. Questions should be more challenging, requiring deeper understanding, synthesis of information, or complex application of concepts from the document(s). Avoid trivial or very direct recall questions unless they are framed in a complex way.
@@ -95,12 +106,6 @@ const prompt = ai.definePrompt({
     {{#if topicsToDrop}}
     - Topics to Drop: Avoid generating questions related to these topics/keywords: "{{{topicsToDrop}}}".
     {{/if}}
-
-    For each of the {{{totalNumberOfQuestions}}} questions:
-    1. Provide the question text.
-    2. Provide exactly four multiple-choice options. Ensure variety and plausibility in the distractors.
-    3. CRITICAL REQUIREMENT: The "answer" field for each question in your JSON output MUST be an EXACT, VERBATIM, CHARACTER-FOR-CHARACTER copy of one of the strings from the "options" array you provided for that specific question. DO NOT add any extra text, summarize, or modify the chosen option string in the "answer" field. It must be identical to one of the option strings.
-    4. Provide a brief and clear explanation in the "explanation" field for why the correct answer is correct. The explanation should help someone understand the concept and can elaborate beyond the option text.
 
     The output MUST be a JSON array of question objects, correctly formatted according to the schema.
   `,
@@ -151,4 +156,3 @@ const generateQuizFromPdfFlow = ai.defineFlow(
     return output;
   }
 );
-

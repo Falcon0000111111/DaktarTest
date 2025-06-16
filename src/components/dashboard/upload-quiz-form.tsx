@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox"; // Added Checkbox
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useState, type FormEvent, useEffect, ChangeEvent } from "react";
 import { generateQuizFromPdfsAction } from "@/lib/actions/quiz.actions";
@@ -29,11 +29,9 @@ const MAX_TOTAL_FILES = 5;
 const MAX_QUESTIONS = 50;
 
 const questionStyleOptions = [
-  { id: "scenario-based", label: "Scenario-based" },
-  { id: "definitions", label: "Definitions" },
-  { id: "comparisons", label: "Comparisons" },
-  { id: "application-based", label: "Application-based" },
-  { id: "problem-solving", label: "Problem-solving" },
+  { id: "multiple-choice", label: "Multiple choice questions" },
+  { id: "short-descriptions", label: "Short Descriptions (as MCQs)" },
+  { id: "fill-in-the-blanks", label: "Fill in the blanks (as MCQs)" },
 ];
 
 export function UploadQuizForm({
@@ -323,8 +321,8 @@ export function UploadQuizForm({
 
       <div className="space-y-2">
         <Label>Preferred Question Styles (Optional)</Label>
-        <p className="text-xs text-muted-foreground">Output will primarily be MCQs.</p>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-1">
+        <p className="text-xs text-muted-foreground">Output will be MCQs. Styles like "Short Descriptions" or "Fill in the blanks" will be adapted into an MCQ format.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 pt-1">
           {questionStyleOptions.map((style) => (
             <div key={style.id} className="flex items-center space-x-2">
               <Checkbox
@@ -392,5 +390,3 @@ export function UploadQuizForm({
     </form>
   );
 }
-
-    
