@@ -100,7 +100,7 @@ export function UploadQuizDialog({
             onOpenChange(false);
             handleDialogClose(false);
           }}
-          className="flex-1 min-h-0 px-6" // This makes UploadQuizForm the flexible middle part
+          className="flex-1 min-h-0 px-6 py-4" // This makes UploadQuizForm the flexible middle part
         />
         <DialogFooter className="p-6 pt-4 flex-shrink-0 border-t">
             <Button type="button" variant="outline" onClick={() => {
