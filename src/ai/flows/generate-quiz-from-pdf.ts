@@ -90,21 +90,21 @@ const prompt = ai.definePrompt({
     {{#if preferredQuestionStyles}}
     - Preferred Question Styles: The user has indicated preferences for styles like: "{{{preferredQuestionStyles}}}".
       - If "multiple-choice" is mentioned, this aligns with the primary requirement.
-      - If styles like "short-descriptions" or "fill-in-the-blanks" are mentioned, you should ADAPT these into an MCQ format. For example:
+      - If styles like "short-descriptions" or "fill-in-the-blanks" are mentioned, you MUST ADAPT these into an MCQ format. For example:
         - For "short-descriptions": You could ask a question like "Which of the following best describes [concept]?" and the options would be descriptions.
         - For "fill-in-the-blanks": You could present a sentence with a blank, and the options would be words or phrases to fill that blank.
       - Regardless of the suggested styles, the final output for EACH question MUST strictly adhere to the MCQ format (question, 4 options, 1 verbatim answer, 1 explanation).
     {{/if}}
     {{#if hardMode}}
-    - Difficulty Level: Hard Mode is ON. Questions should be more challenging, requiring deeper understanding, synthesis of information, or complex application of concepts from the document(s). Avoid trivial or very direct recall questions unless they are framed in a complex way.
+    - Difficulty Level: Hard Mode is ON. Questions MUST be made more challenging, requiring deeper understanding, synthesis of information, or complex application of concepts from the document(s). Avoid trivial or very direct recall questions unless they are framed in a complex way.
     {{else}}
     - Difficulty Level: Standard. Questions should be of moderate difficulty, suitable for general understanding and assessment.
     {{/if}}
     {{#if topicsToFocus}}
-    - Topics to Focus On: Prioritize generating questions related to these topics/keywords: "{{{topicsToFocus}}}".
+    - Topics to Focus On: You MUST prioritize generating questions related to these topics/keywords: "{{{topicsToFocus}}}". Ensure these topics are well-represented.
     {{/if}}
     {{#if topicsToDrop}}
-    - Topics to Drop: Avoid generating questions related to these topics/keywords: "{{{topicsToDrop}}}".
+    - Topics to Drop: You MUST avoid generating questions related to these topics/keywords: "{{{topicsToDrop}}}". Do not include questions on these topics.
     {{/if}}
 
     The output MUST be a JSON array of question objects, correctly formatted according to the schema.
@@ -156,3 +156,4 @@ const generateQuizFromPdfFlow = ai.defineFlow(
     return output;
   }
 );
+
