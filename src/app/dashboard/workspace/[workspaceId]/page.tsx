@@ -66,6 +66,7 @@ export default function WorkspacePage() {
   
   const [allQuizzes, setAllQuizzes] = useState<Quiz[]>([]);
   const [isLoadingQuizzesList, setIsLoadingQuizzesList] = useState(false);
+  const [showRegenerateButton, setShowRegenerateButton] = useState(false);
   
   const contentAreaRef = useRef<HTMLDivElement>(null);
 
@@ -124,24 +125,23 @@ export default function WorkspacePage() {
     setIsUploadDialogOpen(false); 
     setViewMode("loading_quiz"); 
     setIsGeneratingQuiz(false); 
-    setAllQuizzes([]); // Clear allQuizzes as this is a fresh generation/regeneration context
   
     try {
-      // To ensure we get the absolute latest, we fetch *all* quizzes again
-      // This also helps populate `allQuizzes` if this was the first quiz ever
       const quizzesInWs = await getQuizzesForWorkspace(workspaceId);
-      setAllQuizzes(quizzesInWs); // Store all for isLatestQuizSelected to work correctly later
+      setAllQuizzes(quizzesInWs); 
 
       const generatedQuiz = quizzesInWs.find(q => q.id === quizId);
   
       if (generatedQuiz && generatedQuiz.generated_quiz_data && generatedQuiz.status === 'completed') {
         setActiveQuizDBEntry(generatedQuiz);
         setQuizForDisplay(generatedQuiz.generated_quiz_data as StoredQuizData);
+        setShowRegenerateButton(true);
         setViewMode("quiz_review");
       } else if (generatedQuiz && generatedQuiz.status === 'failed') {
         toast({ title: "Quiz Generation Failed", description: generatedQuiz.error_message || "The AI failed to generate the quiz.", variant: "destructive" });
         setActiveQuizDBEntry(generatedQuiz);
         setQuizForDisplay(null);
+        setShowRegenerateButton(true);
         setViewMode("quiz_review"); 
       } else if (generatedQuiz && (generatedQuiz.status === 'processing' || generatedQuiz.status === 'pending')) {
          toast({ title: "Quiz is still processing", description: "Please wait a moment. The view will update when ready.", variant: "default" });
@@ -192,6 +192,7 @@ export default function WorkspacePage() {
     setIsLoadingQuizzesList(true);
     setActiveQuizDBEntry(null);
     setQuizForDisplay(null);
+    setShowRegenerateButton(false);
     try {
       const quizzes = await getQuizzesForWorkspace(workspaceId);
       setAllQuizzes(quizzes);
@@ -206,9 +207,10 @@ export default function WorkspacePage() {
 
   const handleViewSourcePdfs = async () => {
     setIsLoadingQuizzesList(true);
+    setShowRegenerateButton(false);
     try {
-      const quizzes = await getQuizzesForWorkspace(workspaceId); // Ensure quizzes are fetched
-      setAllQuizzes(quizzes); // Store all quizzes to extract PDF names
+      const quizzes = await getQuizzesForWorkspace(workspaceId); 
+      setAllQuizzes(quizzes); 
       setViewMode("source_pdf_list");
     } catch (error) {
       toast({ title: "Error fetching source documents", description: (error as Error).message, variant: "destructive" });
@@ -220,6 +222,7 @@ export default function WorkspacePage() {
 
   const handleQuizSelectionFromList = (quizId: string) => {
     const selectedQuiz = allQuizzes.find(q => q.id === quizId);
+    setShowRegenerateButton(false); 
     if (selectedQuiz) {
       if (selectedQuiz.status === 'completed' && selectedQuiz.generated_quiz_data) {
         setActiveQuizDBEntry(selectedQuiz);
@@ -228,7 +231,7 @@ export default function WorkspacePage() {
       } else if (selectedQuiz.status === 'failed') {
         toast({ title: "Cannot Review", description: `This quiz (${selectedQuiz.pdf_name || 'Untitled'}) failed during generation.`, variant: "destructive" });
         setActiveQuizDBEntry(selectedQuiz); 
-        setQuizForDisplay(null); // No data to display for failed
+        setQuizForDisplay(null); 
         setViewMode('quiz_review'); 
       } else if (selectedQuiz.status === 'processing' || selectedQuiz.status === 'pending') {
          toast({ title: "Still Processing", description: `This quiz (${selectedQuiz.pdf_name || 'Untitled'}) is still being generated. Please wait.`, variant: "default" });
@@ -241,30 +244,27 @@ export default function WorkspacePage() {
   };
 
   const handleBackNavigation = () => {
+    setShowRegenerateButton(false);
     if (
       (viewMode === "quiz_review" || viewMode === "quiz_taking" || viewMode === "quiz_results") &&
       allQuizzes.length > 0 && 
       activeQuizDBEntry 
     ) {
-      // Check if the currently active quiz is part of the `allQuizzes` list
-      // This implies the user came from the quiz list selection view.
       const isActiveQuizInList = allQuizzes.some(q => q.id === activeQuizDBEntry.id);
 
       if (isActiveQuizInList) {
         setViewMode('quiz_list_selection');
-        setActiveQuizDBEntry(null); // Clear active quiz context
+        setActiveQuizDBEntry(null); 
         setQuizForDisplay(null);
-        // Keep allQuizzes populated for the list view
         return;
       }
     }
     
-    // Default back action: go to dashboard_cards and clear all quiz-related states
     setViewMode('dashboard_cards');
     setActiveQuizDBEntry(null);
     setQuizForDisplay(null);
-    setAllQuizzes([]); // Clear the list of quizzes as well
-    setIsLoadingQuizzesList(false); // Reset loading state
+    setAllQuizzes([]); 
+    setIsLoadingQuizzesList(false); 
   };
 
   const getBackButtonText = () => {
@@ -272,7 +272,7 @@ export default function WorkspacePage() {
       (viewMode === "quiz_review" || viewMode === "quiz_taking" || viewMode === "quiz_results") &&
       allQuizzes.length > 0 &&
       activeQuizDBEntry &&
-      allQuizzes.some(q => q.id === activeQuizDBEntry.id) // Check if active quiz is in the list
+      allQuizzes.some(q => q.id === activeQuizDBEntry.id) 
     ) {
       return "Back to Quiz List";
     }
@@ -316,12 +316,7 @@ export default function WorkspacePage() {
   }
 
   const sortedAllQuizzes = allQuizzes.length > 0 ? [...allQuizzes].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) : [];
-  // This flag is true if a quiz was just generated/updated (allQuizzes is empty before selecting "Review/Retake")
-  const isNewlyGeneratedQuizActive = activeQuizDBEntry && allQuizzes.length === 0 && !isLoadingQuizzesList;
-  // This flag is true if the active quiz is the latest one in the full list (when allQuizzes is populated)
   const isLatestQuizSelected = activeQuizDBEntry && sortedAllQuizzes.length > 0 && sortedAllQuizzes[0].id === activeQuizDBEntry.id;
-  // Combined condition: show regenerate if it's new OR if it's the latest one from the list
-  const showRegenerateForCurrentQuiz = isNewlyGeneratedQuizActive || isLatestQuizSelected;
 
 
   const renderContent = () => {
@@ -342,7 +337,6 @@ export default function WorkspacePage() {
             </div>
           );
         }
-        // Unique PDF names from allQuizzes (which should be populated by handleViewSourcePdfs)
         const pdfNames = Array.from(new Set(allQuizzes.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
         if (pdfNames.length === 0) {
           return (
@@ -378,7 +372,7 @@ export default function WorkspacePage() {
         }
         return (
           <QuizList 
-            initialQuizzes={sortedAllQuizzes} // Use sorted list here
+            initialQuizzes={sortedAllQuizzes} 
             workspaceId={workspaceId}
             onQuizSelect={handleQuizSelectionFromList}
             selectedQuizId={activeQuizDBEntry?.id}
@@ -395,7 +389,7 @@ export default function WorkspacePage() {
                  This quiz ({activeQuizDBEntry.pdf_name || 'Untitled'}) encountered an error during generation:
                </p>
                <p className="text-sm text-destructive mt-1 mb-4">{activeQuizDBEntry.error_message || "Unknown error."}</p>
-               {showRegenerateForCurrentQuiz && (
+               {showRegenerateButton && (
                  <Button onClick={handleRegenerateQuiz}>
                      <RefreshCw className="mr-2 h-4 w-4" /> Re-Generate Quiz
                  </Button>
@@ -437,6 +431,7 @@ export default function WorkspacePage() {
                 setViewMode("quiz_taking");
               }}
               onReviewAll={() => {
+                setShowRegenerateButton(false);
                 setViewMode("quiz_review"); 
               }}
             />
@@ -551,13 +546,13 @@ export default function WorkspacePage() {
         <div className="p-4 md:p-6 border-t bg-card flex justify-end space-x-4">
           {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed' && (
             <>
-              {showRegenerateForCurrentQuiz ? (
+              {showRegenerateButton ? (
                 <Button variant="outline" onClick={handleRegenerateQuiz}>
                     <RefreshCw className="mr-2 h-4 w-4" /> Re-Generate Quiz
                 </Button>
               ) : null}
               
-              {showRegenerateForCurrentQuiz ? (
+              {(showRegenerateButton || isLatestQuizSelected) ? (
                  <Button onClick={handleTakeQuiz}>
                     <BookOpen className="mr-2 h-4 w-4" /> Take the Quiz
                  </Button>
@@ -568,7 +563,7 @@ export default function WorkspacePage() {
               )}
             </>
           )}
-           {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'failed' && showRegenerateForCurrentQuiz && (
+           {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'failed' && showRegenerateButton && (
              <Button onClick={handleRegenerateQuiz}>
                 <RefreshCw className="mr-2 h-4 w-4" /> Re-Generate Quiz
              </Button>
@@ -576,6 +571,7 @@ export default function WorkspacePage() {
           {viewMode === 'quiz_results' && (
             <>
               <Button variant="outline" onClick={() => {
+                  setShowRegenerateButton(false);
                   setViewMode("quiz_review");
               }}>
                   <ListChecks className="mr-2 h-4 w-4" /> Review All Questions
@@ -602,3 +598,4 @@ export default function WorkspacePage() {
 
 
     
+
