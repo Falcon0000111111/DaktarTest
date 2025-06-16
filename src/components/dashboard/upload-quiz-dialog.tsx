@@ -10,11 +10,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogClose,
 } from "@/components/ui/dialog";
 import { UploadQuizForm } from "./upload-quiz-form";
-import type { ReactNode } from "react";
-import { FileUp } from "lucide-react";
+import type { ReactNode} from "react";
+import { FileUp, X, Wand2, Loader2 } from "lucide-react";
+import React, { useRef, useState } from "react";
 
 interface UploadQuizDialogProps {
   children?: ReactNode; 
@@ -43,17 +43,32 @@ export function UploadQuizDialog({
 }: UploadQuizDialogProps) {
   
   const isRegenerationMode = !!existingQuizIdToUpdate;
+  const formSubmitButtonRef = useRef<HTMLButtonElement>(null);
+  const [isFormSubmitting, setIsFormSubmitting] = useState(false);
+  const [isFormValidForSubmission, setIsFormValidForSubmission] = useState(false);
+
+
+  const handleDialogClose = (refresh?: boolean) => {
+    setIsFormSubmitting(false); // Reset submitting state on close
+    onDialogClose(refresh);
+  }
+
+  const handleOpenChangeWithReset = (isOpen: boolean) => {
+    onOpenChange(isOpen);
+    if (!isOpen) {
+      handleDialogClose(false);
+    }
+  }
+
+  const handleGenerateClick = () => {
+    formSubmitButtonRef.current?.click();
+  };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      onOpenChange(isOpen);
-      if (!isOpen) {
-         onDialogClose(false); 
-      }
-    }}>
+    <Dialog open={open} onOpenChange={handleOpenChangeWithReset}>
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col overflow-hidden p-0">
-        <DialogHeader className="p-6 pb-4 flex-shrink-0"> {/* Added padding to header */}
+        <DialogHeader className="p-6 pb-4 flex-shrink-0">
           <DialogTitle className="font-headline flex items-center">
             <FileUp className="mr-2 h-5 w-5 text-primary" /> 
             {isRegenerationMode ? "Re-Generate Quiz" : "Generate New Quiz(zes)"}
@@ -68,19 +83,42 @@ export function UploadQuizDialog({
         
         <UploadQuizForm 
           workspaceId={workspaceId} 
-          onUploadStarted={onQuizGenerationStart} 
+          onUploadStarted={() => {
+            setIsFormSubmitting(true);
+            onQuizGenerationStart();
+          }} 
           onUploadComplete={(quizId) => {
+            setIsFormSubmitting(false);
             onQuizGenerated(quizId); 
           }}
-          onCancel={() => {
-            onOpenChange(false);
-            onDialogClose(false); 
-          }}
+          onFormValidityChange={setIsFormValidForSubmission}
+          // Note: onCancel is effectively handled by DialogFooter's cancel button + onOpenChange
           initialNumQuestions={initialNumQuestions}
           existingQuizIdToUpdate={existingQuizIdToUpdate}
           initialPdfNameHint={initialPdfName}
-          className="flex-1 min-h-0 px-5" // Pass className for flex behavior, adjust padding
+          className="flex-1 min-h-0 px-6 pt-2 pb-1" // Ensure form takes space and has padding for its scrollable content
+          formSubmitRef={formSubmitButtonRef} // Pass ref for programmatic submission
+          onActualCancel={() => { // form's internal cancel, e.g. if it had its own "reset"
+            onOpenChange(false);
+            handleDialogClose(false);
+          }}
         />
+        <DialogFooter className="p-6 pt-4 border-t flex-shrink-0">
+            <Button type="button" variant="outline" onClick={() => {
+                onOpenChange(false);
+                handleDialogClose(false);
+            }} disabled={isFormSubmitting}>
+              <X className="mr-2 h-4 w-4" /> Cancel
+            </Button>
+            <Button type="button" onClick={handleGenerateClick} disabled={isFormSubmitting || !isFormValidForSubmission}>
+              {isFormSubmitting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Wand2 className="mr-2 h-4 w-4" />
+              )}
+              {isFormSubmitting ? (isRegenerationMode ? "Re-Generating..." : "Generating...") : (isRegenerationMode ? "Re-Generate Quiz" : "Generate Quiz")}
+            </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
