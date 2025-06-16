@@ -95,7 +95,7 @@ export function UploadQuizDialog({
           initialNumQuestions={initialNumQuestions}
           existingQuizIdToUpdate={existingQuizIdToUpdate}
           initialPdfNameHint={initialPdfNameHint}
-          className="flex-1 min-h-0 px-6" // This UploadQuizForm instance is the middle content that grows
+          className="flex-1 min-h-0 px-6" // This makes UploadQuizForm the flexible middle part
           formSubmitRef={formSubmitButtonRef}
           onActualCancel={() => { 
             onOpenChange(false);

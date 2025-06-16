@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useState, type FormEvent, useEffect, ChangeEvent, RefObject } from "react";
 import { generateQuizFromPdfsAction } from "@/lib/actions/quiz.actions";
-import { FileUp, Wand2, Loader2, X, Info, FileText, BadgeAlert, Trash2 } from "lucide-react";
+import { FileUp, Info, FileText, BadgeAlert, X } from "lucide-react";
 import type { Quiz } from "@/types/supabase";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,7 @@ interface UploadQuizFormProps {
   initialNumQuestions?: number;
   existingQuizIdToUpdate?: string;
   initialPdfNameHint?: string;
-  className?: string; // Will receive "flex-1 min-h-0 px-6" from parent
+  className?: string; 
   formSubmitRef: RefObject<HTMLButtonElement>; 
 }
 
@@ -46,7 +46,7 @@ export function UploadQuizForm({
     initialNumQuestions,
     existingQuizIdToUpdate,
     initialPdfNameHint,
-    className, // Consumes className from props
+    className,
     formSubmitRef,
 }: UploadQuizFormProps) {
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
@@ -76,7 +76,6 @@ export function UploadQuizForm({
         setTopicsToFocus("");
         setTopicsToDrop("");
     } else {
-        // Retain previous settings or default for regeneration if needed, currently resetting
         setSelectedQuestionStyles(["multiple-choice"]);
         setHardMode(false);
         setTopicsToFocus("");
@@ -251,12 +250,12 @@ export function UploadQuizForm({
   return (
     <form 
         onSubmit={handleSubmit} 
-        className={cn("flex flex-col", className)} // className from props includes flex-1 min-h-0 and px-6
+        className={cn("flex flex-col h-full", className)} 
         id="pdf-upload-form-in-dialog"
     >
       <button type="submit" ref={formSubmitRef} style={{ display: 'none' }} aria-hidden="true" />
 
-      <div className="flex-shrink-0 pt-2"> {/* Info messages wrapper */}
+      <div className="flex-shrink-0 pt-2"> {/* Info messages wrapper, fixed height */}
         {isRegenerationMode && initialPdfNameHint && (
           <div className="p-3 mb-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-start">
               <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
@@ -271,9 +270,9 @@ export function UploadQuizForm({
         )}
       </div>
 
-      {/* This ScrollArea is the flex-grow:1 and overflow-y:auto part */}
+      {/* Scrollable content area */}
       <ScrollArea className="flex-1 min-h-0"> 
-        <div className="space-y-4 pb-4 pr-2"> {/* Content inside scrollable area, pr-2 for scrollbar */}
+        <div className="space-y-4 pb-4 pr-2"> {/* Content inside scrollable area */}
           <div className="space-y-2">
             <Label htmlFor="pdf-file-dialog" className="flex items-center">
               <FileUp className="mr-2 h-5 w-5" />
