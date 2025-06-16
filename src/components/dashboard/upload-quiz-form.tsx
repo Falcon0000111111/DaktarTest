@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox"; // Added Checkbox
 import { useToast } from "@/hooks/use-toast";
 import { useState, type FormEvent, useEffect, ChangeEvent } from "react";
 import { generateQuizFromPdfsAction } from "@/lib/actions/quiz.actions";
@@ -28,6 +28,14 @@ const MAX_FILE_SIZE_MB = 10;
 const MAX_TOTAL_FILES = 5;
 const MAX_QUESTIONS = 50;
 
+const questionStyleOptions = [
+  { id: "scenario-based", label: "Scenario-based" },
+  { id: "definitions", label: "Definitions" },
+  { id: "comparisons", label: "Comparisons" },
+  { id: "application-based", label: "Application-based" },
+  { id: "problem-solving", label: "Problem-solving" },
+];
+
 export function UploadQuizForm({
     workspaceId,
     onUploadStarted,
@@ -39,7 +47,7 @@ export function UploadQuizForm({
 }: UploadQuizFormProps) {
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const [numQuestions, setNumQuestions] = useState(initialNumQuestions || 5);
-  const [preferredQuestionStyles, setPreferredQuestionStyles] = useState("");
+  const [selectedQuestionStyles, setSelectedQuestionStyles] = useState<string[]>([]);
   const [hardMode, setHardMode] = useState(false);
   const [topicsToFocus, setTopicsToFocus] = useState("");
   const [topicsToDrop, setTopicsToDrop] = useState("");
@@ -52,9 +60,8 @@ export function UploadQuizForm({
     if (initialNumQuestions !== undefined) {
       setNumQuestions(initialNumQuestions);
     }
-    // Reset advanced fields if not in regeneration mode or if it's a new generation
     if (!isRegenerationMode) {
-        setPreferredQuestionStyles("");
+        setSelectedQuestionStyles([]);
         setHardMode(false);
         setTopicsToFocus("");
         setTopicsToDrop("");
@@ -100,7 +107,7 @@ export function UploadQuizForm({
       }
 
       if (isRegenerationMode) {
-        setPdfFiles(newValidFiles.slice(0, 1)); // Only one file for regeneration
+        setPdfFiles(newValidFiles.slice(0, 1)); 
       } else {
         setPdfFiles(prevFiles => [...prevFiles, ...newValidFiles].slice(0, MAX_TOTAL_FILES));
       }
@@ -131,6 +138,12 @@ export function UploadQuizForm({
         setNumQuestions(parsedValue);
       }
     }
+  };
+
+  const handleQuestionStyleChange = (styleId: string, checked: boolean) => {
+    setSelectedQuestionStyles(prev =>
+      checked ? [...prev, styleId] : prev.filter(s => s !== styleId)
+    );
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -175,13 +188,15 @@ export function UploadQuizForm({
         description: `Quiz generation has started for ${filesToProcess.length} document(s). This may take a moment.`
       });
 
+      const preferredStylesString = selectedQuestionStyles.join(", ");
+
       const generatedQuiz: Quiz = await generateQuizFromPdfsAction({
         workspaceId,
         pdfDocuments: filesToProcess,
         totalNumberOfQuestions: numQuestions,
         quizTitle: quizTitle,
         existingQuizIdToUpdate: isRegenerationMode ? existingQuizIdToUpdate : undefined,
-        preferredQuestionStyles: preferredQuestionStyles || undefined,
+        preferredQuestionStyles: preferredStylesString || undefined,
         hardMode: hardMode,
         topicsToFocus: topicsToFocus || undefined,
         topicsToDrop: topicsToDrop || undefined,
@@ -205,15 +220,18 @@ export function UploadQuizForm({
     } finally {
       setLoading(false);
       setPdfFiles([]);
-      // Don't reset advanced params if in regeneration mode, they might want to tweak and retry
       if (!isRegenerationMode) {
-        setPreferredQuestionStyles("");
+        setSelectedQuestionStyles([]);
         setHardMode(false);
         setTopicsToFocus("");
         setTopicsToDrop("");
       }
       const formElement = document.getElementById('pdf-upload-form-in-dialog') as HTMLFormElement;
       formElement?.reset();
+       const fileInput = document.getElementById('pdf-file-dialog') as HTMLInputElement;
+        if (fileInput) {
+            fileInput.value = "";
+        }
     }
   };
 
@@ -243,7 +261,6 @@ export function UploadQuizForm({
           accept="application/pdf"
           onChange={handleFileChange}
           multiple={!isRegenerationMode}
-          required={pdfFiles.length === 0 && !isRegenerationMode}
           className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
           disabled={loading || (pdfFiles.length >= MAX_TOTAL_FILES && !isRegenerationMode) || (isRegenerationMode && pdfFiles.length >=1)}
         />
@@ -305,18 +322,26 @@ export function UploadQuizForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="preferred-question-styles">Preferred Question Styles (Optional)</Label>
-        <Textarea
-          id="preferred-question-styles"
-          placeholder="e.g., scenario-based, definitions, comparisons. Output will primarily be MCQs."
-          value={preferredQuestionStyles}
-          onChange={(e) => setPreferredQuestionStyles(e.target.value)}
-          disabled={loading}
-          rows={2}
-        />
+        <Label>Preferred Question Styles (Optional)</Label>
+        <p className="text-xs text-muted-foreground">Output will primarily be MCQs.</p>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-1">
+          {questionStyleOptions.map((style) => (
+            <div key={style.id} className="flex items-center space-x-2">
+              <Checkbox
+                id={`style-${style.id}`}
+                checked={selectedQuestionStyles.includes(style.id)}
+                onCheckedChange={(checked) => handleQuestionStyleChange(style.id, !!checked)}
+                disabled={loading}
+              />
+              <Label htmlFor={`style-${style.id}`} className="text-sm font-normal cursor-pointer">
+                {style.label}
+              </Label>
+            </div>
+          ))}
+        </div>
       </div>
       
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-2 pt-2">
         <Switch
           id="hard-mode"
           checked={hardMode}
@@ -367,3 +392,5 @@ export function UploadQuizForm({
     </form>
   );
 }
+
+    
