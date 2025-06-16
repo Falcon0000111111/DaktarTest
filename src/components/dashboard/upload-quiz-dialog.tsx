@@ -24,7 +24,7 @@ interface UploadQuizDialogProps {
   onDialogClose: (refresh?: boolean) => void; 
   onQuizGenerationStart: () => void; 
   onQuizGenerated: (quizId: string) => void; 
-  initialPdfName?: string; // Renamed from initialPdfNameHint for clarity
+  initialPdfName?: string;
   initialNumQuestions?: number;
   existingQuizIdToUpdate?: string;
 }
@@ -37,7 +37,7 @@ export function UploadQuizDialog({
   onDialogClose,
   onQuizGenerationStart,
   onQuizGenerated,
-  initialPdfName, // Use the renamed prop
+  initialPdfName,
   initialNumQuestions,
   existingQuizIdToUpdate,
 }: UploadQuizDialogProps) {
@@ -52,7 +52,7 @@ export function UploadQuizDialog({
       }
     }}>
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="font-headline flex items-center">
             <FileUp className="mr-2 h-5 w-5 text-primary" /> 
@@ -71,7 +71,6 @@ export function UploadQuizDialog({
           onUploadStarted={onQuizGenerationStart} 
           onUploadComplete={(quizId) => {
             onQuizGenerated(quizId); 
-            // Dialog is closed by onOpenChange(false) from parent after this usually
           }}
           onCancel={() => {
             onOpenChange(false);
@@ -79,7 +78,8 @@ export function UploadQuizDialog({
           }}
           initialNumQuestions={initialNumQuestions}
           existingQuizIdToUpdate={existingQuizIdToUpdate}
-          initialPdfNameHint={initialPdfName} // Pass down the renamed prop
+          initialPdfNameHint={initialPdfName}
+          className="flex-1 min-h-0" // Allows form to take available space and handle internal scroll
         />
       </DialogContent>
     </Dialog>
