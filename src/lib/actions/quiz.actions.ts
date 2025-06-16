@@ -2,7 +2,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server"; 
-import { generateQuizFromPdfs, type GenerateQuizInput, type GenerateQuizOutput } from "@/ai/flows/generate-quiz-from-pdf"; // Updated import
+import { generateQuizFromPdfs, type GenerateQuizInput, type GenerateQuizOutput } from "@/ai/flows/generate-quiz-from-pdf";
 import type { Quiz, NewQuiz } from "@/types/supabase";
 import { revalidatePath } from "next/cache";
 
@@ -35,22 +35,23 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
 
   let quizEntryId = existingQuizIdToUpdate;
   
-  // Determine the name for the quiz entry
   let dbQuizName = quizTitle;
   if (!dbQuizName) {
     if (pdfDocuments.length > 1) {
       dbQuizName = `Quiz from ${pdfDocuments.length} documents`;
-    } else {
+    } else if (pdfDocuments.length === 1) {
       dbQuizName = pdfDocuments[0].name;
+    } else {
+      dbQuizName = "Untitled Quiz"; // Fallback if somehow pdfDocuments is empty after check
     }
   }
 
 
-  if (!quizEntryId) { // Creating a new quiz entry
+  if (!quizEntryId) { 
     const initialQuizData: NewQuiz = {
       workspace_id: workspaceId,
       user_id: user.id,
-      pdf_name: dbQuizName, // Use the determined name
+      pdf_name: dbQuizName,
       num_questions: totalNumberOfQuestions,
       status: "processing",
       error_message: null,
@@ -67,14 +68,14 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
       throw new Error(createError?.message || "Failed to create quiz entry.");
     }
     quizEntryId = newQuizEntry.id;
-  } else { // Updating an existing quiz entry (e.g., for regeneration)
+  } else { 
      const { error: updateToProcessingError } = await supabase
       .from("quizzes")
       .update({ 
         status: "processing", 
         error_message: null, 
         num_questions: totalNumberOfQuestions, 
-        pdf_name: dbQuizName, // Update name in case it changes (e.g. different # of docs)
+        pdf_name: dbQuizName, 
         updated_at: new Date().toISOString() 
       })
       .eq("id", quizEntryId)
@@ -112,11 +113,14 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
 
     if (updateError || !updatedQuiz) {
       console.error("Error updating quiz with generated data:", updateError);
-      await supabase
-        .from("quizzes")
-        .update({ status: "failed", error_message: "Failed to save generated quiz content.", updated_at: new Date().toISOString() })
-        .eq("id", quizEntryId)
-        .eq("user_id", user.id);
+      // Attempt to mark as failed if saving the generated data fails
+      if (quizEntryId) {
+        await supabase
+          .from("quizzes")
+          .update({ status: "failed", error_message: updateError?.message || "Failed to save generated quiz content.", updated_at: new Date().toISOString() })
+          .eq("id", quizEntryId)
+          .eq("user_id", user.id);
+      }
       revalidatePath(`/dashboard/workspace/${workspaceId}`);
       revalidatePath(`/dashboard`);
       throw new Error(updateError?.message || "Failed to update quiz with generated data.");
@@ -128,19 +132,29 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
 
   } catch (error) {
     console.error(`Error during AI flow or DB update (Quiz ID: ${quizEntryId}):`, error);
-    const errorMessage = (error instanceof Error) ? error.message : "Unknown error during quiz generation.";
+    
+    let detailedErrorMessage = "An unknown error occurred during quiz generation.";
+    if (error instanceof Error) {
+      detailedErrorMessage = error.message;
+    } else if (typeof error === 'string') {
+      detailedErrorMessage = error;
+    } else if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+      // Attempt to extract message from other error-like objects
+      detailedErrorMessage = error.message;
+    }
     
     if (quizEntryId) {
       await supabase
         .from("quizzes")
-        .update({ status: "failed", error_message: errorMessage, updated_at: new Date().toISOString() })
+        .update({ status: "failed", error_message: detailedErrorMessage, updated_at: new Date().toISOString() })
         .eq("id", quizEntryId) 
         .eq("user_id", user.id);
     }
     
     revalidatePath(`/dashboard/workspace/${workspaceId}`);
     revalidatePath(`/dashboard`);
-    throw new Error(errorMessage); 
+    // Re-throw the error with the detailed message for the client to catch
+    throw new Error(detailedErrorMessage); 
   }
 }
 
