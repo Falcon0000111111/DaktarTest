@@ -2,7 +2,7 @@
 'use server';
 /**
  * @fileOverview Generates a single quiz from one or more PDF documents,
- * distributing questions among the provided documents.
+ * distributing questions among the provided documents and considering additional parameters.
  *
  * - generateQuizFromPdfs - A function that handles the quiz generation process.
  * - GenerateQuizInput - The input type for the generateQuizFromPdfs function.
@@ -27,6 +27,22 @@ const GenerateQuizInputSchema = z.object({
     .number()
     .min(1)
     .describe('The total desired number of questions in the quiz, to be distributed among the documents.'),
+  preferredQuestionStyles: z
+    .string()
+    .optional()
+    .describe('Optional preferred styles for questions, e.g., "scenario-based", "fill-in-the-blanks if possible". Output must still primarily be MCQ.'),
+  hardMode: z
+    .boolean()
+    .optional()
+    .describe('If true, questions should be made more challenging.'),
+  topicsToFocus: z
+    .string()
+    .optional()
+    .describe('Optional comma-separated list of topics or keywords to prioritize for questions.'),
+  topicsToDrop: z
+    .string()
+    .optional()
+    .describe('Optional comma-separated list of topics or keywords to avoid for questions.'),
 });
 export type GenerateQuizInput = z.infer<typeof GenerateQuizInputSchema>;
 
@@ -62,8 +78,23 @@ const prompt = ai.definePrompt({
     --- START OF DOCUMENT: {{{this.name}}} ---
     {{media url=this.dataUri}}
     --- END OF DOCUMENT: {{{this.name}}} ---
-
     {{/each}}
+
+    ADDITIONAL INSTRUCTIONS:
+    {{#if preferredQuestionStyles}}
+    - Preferred Question Styles: Attempt to incorporate the following styles or themes if possible: "{{{preferredQuestionStyles}}}". However, ensure the final output for each question strictly adheres to the multiple-choice format: a question, exactly four options, one correct answer, and an explanation.
+    {{/if}}
+    {{#if hardMode}}
+    - Difficulty Level: Hard Mode is ON. Questions should be more challenging, requiring deeper understanding, synthesis of information, or complex application of concepts from the document(s). Avoid trivial or very direct recall questions unless they are framed in a complex way.
+    {{else}}
+    - Difficulty Level: Standard. Questions should be of moderate difficulty, suitable for general understanding and assessment.
+    {{/if}}
+    {{#if topicsToFocus}}
+    - Topics to Focus On: Prioritize generating questions related to these topics/keywords: "{{{topicsToFocus}}}".
+    {{/if}}
+    {{#if topicsToDrop}}
+    - Topics to Drop: Avoid generating questions related to these topics/keywords: "{{{topicsToDrop}}}".
+    {{/if}}
 
     For each of the {{{totalNumberOfQuestions}}} questions:
     1. Provide the question text.
