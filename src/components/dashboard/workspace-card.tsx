@@ -63,7 +63,13 @@ export function WorkspaceCard({ workspace }: WorkspaceCardProps) {
       <CardFooter className="flex justify-end space-x-2 border-t pt-4">
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive hover:border-destructive/70" disabled={isDeleting} title="Delete Workspace">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="text-destructive border-destructive/50 hover:bg-destructive hover:text-destructive-foreground hover:border-destructive" 
+              disabled={isDeleting} 
+              title="Delete Workspace"
+            >
               <Trash2 className="mr-0 sm:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Delete</span>
             </Button>
           </AlertDialogTrigger>
@@ -98,3 +104,4 @@ export function WorkspaceCard({ workspace }: WorkspaceCardProps) {
     </Card>
   );
 }
+

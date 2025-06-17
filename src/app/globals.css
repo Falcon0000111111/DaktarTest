@@ -5,10 +5,10 @@
 
 @layer base {
   :root {
-    --background: 220 20% 96%; /* Very light cool gray #f5f7fa */
+    --background: 0 0% 100%; /* White */
     --foreground: 220 10% 25%; /* Dark cool gray #333b44 */
 
-    --card: 0 0% 100%; /* White */
+    --card: 220 20% 96%; /* Very light cool gray #f5f7fa */
     --card-foreground: 220 10% 25%;
 
     --popover: 0 0% 100%; /* White */
@@ -109,3 +109,4 @@
     transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
   }
 }
+
