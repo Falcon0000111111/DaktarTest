@@ -51,7 +51,7 @@ export function WorkspaceCard({ workspace }: WorkspaceCardProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <Folder className="h-6 w-6 mr-3 text-primary" />
-            <CardTitle className="font-headline text-xl">{workspace.name}</CardTitle>
+            <CardTitle className="text-xl">{workspace.name}</CardTitle>
           </div>
         </div>
       </CardHeader>

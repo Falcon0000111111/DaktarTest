@@ -13,7 +13,7 @@ export default async function DashboardPage() {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center">
           <LayoutDashboard className="h-8 w-8 mr-3 text-primary" />
-          <h1 className="text-3xl font-bold font-headline">Your Workspaces</h1>
+          <h1 className="text-3xl font-bold">Your Workspaces</h1>
         </div>
         <CreateWorkspaceDialog>
           <Button>

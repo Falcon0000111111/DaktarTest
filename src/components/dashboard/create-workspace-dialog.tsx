@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -50,7 +51,7 @@ export function CreateWorkspaceDialog({ children }: { children: ReactNode }) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="font-headline flex items-center">
+          <DialogTitle className="flex items-center">
             <FolderPlus className="mr-2 h-5 w-5" /> Create New Workspace
           </DialogTitle>
           <DialogDescription>
