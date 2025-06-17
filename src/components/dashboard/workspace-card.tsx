@@ -46,37 +46,26 @@ export function WorkspaceCard({ workspace }: WorkspaceCardProps) {
   };
 
   return (
-    <div 
-      className={cn(
-        "group bg-card rounded-lg border border-neutral-200 dark:border-neutral-700/50",
-        "hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors duration-150 p-4 flex flex-col justify-between min-h-[160px] animate-slide-in-up"
-      )}
-    >
-      <div>
-        <Link href={`/dashboard/workspace/${workspace.id}`} className="block mb-2 group-hover:text-primary transition-colors">
-          <div className="flex items-center mb-2">
-            <Folder className="h-5 w-5 mr-2.5 text-neutral-500 dark:text-neutral-400 group-hover:text-primary transition-colors" />
-            <h2 className="text-lg font-medium font-headline text-gray-800 dark:text-gray-100 truncate" title={workspace.name}>
-              {workspace.name}
-            </h2>
+    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-200 flex flex-col">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <Folder className="h-6 w-6 mr-3 text-primary" />
+            <CardTitle className="font-headline text-xl">{workspace.name}</CardTitle>
           </div>
-        </Link>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">
-          Created: {new Date(workspace.created_at).toLocaleDateString()}
-        </p>
-      </div>
-
-      <div className="flex items-center justify-end space-x-2 mt-auto pt-2">
+        </div>
+      </CardHeader>
+      <CardContent className="flex-grow">
+        <CardDescription>
+          Contains quizzes and study materials related to {workspace.name}.
+          Created on: {new Date(workspace.created_at).toLocaleDateString()}
+        </CardDescription>
+      </CardContent>
+      <CardFooter className="flex justify-end space-x-2 border-t pt-4">
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-neutral-500 dark:text-neutral-400 hover:text-destructive dark:hover:text-destructive h-7 w-7"
-              title="Delete workspace"
-              disabled={isDeleting}
-            >
-              <Trash2 className="h-4 w-4" />
+            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive hover:border-destructive/70" disabled={isDeleting} title="Delete Workspace">
+              <Trash2 className="mr-0 sm:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Delete</span>
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
@@ -101,12 +90,12 @@ export function WorkspaceCard({ workspace }: WorkspaceCardProps) {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-        <Button asChild variant="ghost" size="sm" className="text-primary hover:text-primary h-7 px-2">
+        <Button asChild size="sm">
           <Link href={`/dashboard/workspace/${workspace.id}`}>
-            Open <ArrowRightCircle className="ml-1.5 h-4 w-4" />
+            Open Workspace <ArrowRightCircle className="ml-2 h-4 w-4" />
           </Link>
         </Button>
-      </div>
-    </div>
+      </CardFooter>
+    </Card>
   );
 }
