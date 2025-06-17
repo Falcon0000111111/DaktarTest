@@ -57,8 +57,7 @@ export function WorkspaceCard({ workspace }: WorkspaceCardProps) {
       </CardHeader>
       <CardContent className="flex-grow">
         <CardDescription>
-          Contains quizzes and study materials related to {workspace.name}.
-          Created on: {new Date(workspace.created_at).toLocaleDateString()}
+          Created at: {new Date(workspace.created_at).toLocaleDateString()}
         </CardDescription>
       </CardContent>
       <CardFooter className="flex justify-end space-x-2 border-t pt-4">
