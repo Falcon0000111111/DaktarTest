@@ -31,7 +31,7 @@ export function QuizResultsDisplay({ quiz, quizData, userAnswers, onRetake, onRe
   return (
     <div className="space-y-8">
       <div className="p-6 rounded-lg border bg-card shadow-sm">
-        <h3 className="font-headline text-xl font-semibold mb-1">Quiz Results: {quiz.pdf_name || "Untitled Quiz"}</h3>
+        <h3 className="text-xl font-semibold mb-1">Quiz Results: {quiz.pdf_name || "Untitled Quiz"}</h3>
         <p className="text-muted-foreground">
           You scored {score} out of {quizData.length} ({percentage}%)
         </p>

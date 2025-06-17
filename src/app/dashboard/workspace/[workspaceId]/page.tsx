@@ -62,8 +62,8 @@ export default function WorkspacePage() {
   const [activeQuizDisplayData, setActiveQuizDisplayData] = useState<StoredQuizData | null>(null);
   
   const [userAnswers, setUserAnswers] = useState<UserAnswers | null>(null);
-  const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false); // For QuizTakerForm loading state
-  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false); // For UploadQuizDialog loading state
+  const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false); 
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false); 
   
   const [allQuizzesForWorkspace, setAllQuizzesForWorkspace] = useState<Quiz[]>([]);
   const [sourcePdfsForWorkspace, setSourcePdfsForWorkspace] = useState<string[]>([]);
@@ -73,7 +73,6 @@ export default function WorkspacePage() {
   
   const rightPaneContentRef = useRef<HTMLDivElement>(null);
 
-  // Fetch initial workspace details
   useEffect(() => {
     const fetchWorkspaceData = async () => {
       if (!workspaceId) {
@@ -101,7 +100,6 @@ export default function WorkspacePage() {
     fetchWorkspaceData();
   }, [workspaceId]);
 
-  // Fetch quizzes for the sidebar (Knowledge source PDFs, History quizzes)
   useEffect(() => {
     const fetchSidebarQuizzes = async () => {
       if (!workspaceId) return;
@@ -117,13 +115,12 @@ export default function WorkspacePage() {
         setIsLoadingSidebarData(false);
       }
     };
-    if (workspace) { // Only fetch if workspace is loaded
+    if (workspace) { 
         fetchSidebarQuizzes();
     }
   }, [workspaceId, workspace, toast]);
 
 
-  // Scroll right pane to top on view change
   useEffect(() => {
     rightPaneContentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [viewMode, activeQuizDisplayData, userAnswers]);
@@ -146,7 +143,7 @@ export default function WorkspacePage() {
 
 
   const handleOpenUploadDialog = (existingQuiz?: Quiz) => {
-    setActiveQuizDBEntry(existingQuiz || null); // For pre-filling or regeneration context
+    setActiveQuizDBEntry(existingQuiz || null); 
     setIsUploadDialogOpen(true);
   };
   
@@ -156,8 +153,8 @@ export default function WorkspacePage() {
     setIsGeneratingQuiz(false); 
   
     try {
-      await refreshSidebarData(); // Refresh sidebar lists
-      const quizzesInWs = await getQuizzesForWorkspace(workspaceId); // Re-fetch all to ensure we have the latest
+      await refreshSidebarData(); 
+      const quizzesInWs = await getQuizzesForWorkspace(workspaceId); 
       setAllQuizzesForWorkspace(quizzesInWs);
 
       const generatedQuiz = quizzesInWs.find(q => q.id === quizId);
@@ -165,14 +162,14 @@ export default function WorkspacePage() {
       if (generatedQuiz && generatedQuiz.generated_quiz_data && generatedQuiz.status === 'completed') {
         setActiveQuizDBEntry(generatedQuiz);
         setActiveQuizDisplayData(generatedQuiz.generated_quiz_data as StoredQuizData);
-        setShowRegenerateButtonInMain(true); // Newly generated quiz can be regenerated
+        setShowRegenerateButtonInMain(true); 
         setViewMode("quiz_review");
       } else if (generatedQuiz && generatedQuiz.status === 'failed') {
         toast({ title: "Quiz Generation Failed", description: generatedQuiz.error_message || "The AI failed to generate the quiz.", variant: "destructive" });
         setActiveQuizDBEntry(generatedQuiz);
         setActiveQuizDisplayData(null);
-        setShowRegenerateButtonInMain(true); // Failed quiz can be regenerated
-        setViewMode("quiz_review"); // Show failure message in review view
+        setShowRegenerateButtonInMain(true); 
+        setViewMode("quiz_review"); 
       } else if (generatedQuiz && (generatedQuiz.status === 'processing' || generatedQuiz.status === 'pending')) {
          toast({ title: "Quiz is still processing", description: "Please wait a moment. The history list will update.", variant: "default" });
          setViewMode("empty_state"); 
@@ -189,7 +186,7 @@ export default function WorkspacePage() {
   const handleUploadDialogClose = (refresh?: boolean) => {
     setIsUploadDialogOpen(false);
     setIsGeneratingQuiz(false); 
-    if (refresh) { // This 'refresh' usually implies data changed, so sidebar needs update
+    if (refresh) { 
       refreshSidebarData();
     }
   };
@@ -201,8 +198,6 @@ export default function WorkspacePage() {
       if (selectedQuiz.status === 'completed' && selectedQuiz.generated_quiz_data) {
         setActiveQuizDBEntry(selectedQuiz);
         setActiveQuizDisplayData(selectedQuiz.generated_quiz_data as StoredQuizData);
-        // Only latest quiz from a given PDF source might be considered "regeneratable" in a simple model
-        // For simplicity, allow retake, but regenerate only if it's the MOST recent overall.
         const sortedQuizzes = [...allQuizzesForWorkspace].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         setShowRegenerateButtonInMain(sortedQuizzes.length > 0 && sortedQuizzes[0].id === selectedQuiz.id);
         setViewMode('quiz_review');
@@ -232,21 +227,20 @@ export default function WorkspacePage() {
   };
 
   const handleRegenerateActiveQuiz = () => {
-    if (activeQuizDBEntry) { // The quiz currently shown in the right pane
-        handleOpenUploadDialog(activeQuizDBEntry); // Pass it for regeneration context
+    if (activeQuizDBEntry) { 
+        handleOpenUploadDialog(activeQuizDBEntry); 
     } else {
         toast({title: "Error", description: "No active quiz context for regeneration.", variant: "destructive"});
     }
   };
 
   const handleSubmitQuiz = (answers: UserAnswers) => {
-    setIsSubmittingQuiz(true); // Potentially for future async submission
+    setIsSubmittingQuiz(true); 
     setUserAnswers(answers);
     setViewMode("quiz_results");
     setIsSubmittingQuiz(false);
   };
   
-  // Main loading state for the page (workspace details)
   if (isLoadingPage) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 h-full">
@@ -339,7 +333,6 @@ export default function WorkspacePage() {
                 setViewMode("quiz_taking");
               }}
               onReviewAll={() => {
-                // setShowRegenerateButtonInMain(false); // Decide if regenerate should be available after retake review
                 setViewMode("quiz_review"); 
               }}
             />
@@ -428,8 +421,8 @@ export default function WorkspacePage() {
         </Sidebar>
 
         <SidebarInset className="flex flex-col bg-background overflow-hidden">
-          <div className="p-4 md:p-6 border-b bg-card flex-shrink-0">
-            <h1 className="text-xl md:text-2xl font-semibold font-headline">
+          <div className="p-4 md:p-6 border-b flex-shrink-0">
+            <h1 className="text-xl md:text-2xl font-semibold">
               {workspace.name} Dashboard
             </h1>
             <p className="text-muted-foreground mt-1 text-xs md:text-sm">
@@ -489,20 +482,70 @@ export default function WorkspacePage() {
         onQuizGenerationStart={() => setIsGeneratingQuiz(true)}
         onQuizGenerated={handleQuizGenerationComplete}
         initialNumQuestions={activeQuizDBEntry?.num_questions}
-        existingQuizIdToUpdate={activeQuizDBEntry?.id} // if regenerating active quiz
+        existingQuizIdToUpdate={activeQuizDBEntry?.id} 
         initialPdfNameHint={activeQuizDBEntry?.pdf_name || undefined}
       />
     </SidebarProvider>
   );
 }
-    
-    
+</content>
+  </change>
+  <change>
+    <file>/src/components/dashboard/quiz-review-display.tsx</file>
+    <content><![CDATA[
+"use client";
 
-    
+import type { GeneratedQuizQuestion } from "@/types/supabase";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+interface QuizReviewDisplayProps {
+  quizData: GeneratedQuizQuestion[];
+  quizName: string;
+}
 
+export function QuizReviewDisplay({ quizData, quizName }: QuizReviewDisplayProps) {
+  if (!quizData || quizData.length === 0) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-muted-foreground text-lg">No questions available for review in this quiz.</p>
+        <p className="text-sm text-muted-foreground mt-2">Try generating the quiz again or check the source document.</p>
+      </div>
+    );
+  }
 
+  return (
+    <div className="space-y-8">
+      <div className="text-center">
+        <h2 className="text-2xl font-semibold mb-1">
+          Review Quiz: {quizName}
+        </h2>
+        <p className="text-muted-foreground">
+          Here are the questions generated for your quiz. You can proceed to take the quiz or regenerate it.
+        </p>
+      </div>
 
-    
-
-
+      <div className="space-y-6">
+        {quizData.map((q, index) => (
+          <Card key={index} className="bg-card shadow-md">
+            <CardHeader>
+              <CardTitle className="text-lg">Question {index + 1}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-base mb-4 whitespace-pre-wrap">{q.question}</p>
+              <ul className="space-y-2">
+                {q.options.map((option, optIndex) => (
+                  <li
+                    key={optIndex}
+                    className="p-3 rounded-md border border-input text-sm bg-background"
+                  >
+                    {option}
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}

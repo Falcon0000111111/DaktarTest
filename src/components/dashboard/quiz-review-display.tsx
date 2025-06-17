@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { GeneratedQuizQuestion } from "@/types/supabase";
@@ -21,7 +22,7 @@ export function QuizReviewDisplay({ quizData, quizName }: QuizReviewDisplayProps
   return (
     <div className="space-y-8">
       <div className="text-center">
-        <h2 className="text-2xl font-semibold font-headline mb-1">
+        <h2 className="text-2xl font-semibold mb-1">
           Review Quiz: {quizName}
         </h2>
         <p className="text-muted-foreground">
@@ -46,13 +47,3 @@ export function QuizReviewDisplay({ quizData, quizName }: QuizReviewDisplayProps
                     {option}
                   </li>
                 ))}
-              </ul>
-              {/* Explanations and correct answers are not shown in this initial review step */}
-              {/* They are revealed after the quiz is taken and submitted. */}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-}
