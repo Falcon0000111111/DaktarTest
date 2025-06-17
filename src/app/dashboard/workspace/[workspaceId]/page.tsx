@@ -7,7 +7,7 @@ import type { Workspace, Quiz, StoredQuizData, UserAnswers } from "@/types/supab
 import { useEffect, useState, type ReactNode, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings, BookOpen, RefreshCw, Send, Newspaper, ChevronLeft, PackageSearch, Inbox, FolderOpen } from "lucide-react";
+import { Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings, BookOpen, RefreshCw, Send, Newspaper, ChevronLeft, PackageSearch, Inbox, FolderOpen, BookOpenCheck, PlusCircle, Settings2, ChevronRight, LayoutDashboard, FileQuestion } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { UploadQuizDialog } from "@/components/dashboard/upload-quiz-dialog";
@@ -18,34 +18,33 @@ import { getQuizzesForWorkspace } from "@/lib/actions/quiz.actions";
 import { QuizList } from "@/components/dashboard/quiz-list";
 import { useParams } from "next/navigation";
 import { SourceFileList } from "@/components/dashboard/source-file-list";
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarHeader,
+  SidebarTrigger,
+  SidebarContent,
+  SidebarFooter,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 
-interface DashboardActionCardProps {
-  title: string;
-  description: string;
-  icon?: ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-}
-
-const DashboardActionCard = ({ title, description, icon, onClick, disabled }: DashboardActionCardProps) => (
-  <Card className="hover:shadow-lg transition-shadow duration-200 flex flex-col">
-    <CardHeader className="items-center text-center">
-      {icon}
-      <CardTitle className="font-headline text-xl mt-2">{title}</CardTitle>
-    </CardHeader>
-    <CardContent className="text-center flex-grow">
-      <p className="text-sm text-muted-foreground">{description}</p>
-    </CardContent>
-    <CardFooter className="justify-center pt-4">
-      <Button variant="outline" onClick={onClick} className="w-full sm:w-auto" disabled={disabled}>
-        Go
-      </Button>
-    </CardFooter>
-  </Card>
-);
-
-type ViewMode = "dashboard_cards" | "quiz_review" | "quiz_taking" | "quiz_results" | "loading_quiz" | "quiz_list_selection" | "source_pdf_list";
+type ViewMode = "empty_state" | "quiz_review" | "quiz_taking" | "quiz_results" | "loading_quiz_data";
 
 export default function WorkspacePage() {
   const routeParams = useParams(); 
@@ -56,21 +55,25 @@ export default function WorkspacePage() {
   const [errorPage, setErrorPage] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const [viewMode, setViewMode] = useState<ViewMode>("dashboard_cards");
+  const [viewMode, setViewMode] = useState<ViewMode>("empty_state");
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const [quizForDisplay, setQuizForDisplay] = useState<StoredQuizData | null>(null);
+  
   const [activeQuizDBEntry, setActiveQuizDBEntry] = useState<Quiz | null>(null);
+  const [activeQuizDisplayData, setActiveQuizDisplayData] = useState<StoredQuizData | null>(null);
+  
   const [userAnswers, setUserAnswers] = useState<UserAnswers | null>(null);
-  const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false);
-  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false); // For QuizTakerForm loading state
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false); // For UploadQuizDialog loading state
   
-  const [allQuizzes, setAllQuizzes] = useState<Quiz[]>([]);
-  const [isLoadingQuizzesList, setIsLoadingQuizzesList] = useState(false);
-  const [showRegenerateButton, setShowRegenerateButton] = useState(false);
+  const [allQuizzesForWorkspace, setAllQuizzesForWorkspace] = useState<Quiz[]>([]);
+  const [sourcePdfsForWorkspace, setSourcePdfsForWorkspace] = useState<string[]>([]);
+  const [isLoadingSidebarData, setIsLoadingSidebarData] = useState(false);
+
+  const [showRegenerateButtonInMain, setShowRegenerateButtonInMain] = useState(false);
   
-  const contentAreaRef = useRef<HTMLDivElement>(null);
+  const rightPaneContentRef = useRef<HTMLDivElement>(null);
 
-
+  // Fetch initial workspace details
   useEffect(() => {
     const fetchWorkspaceData = async () => {
       if (!workspaceId) {
@@ -98,140 +101,116 @@ export default function WorkspacePage() {
     fetchWorkspaceData();
   }, [workspaceId]);
 
+  // Fetch quizzes for the sidebar (Knowledge source PDFs, History quizzes)
   useEffect(() => {
-    if (
-      viewMode === "quiz_review" ||
-      viewMode === "quiz_taking" ||
-      viewMode === "quiz_results" ||
-      viewMode === "quiz_list_selection" ||
-      viewMode === "source_pdf_list" ||
-      viewMode === "loading_quiz"
-    ) {
-      contentAreaRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    const fetchSidebarQuizzes = async () => {
+      if (!workspaceId) return;
+      setIsLoadingSidebarData(true);
+      try {
+        const quizzes = await getQuizzesForWorkspace(workspaceId);
+        setAllQuizzesForWorkspace(quizzes);
+        const pdfNames = Array.from(new Set(quizzes.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
+        setSourcePdfsForWorkspace(pdfNames);
+      } catch (error) {
+        toast({ title: "Error fetching sidebar data", description: (error as Error).message, variant: "destructive" });
+      } finally {
+        setIsLoadingSidebarData(false);
+      }
+    };
+    if (workspace) { // Only fetch if workspace is loaded
+        fetchSidebarQuizzes();
     }
-  }, [viewMode, quizForDisplay, userAnswers, allQuizzes]); 
+  }, [workspaceId, workspace, toast]);
+
+
+  // Scroll right pane to top on view change
+  useEffect(() => {
+    rightPaneContentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [viewMode, activeQuizDisplayData, userAnswers]);
+
+  const refreshSidebarData = async () => {
+    if (!workspaceId) return;
+    setIsLoadingSidebarData(true);
+    try {
+      const quizzes = await getQuizzesForWorkspace(workspaceId);
+      setAllQuizzesForWorkspace(quizzes);
+      const pdfNames = Array.from(new Set(quizzes.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
+      setSourcePdfsForWorkspace(pdfNames);
+    } catch (error) {
+      console.error("Error refreshing sidebar data:", error);
+      toast({ title: "Error refreshing workspace data", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setIsLoadingSidebarData(false);
+    }
+  };
+
 
   const handleOpenUploadDialog = (existingQuiz?: Quiz) => {
-    if (existingQuiz) {
-      setActiveQuizDBEntry(existingQuiz); 
-    } else {
-      setActiveQuizDBEntry(null); 
-    }
+    setActiveQuizDBEntry(existingQuiz || null); // For pre-filling or regeneration context
     setIsUploadDialogOpen(true);
   };
   
-
   const handleQuizGenerationComplete = async (quizId: string) => {
     setIsUploadDialogOpen(false); 
-    setViewMode("loading_quiz"); 
+    setViewMode("loading_quiz_data"); 
     setIsGeneratingQuiz(false); 
   
     try {
-      const quizzesInWs = await getQuizzesForWorkspace(workspaceId);
-      setAllQuizzes(quizzesInWs); 
+      await refreshSidebarData(); // Refresh sidebar lists
+      const quizzesInWs = await getQuizzesForWorkspace(workspaceId); // Re-fetch all to ensure we have the latest
+      setAllQuizzesForWorkspace(quizzesInWs);
 
       const generatedQuiz = quizzesInWs.find(q => q.id === quizId);
   
       if (generatedQuiz && generatedQuiz.generated_quiz_data && generatedQuiz.status === 'completed') {
         setActiveQuizDBEntry(generatedQuiz);
-        setQuizForDisplay(generatedQuiz.generated_quiz_data as StoredQuizData);
-        setShowRegenerateButton(true);
+        setActiveQuizDisplayData(generatedQuiz.generated_quiz_data as StoredQuizData);
+        setShowRegenerateButtonInMain(true); // Newly generated quiz can be regenerated
         setViewMode("quiz_review");
       } else if (generatedQuiz && generatedQuiz.status === 'failed') {
         toast({ title: "Quiz Generation Failed", description: generatedQuiz.error_message || "The AI failed to generate the quiz.", variant: "destructive" });
         setActiveQuizDBEntry(generatedQuiz);
-        setQuizForDisplay(null);
-        setShowRegenerateButton(true);
-        setViewMode("quiz_review"); 
+        setActiveQuizDisplayData(null);
+        setShowRegenerateButtonInMain(true); // Failed quiz can be regenerated
+        setViewMode("quiz_review"); // Show failure message in review view
       } else if (generatedQuiz && (generatedQuiz.status === 'processing' || generatedQuiz.status === 'pending')) {
-         toast({ title: "Quiz is still processing", description: "Please wait a moment. The view will update when ready.", variant: "default" });
-         setViewMode("dashboard_cards"); 
+         toast({ title: "Quiz is still processing", description: "Please wait a moment. The history list will update.", variant: "default" });
+         setViewMode("empty_state"); 
       } else {
         toast({ title: "Error", description: "Could not load the generated quiz data. It might still be processing or an error occurred.", variant: "destructive" });
-        setViewMode("dashboard_cards");
+        setViewMode("empty_state");
       }
     } catch (error) {
       toast({ title: "Error loading generated quiz", description: (error as Error).message, variant: "destructive" });
-      setViewMode("dashboard_cards");
+      setViewMode("empty_state");
     }
   };
   
   const handleUploadDialogClose = (refresh?: boolean) => {
     setIsUploadDialogOpen(false);
     setIsGeneratingQuiz(false); 
-    if (refresh) {
-      // Optionally re-fetch workspace data or quizzes
+    if (refresh) { // This 'refresh' usually implies data changed, so sidebar needs update
+      refreshSidebarData();
     }
   };
 
-
-  const handleTakeQuiz = () => {
-    if (quizForDisplay && activeQuizDBEntry?.status === 'completed') {
-      setUserAnswers({}); 
-      setViewMode("quiz_taking");
-    } else {
-      toast({title: "Cannot take quiz", description: "The quiz is not available or has not been completed successfully.", variant: "destructive"});
-    }
-  };
-
-  const handleRegenerateQuiz = () => {
-    if (activeQuizDBEntry) {
-        handleOpenUploadDialog(activeQuizDBEntry);
-    } else {
-        toast({title: "Error", description: "No quiz context for regeneration.", variant: "destructive"});
-        handleOpenUploadDialog(); 
-    }
-  };
-
-  const handleSubmitQuiz = (answers: UserAnswers) => {
-    setUserAnswers(answers);
-    setViewMode("quiz_results");
-  };
-
-  const handleReviewRetakeQuizzes = async () => {
-    setIsLoadingQuizzesList(true);
-    setActiveQuizDBEntry(null);
-    setQuizForDisplay(null);
-    setShowRegenerateButton(false);
-    try {
-      const quizzes = await getQuizzesForWorkspace(workspaceId);
-      setAllQuizzes(quizzes);
-      setViewMode("quiz_list_selection");
-    } catch (error) {
-      toast({ title: "Error fetching quizzes", description: (error as Error).message, variant: "destructive" });
-      setViewMode("dashboard_cards"); 
-    } finally {
-      setIsLoadingQuizzesList(false);
-    }
-  };
-
-  const handleViewSourcePdfs = async () => {
-    setIsLoadingQuizzesList(true);
-    setShowRegenerateButton(false);
-    try {
-      const quizzes = await getQuizzesForWorkspace(workspaceId); 
-      setAllQuizzes(quizzes); 
-      setViewMode("source_pdf_list");
-    } catch (error) {
-      toast({ title: "Error fetching source documents", description: (error as Error).message, variant: "destructive" });
-      setViewMode("dashboard_cards");
-    } finally {
-      setIsLoadingQuizzesList(false);
-    }
-  };
-
-  const handleQuizSelectionFromList = (quizId: string) => {
-    const selectedQuiz = allQuizzes.find(q => q.id === quizId);
-    setShowRegenerateButton(false); 
+  const handleQuizSelectionFromHistory = (quizId: string) => {
+    const selectedQuiz = allQuizzesForWorkspace.find(q => q.id === quizId);
+    
     if (selectedQuiz) {
       if (selectedQuiz.status === 'completed' && selectedQuiz.generated_quiz_data) {
         setActiveQuizDBEntry(selectedQuiz);
-        setQuizForDisplay(selectedQuiz.generated_quiz_data as StoredQuizData);
+        setActiveQuizDisplayData(selectedQuiz.generated_quiz_data as StoredQuizData);
+        // Only latest quiz from a given PDF source might be considered "regeneratable" in a simple model
+        // For simplicity, allow retake, but regenerate only if it's the MOST recent overall.
+        const sortedQuizzes = [...allQuizzesForWorkspace].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setShowRegenerateButtonInMain(sortedQuizzes.length > 0 && sortedQuizzes[0].id === selectedQuiz.id);
         setViewMode('quiz_review');
       } else if (selectedQuiz.status === 'failed') {
-        toast({ title: "Cannot Review", description: `This quiz (${selectedQuiz.pdf_name || 'Untitled'}) failed during generation.`, variant: "destructive" });
-        setActiveQuizDBEntry(selectedQuiz); 
-        setQuizForDisplay(null); 
+        setActiveQuizDBEntry(selectedQuiz);
+        setActiveQuizDisplayData(null);
+        const sortedQuizzes = [...allQuizzesForWorkspace].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setShowRegenerateButtonInMain(sortedQuizzes.length > 0 && sortedQuizzes[0].id === selectedQuiz.id);
         setViewMode('quiz_review'); 
       } else if (selectedQuiz.status === 'processing' || selectedQuiz.status === 'pending') {
          toast({ title: "Still Processing", description: `This quiz (${selectedQuiz.pdf_name || 'Untitled'}) is still being generated. Please wait.`, variant: "default" });
@@ -243,48 +222,36 @@ export default function WorkspacePage() {
     }
   };
 
-  const handleBackNavigation = () => {
-    setShowRegenerateButton(false);
-    if (
-      (viewMode === "quiz_review" || viewMode === "quiz_taking" || viewMode === "quiz_results") &&
-      allQuizzes.length > 0 && 
-      activeQuizDBEntry 
-    ) {
-      const isActiveQuizInList = allQuizzes.some(q => q.id === activeQuizDBEntry.id);
-
-      if (isActiveQuizInList) {
-        setViewMode('quiz_list_selection');
-        setActiveQuizDBEntry(null); 
-        setQuizForDisplay(null);
-        return;
-      }
+  const handleTakeQuiz = () => {
+    if (activeQuizDisplayData && activeQuizDBEntry?.status === 'completed') {
+      setUserAnswers({}); 
+      setViewMode("quiz_taking");
+    } else {
+      toast({title: "Cannot take quiz", description: "The quiz is not available or has not been completed successfully.", variant: "destructive"});
     }
-    
-    setViewMode('dashboard_cards');
-    setActiveQuizDBEntry(null);
-    setQuizForDisplay(null);
-    setAllQuizzes([]); 
-    setIsLoadingQuizzesList(false); 
   };
 
-  const getBackButtonText = () => {
-    if (
-      (viewMode === "quiz_review" || viewMode === "quiz_taking" || viewMode === "quiz_results") &&
-      allQuizzes.length > 0 &&
-      activeQuizDBEntry &&
-      allQuizzes.some(q => q.id === activeQuizDBEntry.id) 
-    ) {
-      return "Back to Quiz List";
+  const handleRegenerateActiveQuiz = () => {
+    if (activeQuizDBEntry) { // The quiz currently shown in the right pane
+        handleOpenUploadDialog(activeQuizDBEntry); // Pass it for regeneration context
+    } else {
+        toast({title: "Error", description: "No active quiz context for regeneration.", variant: "destructive"});
     }
-    return `Back to ${workspace?.name || 'Workspace'} Dashboard`;
   };
 
-
+  const handleSubmitQuiz = (answers: UserAnswers) => {
+    setIsSubmittingQuiz(true); // Potentially for future async submission
+    setUserAnswers(answers);
+    setViewMode("quiz_results");
+    setIsSubmittingQuiz(false);
+  };
+  
+  // Main loading state for the page (workspace details)
   if (isLoadingPage) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 h-full">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-4 text-lg">Loading workspace dashboard...</p>
+        <p className="ml-4 text-lg">Loading workspace...</p>
       </div>
     );
   }
@@ -293,119 +260,60 @@ export default function WorkspacePage() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center p-6 animate-fade-in h-full">
         <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
-        <h2 className="text-2xl font-semibold font-headline">Error Loading Workspace</h2>
+        <h2 className="text-2xl font-semibold">Error Loading Workspace</h2>
         <p className="text-muted-foreground max-w-md mx-auto">{errorPage}</p>
         <Button asChild className="mt-6">
-          <Link href="/dashboard">Back to Dashboard</Link>
+          <Link href="/dashboard">Back to All Workspaces</Link>
         </Button>
       </div>
     );
   }
 
   if (!workspace) {
-    return (
+     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center p-6 h-full">
         <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
         <h2 className="text-2xl font-semibold">Workspace Not Found</h2>
-        <p className="text-muted-foreground">The workspace you are looking for does not exist or you do not have permission to access it.</p>
+        <p className="text-muted-foreground">The workspace does not exist or you do not have permission.</p>
         <Button asChild className="mt-4">
-          <Link href="/dashboard">Back to Dashboard</Link>
+          <Link href="/dashboard">Back to All Workspaces</Link>
         </Button>
       </div>
     );
   }
 
-  const sortedAllQuizzes = allQuizzes.length > 0 ? [...allQuizzes].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) : [];
-  const isLatestQuizSelected = activeQuizDBEntry && sortedAllQuizzes.length > 0 && sortedAllQuizzes[0].id === activeQuizDBEntry.id;
-
-
-  const renderContent = () => {
+  const renderRightPaneContent = () => {
     switch (viewMode) {
-      case "loading_quiz":
+      case "loading_quiz_data":
         return (
-          <div className="flex flex-col items-center justify-center h-full">
+          <div className="flex flex-col items-center justify-center h-full p-8">
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
             <p className="text-lg text-muted-foreground">Preparing your quiz...</p>
           </div>
         );
-      case "source_pdf_list":
-        if (isLoadingQuizzesList) {
-          return (
-            <div className="flex flex-col items-center justify-center h-full">
-              <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-              <p className="text-lg text-muted-foreground">Fetching source documents...</p>
-            </div>
-          );
-        }
-        const pdfNames = Array.from(new Set(allQuizzes.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
-        if (pdfNames.length === 0) {
-          return (
-            <div className="text-center py-10">
-              <FolderOpen className="mx-auto h-16 w-16 text-muted-foreground mb-4" data-ai-hint="empty folder"/>
-              <h3 className="text-xl font-semibold">No Source Documents</h3>
-              <p className="text-muted-foreground mt-2">
-                No PDF documents have been used to generate quizzes in this workspace yet.
-              </p>
-            </div>
-          );
-        }
-        return <SourceFileList pdfNames={pdfNames} />;
-      case "quiz_list_selection":
-        if (isLoadingQuizzesList) {
-          return (
-            <div className="flex flex-col items-center justify-center h-full">
-              <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-              <p className="text-lg text-muted-foreground">Fetching your quizzes...</p>
-            </div>
-          );
-        }
-        if (allQuizzes.length === 0) {
-          return (
-            <div className="text-center py-10">
-              <Inbox className="mx-auto h-16 w-16 text-muted-foreground mb-4" data-ai-hint="empty box" />
-              <h3 className="text-xl font-semibold">No Quizzes Found</h3>
-              <p className="text-muted-foreground mt-2">
-                There are no quizzes in this workspace yet. Try generating one!
-              </p>
-            </div>
-          );
-        }
-        return (
-          <QuizList 
-            initialQuizzes={sortedAllQuizzes} 
-            workspaceId={workspaceId}
-            onQuizSelect={handleQuizSelectionFromList}
-            selectedQuizId={activeQuizDBEntry?.id}
-          />
-        );
       case "quiz_review":
-        if (!activeQuizDBEntry) return <p>Error: No active quiz selected for review.</p>;
+        if (!activeQuizDBEntry) return <div className="p-8 text-center"><p>No quiz selected for review.</p></div>;
         if (activeQuizDBEntry.status === 'failed') {
            return (
-             <div className="text-center py-10">
+             <div className="text-center py-10 p-8">
                <AlertCircle className="mx-auto h-16 w-16 text-destructive mb-4" />
                <h3 className="text-xl font-semibold">Quiz Generation Failed</h3>
                <p className="text-muted-foreground mt-2 max-w-md mx-auto">
-                 This quiz ({activeQuizDBEntry.pdf_name || 'Untitled'}) encountered an error during generation:
+                 This quiz ({activeQuizDBEntry.pdf_name || 'Untitled'}) encountered an error:
                </p>
                <p className="text-sm text-destructive mt-1 mb-4">{activeQuizDBEntry.error_message || "Unknown error."}</p>
-               {showRegenerateButton && (
-                 <Button onClick={handleRegenerateQuiz}>
-                     <RefreshCw className="mr-2 h-4 w-4" /> Re-Generate Quiz
-                 </Button>
-               )}
              </div>
            );
         }
-        if (!quizForDisplay) return <p>Error: Quiz data not available for review. It might still be processing or failed.</p>;
+        if (!activeQuizDisplayData) return <div className="p-8 text-center"><p>Quiz data not available. It might be processing or failed.</p></div>;
         return (
             <QuizReviewDisplay 
-              quizData={quizForDisplay.quiz} 
+              quizData={activeQuizDisplayData.quiz} 
               quizName={activeQuizDBEntry.pdf_name || "Untitled Quiz"}
             />
         );
       case "quiz_taking":
-        if (!quizForDisplay || !activeQuizDBEntry) return <p>Error: Quiz data not available for taking.</p>;
+        if (!activeQuizDisplayData || !activeQuizDBEntry) return <div className="p-8 text-center"><p>Quiz data not available for taking.</p></div>;
         return (
           <>
             <p className="text-sm text-muted-foreground mb-6 text-center">
@@ -413,100 +321,166 @@ export default function WorkspacePage() {
             </p>
             <QuizTakerForm
               quiz={activeQuizDBEntry} 
-              quizData={quizForDisplay.quiz}
+              quizData={activeQuizDisplayData.quiz}
               onSubmit={handleSubmitQuiz}
               isSubmitting={isSubmittingQuiz}
             />
           </>
         );
       case "quiz_results":
-        if (!quizForDisplay || !userAnswers || !activeQuizDBEntry) return <p>Error: Quiz results not available.</p>;
+        if (!activeQuizDisplayData || !userAnswers || !activeQuizDBEntry) return <div className="p-8 text-center"><p>Quiz results not available.</p></div>;
         return (
              <QuizResultsDisplay
               quiz={activeQuizDBEntry}
-              quizData={quizForDisplay.quiz}
+              quizData={activeQuizDisplayData.quiz}
               userAnswers={userAnswers}
               onRetake={() => {
                 setUserAnswers(null);
                 setViewMode("quiz_taking");
               }}
               onReviewAll={() => {
-                setShowRegenerateButton(false);
+                // setShowRegenerateButtonInMain(false); // Decide if regenerate should be available after retake review
                 setViewMode("quiz_review"); 
               }}
             />
         );
-      case "dashboard_cards":
+      case "empty_state":
       default:
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 text-left">
-             <DashboardActionCard 
-              title="Generate New Quiz" 
-              description="Create a fresh set of questions from a PDF." 
-              icon={<Wand2 className="h-8 w-8 mb-2 text-primary" />} 
-              onClick={() => handleOpenUploadDialog()}
-              disabled={isGeneratingQuiz}
-            />
-            <DashboardActionCard 
-              title="View Source PDF" 
-              description="Review the original document names used in this workspace." 
-              icon={<Newspaper className="h-8 w-8 mb-2 text-primary" />} 
-              onClick={handleViewSourcePdfs}
-              disabled={isLoadingQuizzesList}
-            />
-            <DashboardActionCard 
-              title="Review/Retake Quizzes" 
-              description="Look over and manage previously generated quizzes." 
-              icon={<ListChecks className="h-8 w-8 mb-2 text-primary" />} 
-              onClick={handleReviewRetakeQuizzes}
-              disabled={isLoadingQuizzesList}
-            />
-            <DashboardActionCard 
-              title="Workspace Settings" 
-              description="Manage settings and options for this workspace." 
-              icon={<Settings className="h-8 w-8 mb-2 text-primary" />} 
-              onClick={() => toast({ title: "Feature Coming Soon", description: "Workspace settings are on the way."})}
-            />
+          <div className="flex flex-col items-center justify-center h-full text-center p-8">
+            <LayoutDashboard className="h-20 w-20 text-muted-foreground/50 mb-6" data-ai-hint="dashboard illustration" />
+            <h2 className="text-2xl font-semibold mb-2">Welcome to {workspace.name}</h2>
+            <p className="text-muted-foreground max-w-md">
+              Select an item from the sidebar to get started. You can generate new quizzes from PDFs under "Knowledge" or review past quizzes under "History".
+            </p>
           </div>
         );
     }
   };
 
-  const getPageTitle = () => {
-    if (viewMode === 'dashboard_cards') return `${workspace.name} Dashboard`;
-    if (viewMode === 'quiz_list_selection') return `Select Quiz in ${workspace.name}`;
-    if (viewMode === 'source_pdf_list') return `Source Documents in ${workspace.name}`;
-    if (activeQuizDBEntry?.pdf_name) {
-        if (viewMode === 'quiz_review') return `Review: ${activeQuizDBEntry.pdf_name}`;
-        if (viewMode === 'quiz_taking') return `Taking Quiz: ${activeQuizDBEntry.pdf_name}`;
-        if (viewMode === 'quiz_results') return `Results: ${activeQuizDBEntry.pdf_name}`;
-    }
-    if (viewMode === 'loading_quiz') return 'Loading Quiz...';
-    return workspace.name; 
-  };
-
-  const getPageDescription = () => {
-    if (viewMode === 'dashboard_cards') return "Choose an action to get started with your study materials.";
-    if (viewMode === 'quiz_list_selection') return "Choose a quiz from the list below to review its questions or retake it.";
-    if (viewMode === 'source_pdf_list') return "List of PDF documents that have been used to generate quizzes in this workspace.";
-     if (activeQuizDBEntry) {
-        if (viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed') return `Review the generated questions. You can then take the quiz or regenerate it if it's the latest.`;
-        if (viewMode === 'quiz_review' && activeQuizDBEntry.status === 'failed') return `This quiz generation failed. You can try regenerating it if it's the latest.`;
-        if (viewMode === 'quiz_taking') return `Select the best answer for each question.`;
-        if (viewMode === 'quiz_results') return `Here's how you performed. Review your answers and explanations.`;
-     }
-    if (viewMode === 'loading_quiz') return `Loading your quiz...`;
-    return "Manage your study materials and quizzes.";
-  }
-  
-
-  const showActionButtonsFooter = 
+  const showActionButtonsFooterRightPane = 
     (viewMode === 'quiz_review' && activeQuizDBEntry && (activeQuizDBEntry.status === 'completed' || activeQuizDBEntry.status === 'failed')) ||
     (viewMode === 'quiz_results' && activeQuizDBEntry);
 
 
   return (
-    <div className="flex flex-col h-full"> 
+    <SidebarProvider defaultOpen={true}>
+      <div className="flex min-h-[calc(100vh-var(--header-height)-var(--footer-height))] border-t">
+        <Sidebar className="border-r">
+          <SidebarHeader className="p-3 border-b">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <BookOpenCheck className="h-6 w-6 text-primary" />
+                    <span className="font-semibold text-lg">FinalQuiz</span>
+                </div>
+                <SidebarTrigger />
+            </div>
+          </SidebarHeader>
+          <SidebarContent className="p-0">
+            <ScrollArea className="h-full">
+                <Accordion type="multiple" defaultValue={["knowledge", "history"]} className="w-full px-3 py-2">
+                <AccordionItem value="knowledge">
+                    <AccordionTrigger className="text-base hover:no-underline">
+                        <div className="flex items-center">
+                            <FolderOpen className="mr-2 h-5 w-5 text-primary/80" />
+                            Knowledge
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pl-1 pt-1 pb-0">
+                         <Button variant="ghost" size="sm" className="w-full justify-start mb-2 text-primary" onClick={() => handleOpenUploadDialog()}>
+                            <PlusCircle className="mr-2 h-4 w-4"/> Generate New Quiz
+                        </Button>
+                        {isLoadingSidebarData ? <Loader2 className="mx-auto my-4 h-6 w-6 animate-spin text-muted-foreground" /> :
+                         sourcePdfsForWorkspace.length > 0 ? <SourceFileList pdfNames={sourcePdfsForWorkspace} /> : <p className="text-xs text-muted-foreground px-2 py-1">No PDFs uploaded yet.</p>
+                        }
+                    </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="history" className="border-b-0">
+                    <AccordionTrigger className="text-base hover:no-underline">
+                         <div className="flex items-center">
+                            <ListChecks className="mr-2 h-5 w-5 text-primary/80" />
+                            History
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pl-1 pt-1 pb-0">
+                        {isLoadingSidebarData ? <Loader2 className="mx-auto my-4 h-6 w-6 animate-spin text-muted-foreground" /> :
+                         allQuizzesForWorkspace.length > 0 ? (
+                            <QuizList 
+                                initialQuizzes={allQuizzesForWorkspace} 
+                                workspaceId={workspaceId} 
+                                onQuizSelect={handleQuizSelectionFromHistory}
+                                selectedQuizId={activeQuizDBEntry?.id}
+                            />
+                         ) : <p className="text-xs text-muted-foreground px-2 py-1">No quizzes generated yet.</p>
+                        }
+                    </AccordionContent>
+                </AccordionItem>
+                </Accordion>
+            </ScrollArea>
+          </SidebarContent>
+          <SidebarFooter className="p-3 border-t">
+            <Button variant="ghost" asChild className="w-full justify-start">
+                <Link href={`/dashboard/workspace/${workspaceId}/settings`} onClick={(e) => { e.preventDefault(); toast({title: "Coming Soon", description: "Workspace settings are not yet implemented."})}}>
+                    <Settings2 className="mr-2 h-4 w-4" /> Workspace Settings
+                </Link>
+            </Button>
+          </SidebarFooter>
+        </Sidebar>
+
+        <SidebarInset className="flex flex-col bg-background overflow-hidden">
+          <div className="p-4 md:p-6 border-b bg-card flex-shrink-0">
+            <h1 className="text-xl md:text-2xl font-semibold font-headline">
+              {workspace.name} Dashboard
+            </h1>
+            <p className="text-muted-foreground mt-1 text-xs md:text-sm">
+              {viewMode === 'quiz_review' && activeQuizDBEntry ? `Reviewing: ${activeQuizDBEntry.pdf_name || 'Untitled Quiz'}` :
+               viewMode === 'quiz_taking' && activeQuizDBEntry ? `Taking Quiz: ${activeQuizDBEntry.pdf_name || 'Untitled Quiz'}` :
+               viewMode === 'quiz_results' && activeQuizDBEntry ? `Results for: ${activeQuizDBEntry.pdf_name || 'Untitled Quiz'}` :
+               'Manage your quizzes and study materials for this workspace.'
+              }
+            </p>
+          </div>
+          
+          <ScrollArea ref={rightPaneContentRef} className="flex-1 min-h-0">
+            <div className="p-4 md:p-6">
+              {renderRightPaneContent()}
+            </div>
+          </ScrollArea>
+
+          {showActionButtonsFooterRightPane && activeQuizDBEntry && (
+            <div className="p-4 border-t bg-card flex justify-end space-x-3 flex-shrink-0">
+              {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed' && (
+                <>
+                  {showRegenerateButtonInMain && (
+                    <Button variant="outline" onClick={handleRegenerateActiveQuiz}>
+                        <RefreshCw className="mr-2 h-4 w-4" /> Re-Generate
+                    </Button>
+                  )}
+                  <Button onClick={handleTakeQuiz}>
+                        <BookOpen className="mr-2 h-4 w-4" /> Take Quiz
+                  </Button>
+                </>
+              )}
+              {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'failed' && showRegenerateButtonInMain && (
+                 <Button onClick={handleRegenerateActiveQuiz}>
+                    <RefreshCw className="mr-2 h-4 w-4" /> Re-Generate
+                 </Button>
+              )}
+              {viewMode === 'quiz_results' && (
+                <>
+                  <Button variant="outline" onClick={() => setViewMode("quiz_review")}>
+                      <ListChecks className="mr-2 h-4 w-4" /> Review All
+                  </Button>
+                  <Button onClick={() => {setUserAnswers(null); setViewMode("quiz_taking"); }}>
+                      <RefreshCw className="mr-2 h-4 w-4" /> Retake Quiz
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+        </SidebarInset>
+      </div>
+
       <UploadQuizDialog
         workspaceId={workspaceId}
         open={isUploadDialogOpen}
@@ -515,78 +489,10 @@ export default function WorkspacePage() {
         onQuizGenerationStart={() => setIsGeneratingQuiz(true)}
         onQuizGenerated={handleQuizGenerationComplete}
         initialNumQuestions={activeQuizDBEntry?.num_questions}
-        existingQuizIdToUpdate={activeQuizDBEntry?.id}
+        existingQuizIdToUpdate={activeQuizDBEntry?.id} // if regenerating active quiz
         initialPdfNameHint={activeQuizDBEntry?.pdf_name || undefined}
       />
-      
-      
-      <div className="p-6 md:p-8 border-b bg-card"> 
-         {(viewMode !== 'dashboard_cards') && (
-           <Button variant="link" className="text-sm text-primary self-start ml-[-0.75rem] mb-2 px-1 h-auto py-0 flex items-center" onClick={handleBackNavigation}>
-             <ChevronLeft className="h-4 w-4 mr-1" /> {getBackButtonText()}
-           </Button>
-         )}
-        <h1 className="text-2xl md:text-3xl font-bold font-headline">
-          {getPageTitle()}
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-            {getPageDescription()}
-        </p>
-      </div>
-
-      
-      <div ref={contentAreaRef} className="flex-1 overflow-y-auto p-6 md:p-8 min-h-0">
-         <div className="w-full max-w-4xl mx-auto"> 
-            {renderContent()}
-         </div>
-      </div>
-
-      
-      {showActionButtonsFooter && activeQuizDBEntry && (
-        <div className="p-4 md:p-6 border-t bg-card flex justify-end space-x-4">
-          {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed' && (
-            <>
-              {showRegenerateButton ? (
-                <Button variant="outline" onClick={handleRegenerateQuiz}>
-                    <RefreshCw className="mr-2 h-4 w-4" /> Re-Generate Quiz
-                </Button>
-              ) : null}
-              
-              {(showRegenerateButton || isLatestQuizSelected) ? (
-                 <Button onClick={handleTakeQuiz}>
-                    <BookOpen className="mr-2 h-4 w-4" /> Take the Quiz
-                 </Button>
-              ) : (
-                 <Button onClick={handleTakeQuiz}>
-                    <RefreshCw className="mr-2 h-4 w-4" /> Retake Quiz
-                 </Button>
-              )}
-            </>
-          )}
-           {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'failed' && showRegenerateButton && (
-             <Button onClick={handleRegenerateQuiz}>
-                <RefreshCw className="mr-2 h-4 w-4" /> Re-Generate Quiz
-             </Button>
-           )}
-          {viewMode === 'quiz_results' && (
-            <>
-              <Button variant="outline" onClick={() => {
-                  setShowRegenerateButton(false);
-                  setViewMode("quiz_review");
-              }}>
-                  <ListChecks className="mr-2 h-4 w-4" /> Review All Questions
-              </Button>
-              <Button onClick={() => {
-                  setUserAnswers(null);
-                  setViewMode("quiz_taking");
-              }}>
-                  <RefreshCw className="mr-2 h-4 w-4" /> Retake Quiz
-              </Button>
-            </>
-          )}
-        </div>
-      )}
-    </div>
+    </SidebarProvider>
   );
 }
     
@@ -598,4 +504,5 @@ export default function WorkspacePage() {
 
 
     
+
 
