@@ -713,4 +713,4 @@ export default function WorkspacePageWrapper() {
     </SidebarProvider>
   );
 }
-```
+
