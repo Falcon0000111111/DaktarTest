@@ -1,4 +1,3 @@
-
 "use client";
 
 import { getWorkspaceById } from "@/lib/actions/workspace.actions";
@@ -291,6 +290,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const [sourcePdfsForWorkspace, setSourcePdfsForWorkspace] = useState<string[]>([]);
   const [isLoadingSidebarData, setIsLoadingSidebarData] = useState(false);
   const [showRegenerateButtonInMain, setShowRegenerateButtonInMain] = useState(false);
+  const [canShowAnswers, setCanShowAnswers] = useState(false); // <-- New state for answer visibility
   const rightPaneContentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -353,22 +353,27 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     setIsGeneratingQuiz(false);
 
     try {
-      await refreshSidebarData();
-      const quizzesInWs = await getQuizzesForWorkspace(workspaceId);
-      setAllQuizzesForWorkspace(quizzesInWs);
-
-      const generatedQuiz = quizzesInWs.find(q => q.id === quizId);
+      // Logic changed: Don't refresh the whole sidebar.
+      // Fetch just the new quiz to set it as active.
+      const allQuizzes = await getQuizzesForWorkspace(workspaceId);
+      const generatedQuiz = allQuizzes.find(q => q.id === quizId);
+      
+      // Also update the source file list in the "Knowledge" tab
+      const pdfNames = Array.from(new Set(allQuizzes.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
+      setSourcePdfsForWorkspace(pdfNames);
 
       if (generatedQuiz && generatedQuiz.generated_quiz_data && generatedQuiz.status === 'completed') {
         setActiveQuizDBEntry(generatedQuiz);
         setActiveQuizDisplayData(generatedQuiz.generated_quiz_data as StoredQuizData);
         setShowRegenerateButtonInMain(true);
+        setCanShowAnswers(false); // <-- Hide answers for new quiz review
         setViewMode("quiz_review");
       } else if (generatedQuiz && generatedQuiz.status === 'failed') {
         toast({ title: "Quiz Generation Failed", description: generatedQuiz.error_message || "The AI failed to generate the quiz.", variant: "destructive" });
         setActiveQuizDBEntry(generatedQuiz);
         setActiveQuizDisplayData(null);
         setShowRegenerateButtonInMain(true);
+        setCanShowAnswers(false);
         setViewMode("quiz_review");
       } else if (generatedQuiz && (generatedQuiz.status === 'processing' || generatedQuiz.status === 'pending')) {
          toast({ title: "Quiz is still processing", description: "Please wait a moment. The history list will update.", variant: "default" });
@@ -398,12 +403,14 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       if (selectedQuiz.status === 'completed' && selectedQuiz.generated_quiz_data) {
         setActiveQuizDBEntry(selectedQuiz);
         setActiveQuizDisplayData(selectedQuiz.generated_quiz_data as StoredQuizData);
+        setCanShowAnswers(true); // <-- Show answers for historical quizzes
         const sortedQuizzes = [...allQuizzesForWorkspace].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         setShowRegenerateButtonInMain(sortedQuizzes.length > 0 && sortedQuizzes[0].id === selectedQuiz.id);
         setViewMode('quiz_review');
       } else if (selectedQuiz.status === 'failed') {
         setActiveQuizDBEntry(selectedQuiz);
         setActiveQuizDisplayData(null);
+        setCanShowAnswers(true); // <-- Can also review failed quizzes with answers if needed
         const sortedQuizzes = [...allQuizzesForWorkspace].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         setShowRegenerateButtonInMain(sortedQuizzes.length > 0 && sortedQuizzes[0].id === selectedQuiz.id);
         setViewMode('quiz_review');
@@ -437,7 +444,9 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const handleSubmitQuiz = (answers: UserAnswers) => {
     setIsSubmittingQuiz(true);
     setUserAnswers(answers);
+    setCanShowAnswers(true); // <-- Show answers after submission
     setViewMode("quiz_results");
+    refreshSidebarData(); // <-- Refresh history list AFTER submission
     setIsSubmittingQuiz(false);
   };
 
@@ -470,6 +479,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
               <QuizReviewDisplay
                 quizData={activeQuizDisplayData.quiz}
                 quizName={activeQuizDBEntry.pdf_name || "Untitled Quiz"}
+                showAnswers={canShowAnswers} 
               />
             </div>
         );
@@ -498,9 +508,11 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                 userAnswers={userAnswers}
                 onRetake={() => {
                   setUserAnswers(null);
+                  setCanShowAnswers(false); // Hide answers for retake
                   setViewMode("quiz_taking");
                 }}
                 onReviewAll={() => {
+                  setCanShowAnswers(true); // Ensure answers are shown for review
                   setViewMode("quiz_review");
                 }}
               />
@@ -606,10 +618,10 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
               )}
               {viewMode === 'quiz_results' && (
                 <>
-                  <Button variant="outline" onClick={() => setViewMode("quiz_review")}>
+                  <Button variant="outline" onClick={() => { setCanShowAnswers(true); setViewMode("quiz_review"); }}>
                       <ListChecks className="mr-2 h-4 w-4" /> Review All
                   </Button>
-                  <Button onClick={() => {setUserAnswers(null); setViewMode("quiz_taking"); }}>
+                  <Button onClick={() => {setUserAnswers(null); setCanShowAnswers(false); setViewMode("quiz_taking"); }}>
                       <RefreshCw className="mr-2 h-4 w-4" /> Retake Quiz
                   </Button>
                 </>
@@ -713,4 +725,3 @@ export default function WorkspacePageWrapper() {
     </SidebarProvider>
   );
 }
-

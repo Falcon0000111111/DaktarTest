@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { GeneratedQuizQuestion } from "@/types/supabase";
@@ -7,9 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 interface QuizReviewDisplayProps {
   quizData: GeneratedQuizQuestion[];
   quizName: string;
+  showAnswers: boolean; // <-- New prop
 }
 
-export function QuizReviewDisplay({ quizData, quizName }: QuizReviewDisplayProps) {
+export function QuizReviewDisplay({ quizData, quizName, showAnswers }: QuizReviewDisplayProps) {
   if (!quizData || quizData.length === 0) {
     return (
       <div className="text-center py-10">
@@ -48,12 +48,15 @@ export function QuizReviewDisplay({ quizData, quizName }: QuizReviewDisplayProps
                   </li>
                 ))}
               </ul>
-              <div className="mt-4 pt-4 border-t">
-                <p className="text-sm font-semibold">Correct Answer:</p>
-                <p className="text-sm mb-2 text-green-600 dark:text-green-400">{q.answer}</p>
-                <p className="text-sm font-semibold">Explanation:</p>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{q.explanation || "No explanation provided."}</p>
-              </div>
+              {/* V-- This entire block is now conditional --V */}
+              {showAnswers && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-sm font-semibold">Correct Answer:</p>
+                  <p className="text-sm mb-2 text-green-600 dark:text-green-400">{q.answer}</p>
+                  <p className="text-sm font-semibold">Explanation:</p>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{q.explanation || "No explanation provided."}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}
