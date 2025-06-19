@@ -532,25 +532,13 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   return (
     <div className="flex flex-col h-screen bg-background">
       <header
-        className="fixed top-0 z-40 flex items-center justify-between px-4 border-b bg-background border-border transition-all duration-200"
+        className="fixed top-0 z-40 flex items-center justify-end px-4 border-b bg-background border-border transition-all duration-200"
         style={{
           height: 'var(--app-header-height)',
           left: dynamicHeaderLeftOffset,
           right: 0
         }}
       >
-        <div>
-          <h1 className="text-lg font-semibold">
-            {workspace?.name} Dashboard
-          </h1>
-          <p className="text-muted-foreground text-xs">
-             {viewMode === 'quiz_review' && activeQuizDBEntry ? `Reviewing: ${activeQuizDBEntry.pdf_name || 'Untitled Quiz'}` :
-                viewMode === 'quiz_taking' && activeQuizDBEntry ? `Taking Quiz: ${activeQuizDBEntry.pdf_name || 'Untitled Quiz'}` :
-                viewMode === 'quiz_results' && activeQuizDBEntry ? `Results for: ${activeQuizDBEntry.pdf_name || 'Untitled Quiz'}` :
-                '' // Default empty subtitle
-              }
-          </p>
-        </div>
         <div className="bg-muted text-muted-foreground rounded-full h-8 w-8 flex items-center justify-center text-sm font-medium">
           FE
         </div>
@@ -574,11 +562,25 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
           className="flex flex-col flex-1 bg-background overflow-hidden transition-all duration-200"
           style={{
             marginLeft: dynamicHeaderLeftOffset,
-            paddingTop: 'var(--app-header-height)' 
+            paddingTop: 'var(--app-header-height)'
           }}
         >
           <ScrollArea ref={rightPaneContentRef} className="flex-1 min-h-0">
             <div className="p-4 md:p-6">
+              {viewMode !== 'empty_state' && (
+                <div className="mb-6">
+                  <h1 className="text-3xl font-bold font-headline mb-1">
+                    {workspace?.name}
+                  </h1>
+                  {(viewMode === 'quiz_review' || viewMode === 'quiz_taking' || viewMode === 'quiz_results') && activeQuizDBEntry && (
+                    <p className="text-md text-muted-foreground mt-1">
+                      {viewMode === 'quiz_review' && `Reviewing: ${activeQuizDBEntry.pdf_name || 'Untitled Quiz'}`}
+                      {viewMode === 'quiz_taking' && `Taking Quiz: ${activeQuizDBEntry.pdf_name || 'Untitled Quiz'}`}
+                      {viewMode === 'quiz_results' && `Results for: ${activeQuizDBEntry.pdf_name || 'Untitled Quiz'}`}
+                    </p>
+                  )}
+                </div>
+              )}
               {renderRightPaneContent()}
             </div>
           </ScrollArea>
@@ -711,5 +713,4 @@ export default function WorkspacePageWrapper() {
     </SidebarProvider>
   );
 }
-
-    
+```
