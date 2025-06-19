@@ -47,3 +47,17 @@ export function QuizReviewDisplay({ quizData, quizName }: QuizReviewDisplayProps
                     {option}
                   </li>
                 ))}
+              </ul>
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-sm font-semibold">Correct Answer:</p>
+                <p className="text-sm mb-2 text-green-600 dark:text-green-400">{q.answer}</p>
+                <p className="text-sm font-semibold">Explanation:</p>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{q.explanation || "No explanation provided."}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
