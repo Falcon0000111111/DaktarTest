@@ -88,7 +88,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
         status: "processing",
         error_message: null,
         num_questions: totalNumberOfQuestions,
-        pdf_name: dbQuizName, // Update name in case it changed during regeneration
+        pdf_name: dbQuizName, 
         updated_at: new Date().toISOString()
       })
       .eq("id", quizEntryId)
@@ -100,9 +100,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     }
   }
 
-  // Revalidate immediately to show processing status in sidebar if user navigates away
   revalidatePath(`/dashboard/workspace/${workspaceId}`);
-  // Do not revalidate /dashboard yet, quiz not finalized for history
 
   try {
     const aiInput: GenerateQuizInput = {
@@ -138,12 +136,11 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
           .eq("id", quizEntryId)
           .eq("user_id", user.id);
       }
-      revalidatePath(`/dashboard/workspace/${workspaceId}`); // Revalidate on error too
+      revalidatePath(`/dashboard/workspace/${workspaceId}`); 
       throw new Error(updateError?.message || "Failed to update quiz with generated data.");
     }
 
     revalidatePath(`/dashboard/workspace/${workspaceId}`);
-    // Do not revalidate /dashboard for history until quiz is taken
     return updatedQuiz;
 
   } catch (error) {
@@ -212,7 +209,6 @@ export async function deleteQuizAction(quizId: string): Promise<void> {
     throw new Error("User not authenticated.");
   }
 
-  // Optional: Fetch workspace_id if needed for revalidation, or pass it
   const { data: quizData, error: fetchError } = await supabase
     .from("quizzes")
     .select("workspace_id")
@@ -236,7 +232,7 @@ export async function deleteQuizAction(quizId: string): Promise<void> {
     throw new Error(error.message || "Failed to delete quiz.");
   }
   revalidatePath(`/dashboard/workspace/${quizData.workspace_id}`);
-  revalidatePath(`/dashboard`); // For global workspace list if it shows quiz counts
+  revalidatePath(`/dashboard`);
 }
 
 export async function renameQuizAction(quizId: string, newName: string): Promise<Quiz> {
@@ -265,4 +261,56 @@ export async function renameQuizAction(quizId: string, newName: string): Promise
   revalidatePath(`/dashboard/workspace/${updatedQuiz.workspace_id}`);
   revalidatePath(`/dashboard`);
   return updatedQuiz;
+}
+
+export async function renameSourcePdfInQuizzesAction(workspaceId: string, oldPdfName: string, newPdfName: string): Promise<void> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User not authenticated.");
+  }
+  if (!newPdfName.trim()) {
+    throw new Error("New PDF name cannot be empty.");
+  }
+  if (oldPdfName === newPdfName) {
+    return; // No change needed
+  }
+
+  const { error } = await supabase
+    .from("quizzes")
+    .update({ pdf_name: newPdfName, updated_at: new Date().toISOString() })
+    .eq("workspace_id", workspaceId)
+    .eq("user_id", user.id)
+    .eq("pdf_name", oldPdfName);
+
+  if (error) {
+    console.error("Error renaming source PDF in quizzes:", error);
+    throw new Error(error.message || "Failed to rename source PDF in quizzes.");
+  }
+  revalidatePath(`/dashboard/workspace/${workspaceId}`);
+  revalidatePath(`/dashboard`);
+}
+
+export async function deleteQuizzesBySourcePdfAction(workspaceId: string, pdfName: string): Promise<void> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User not authenticated.");
+  }
+
+  const { error } = await supabase
+    .from("quizzes")
+    .delete()
+    .eq("workspace_id", workspaceId)
+    .eq("user_id", user.id)
+    .eq("pdf_name", pdfName);
+
+  if (error) {
+    console.error("Error deleting quizzes by source PDF name:", error);
+    throw new Error(error.message || "Failed to delete quizzes by source PDF name.");
+  }
+  revalidatePath(`/dashboard/workspace/${workspaceId}`);
+  revalidatePath(`/dashboard`);
 }

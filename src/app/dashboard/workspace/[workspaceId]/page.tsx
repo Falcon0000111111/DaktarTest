@@ -16,7 +16,7 @@ import { UploadQuizDialog } from "@/components/dashboard/upload-quiz-dialog";
 import { QuizReviewDisplay } from "@/components/dashboard/quiz-review-display";
 import { QuizTakerForm } from "@/components/dashboard/quiz-taker-form";
 import { QuizResultsDisplay } from "@/components/dashboard/quiz-results-display";
-import { getQuizzesForWorkspace, deleteQuizAction } from "@/lib/actions/quiz.actions";
+import { getQuizzesForWorkspace, deleteQuizAction, renameQuizAction, deleteQuizzesBySourcePdfAction, renameSourcePdfInQuizzesAction } from "@/lib/actions/quiz.actions";
 import { useParams } from "next/navigation";
 import { SourceFileList } from "@/components/dashboard/source-file-list";
 import {
@@ -56,6 +56,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { RenameQuizDialog } from "@/components/dashboard/rename-quiz-dialog";
+import { RenameSourceFileDialog } from "@/components/dashboard/rename-source-file-dialog";
 
 
 const CustomSidebarTrigger = () => {
@@ -162,7 +163,7 @@ const QuizList: React.FC<QuizListProps> = ({
                             "h-7 w-7 flex-shrink-0",
                             dropdownOpenItemId === quiz.id ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100"
                         )}
-                        onClick={(e) => e.stopPropagation()} // Prevent item selection
+                        onClick={(e) => e.stopPropagation()} 
                     >
                         <MoreVertical className="h-4 w-4" />
                         <span className="sr-only">Quiz options</span>
@@ -197,6 +198,8 @@ interface WorkspaceSidebarInternalsProps {
   headerBorderVisible: boolean;
   onRenameQuiz: (quiz: Quiz) => void;
   onDeleteQuizConfirmation: (quizId: string) => void;
+  onRenameSourceFile: (sourceFileName: string) => void;
+  onDeleteSourceFileConfirmation: (sourceFileName: string) => void;
 }
 
 const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
@@ -210,7 +213,9 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
   toast,
   headerBorderVisible,
   onRenameQuiz,
-  onDeleteQuizConfirmation
+  onDeleteQuizConfirmation,
+  onRenameSourceFile,
+  onDeleteSourceFileConfirmation,
 }) => {
   const { state: sidebarState } = useSidebar();
 
@@ -256,7 +261,11 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                         </Button>
                         {isLoadingSidebarData ? <Loader2 className="mx-auto my-4 h-6 w-6 animate-spin text-muted-foreground" /> :
                         sourcePdfsForWorkspace.length > 0 ?
-                        <SourceFileList pdfNames={sourcePdfsForWorkspace} /> :
+                        <SourceFileList 
+                            pdfNames={sourcePdfsForWorkspace}
+                            onRenameSourceFile={onRenameSourceFile}
+                            onDeleteSourceFile={onDeleteSourceFileConfirmation}
+                        /> :
                         <p className="text-xs text-muted-foreground px-2 py-1">No PDFs uploaded yet.</p>
                         }
                     </AccordionContent>
@@ -344,10 +353,15 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const [isQuizFromHistory, setIsQuizFromHistory] = useState(false);
   const [headerBorderVisible, setHeaderBorderVisible] = useState(false);
   const [quizToRename, setQuizToRename] = useState<Quiz | null>(null);
-  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [isRenameQuizDialogOpen, setIsRenameQuizDialogOpen] = useState(false);
   const [quizToDeleteId, setQuizToDeleteId] = useState<string | null>(null);
   const [isDeletingQuiz, setIsDeletingQuiz] = useState(false);
   const rightPaneContentRef = useRef<HTMLDivElement>(null);
+
+  const [sourceFileToRename, setSourceFileToRename] = useState<string | null>(null);
+  const [isRenameSourceFileDialogOpen, setIsRenameSourceFileDialogOpen] = useState(false);
+  const [sourceFileToDeleteName, setSourceFileToDeleteName] = useState<string | null>(null);
+  const [isDeletingSourceFile, setIsDeletingSourceFile] = useState(false);
 
   const refreshSidebarData = useCallback(async () => {
     if (!workspaceId) return;
@@ -386,7 +400,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   }, [viewMode, activeQuizDisplayData, userAnswers]);
 
   const handleOpenUploadDialog = (existingQuiz?: Quiz) => {
-    setActiveQuizDBEntry(existingQuiz || null); // For regeneration context
+    setActiveQuizDBEntry(existingQuiz || null); 
     setIsUploadDialogOpen(true);
   };
 
@@ -394,18 +408,16 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     setIsUploadDialogOpen(false);
     setViewMode("loading_quiz_data");
     try {
-      // Fetch only the generated quiz, don't update full history list yet
-      const allQuizzes = await getQuizzesForWorkspace(workspaceId); // Need this to find the single quiz
+      const allQuizzes = await getQuizzesForWorkspace(workspaceId); 
       const generatedQuiz = allQuizzes.find(q => q.id === quizId);
 
-      // Update source PDF list as a new PDF might have been added
       const pdfNames = Array.from(new Set(allQuizzes.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
       setSourcePdfsForWorkspace(pdfNames);
 
       if (generatedQuiz && generatedQuiz.generated_quiz_data && generatedQuiz.status === 'completed') {
         setActiveQuizDBEntry(generatedQuiz);
         setActiveQuizDisplayData(generatedQuiz.generated_quiz_data as StoredQuizData);
-        setShowRegenerateButtonInMain(true);
+        setShowRegenerateButtonInMain(true); // Only show for newly generated
         setCanShowAnswers(false);
         setIsQuizFromHistory(false);
         setViewMode("quiz_review");
@@ -413,10 +425,10 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         toast({ title: "Quiz Generation Failed", description: generatedQuiz.error_message || "The AI failed to generate the quiz.", variant: "destructive" });
         setActiveQuizDBEntry(generatedQuiz);
         setActiveQuizDisplayData(null);
-        setShowRegenerateButtonInMain(true);
+        setShowRegenerateButtonInMain(true); // Allow regeneration for failed new quiz
         setCanShowAnswers(false);
         setIsQuizFromHistory(false);
-        setViewMode("quiz_review"); // Show failed state in review
+        setViewMode("quiz_review"); 
       } else {
         toast({ title: "Error", description: "Could not load the generated quiz data.", variant: "destructive" });
         setViewMode("empty_state");
@@ -430,8 +442,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const handleUploadDialogClose = (refresh?: boolean) => {
     setIsUploadDialogOpen(false);
     if (refresh) { 
-      // This refresh is usually for the source PDF list if a new one was used.
-      // History list is updated on quiz submission.
       refreshSidebarData(); 
     }
   };
@@ -444,16 +454,14 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         setActiveQuizDisplayData(selectedQuiz.generated_quiz_data as StoredQuizData);
         setCanShowAnswers(true);
         setIsQuizFromHistory(true);
-        const sortedQuizzes = [...allQuizzesForWorkspace].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        setShowRegenerateButtonInMain(sortedQuizzes.length > 0 && sortedQuizzes[0].id === selectedQuiz.id);
+        setShowRegenerateButtonInMain(false); // Do not show regenerate for historical quizzes
         setViewMode('quiz_review');
       } else if (selectedQuiz.status === 'failed') {
         setActiveQuizDBEntry(selectedQuiz);
         setActiveQuizDisplayData(null);
         setCanShowAnswers(true); 
         setIsQuizFromHistory(true);
-        const sortedQuizzes = [...allQuizzesForWorkspace].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        setShowRegenerateButtonInMain(sortedQuizzes.length > 0 && sortedQuizzes[0].id === selectedQuiz.id);
+        setShowRegenerateButtonInMain(false); // Do not show regenerate for historical quizzes
         setViewMode('quiz_review');
       } else {
          toast({ title: "Still Processing", description: `Quiz (${selectedQuiz.pdf_name || 'Untitled'}) is processing. Please wait.`, variant: "default" });
@@ -465,8 +473,8 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
 
   const handleTakeQuiz = () => {
     if (activeQuizDisplayData && activeQuizDBEntry?.status === 'completed') {
-      setUserAnswers({}); // Reset answers for a new attempt
-      setCanShowAnswers(false); // Hide answers while taking
+      setUserAnswers({}); 
+      setCanShowAnswers(false); 
       setViewMode("quiz_taking");
     } else {
       toast({title: "Cannot take quiz", description: "The quiz is not available or has an issue.", variant: "destructive"});
@@ -486,19 +494,18 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     setUserAnswers(answers);
     setCanShowAnswers(true);
     setViewMode("quiz_results");
-    refreshSidebarData(); // Refresh history list NOW
+    refreshSidebarData(); 
     setIsSubmittingQuiz(false);
   };
 
-  const handleOpenRenameDialog = (quiz: Quiz) => {
+  const handleOpenRenameQuizDialog = (quiz: Quiz) => {
     setQuizToRename(quiz);
-    setIsRenameDialogOpen(true);
+    setIsRenameQuizDialogOpen(true);
   };
 
   const handleQuizRenamed = () => {
-    refreshSidebarData(); // Refresh list to show new name
+    refreshSidebarData(); 
     if (activeQuizDBEntry && quizToRename && activeQuizDBEntry.id === quizToRename.id) {
-      // If the active quiz was renamed, update its local state too
       setActiveQuizDBEntry(prev => prev ? {...prev, pdf_name: quizToRename.pdf_name } : null);
     }
     setQuizToRename(null);
@@ -516,7 +523,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       toast({ title: "Quiz Deleted", description: "The quiz has been successfully deleted." });
       setQuizToDeleteId(null);
       refreshSidebarData();
-      // If the deleted quiz was active, reset view
       if (activeQuizDBEntry && activeQuizDBEntry.id === quizToDeleteId) {
         setActiveQuizDBEntry(null);
         setActiveQuizDisplayData(null);
@@ -528,6 +534,52 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       setIsDeletingQuiz(false);
     }
   };
+
+  const handleOpenRenameSourceFileDialog = (sourceFileName: string) => {
+    setSourceFileToRename(sourceFileName);
+    setIsRenameSourceFileDialogOpen(true);
+  };
+
+  const handleSourceFileRenamed = async (oldName: string, newName: string) => {
+    if (!workspaceId) return;
+    try {
+        await renameSourcePdfInQuizzesAction(workspaceId, oldName, newName);
+        toast({ title: "Source File Renamed", description: `All quizzes associated with "${oldName}" are now associated with "${newName}".` });
+        refreshSidebarData();
+        // If the active quiz was based on this source file, update its name too
+        if (activeQuizDBEntry && activeQuizDBEntry.pdf_name === oldName) {
+            setActiveQuizDBEntry(prev => prev ? { ...prev, pdf_name: newName } : null);
+        }
+    } catch (error) {
+        toast({ title: "Error Renaming Source File", description: (error as Error).message, variant: "destructive" });
+    }
+    setSourceFileToRename(null);
+  };
+  
+  const handleDeleteSourceFileConfirmation = (sourceFileName: string) => {
+    setSourceFileToDeleteName(sourceFileName);
+  };
+
+  const confirmDeleteSourceFile = async () => {
+    if (!sourceFileToDeleteName || !workspaceId) return;
+    setIsDeletingSourceFile(true);
+    try {
+      await deleteQuizzesBySourcePdfAction(workspaceId, sourceFileToDeleteName);
+      toast({ title: "Source File Quizzes Deleted", description: `All quizzes associated with "${sourceFileToDeleteName}" have been deleted.` });
+      setSourceFileToDeleteName(null);
+      refreshSidebarData();
+      if (activeQuizDBEntry && activeQuizDBEntry.pdf_name === sourceFileToDeleteName) {
+        setActiveQuizDBEntry(null);
+        setActiveQuizDisplayData(null);
+        setViewMode("empty_state");
+      }
+    } catch (error) {
+      toast({ title: "Error Deleting Source File Quizzes", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setIsDeletingSourceFile(false);
+    }
+  };
+
 
   const renderRightPaneContent = () => {
     switch (viewMode) {
@@ -554,7 +606,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         }
         if (!activeQuizDisplayData) return <div className="p-8 text-center"><p>Quiz data not available. It might be processing or failed.</p></div>;
         return (
-            <div className="mx-auto w-[85%]">
+            <div className="mx-auto w-[80%]">
               <QuizReviewDisplay
                 quizData={activeQuizDisplayData.quiz}
                 quizName={activeQuizDBEntry.pdf_name || "Untitled Quiz"}
@@ -565,7 +617,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       case "quiz_taking":
         if (!activeQuizDisplayData || !activeQuizDBEntry) return <div className="p-8 text-center"><p>Quiz data not available for taking.</p></div>;
         return (
-          <div className="mx-auto w-[85%]">
+          <div className="mx-auto w-[80%]">
             <p className="text-sm text-muted-foreground mb-6 text-center">
                 Select the best answer for each question.
             </p>
@@ -580,7 +632,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       case "quiz_results":
         if (!activeQuizDisplayData || !userAnswers || !activeQuizDBEntry) return <div className="p-8 text-center"><p>Quiz results not available.</p></div>;
         return (
-            <div className="mx-auto w-[85%]">
+            <div className="mx-auto w-[80%]">
               <QuizResultsDisplay
                 quiz={activeQuizDBEntry}
                 quizData={activeQuizDisplayData.quiz}
@@ -588,7 +640,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                 onRetake={() => {
                   setUserAnswers(null); 
                   setCanShowAnswers(false);
-                  setIsQuizFromHistory(true); // Retaking implies it was historical or just taken
+                  setIsQuizFromHistory(true); 
                   setViewMode("quiz_taking");
                 }}
               />
@@ -645,8 +697,10 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
             activeQuizDBEntryId={activeQuizDBEntry?.id}
             toast={toast}
             headerBorderVisible={headerBorderVisible}
-            onRenameQuiz={handleOpenRenameDialog}
+            onRenameQuiz={handleOpenRenameQuizDialog}
             onDeleteQuizConfirmation={handleDeleteQuizConfirmation}
+            onRenameSourceFile={handleOpenRenameSourceFileDialog}
+            onDeleteSourceFileConfirmation={handleDeleteSourceFileConfirmation}
           />
         </Sidebar>
 
@@ -670,7 +724,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                   <h1 className="text-3xl font-bold font-headline">
                     {workspace.name}
                   </h1>
-                  {/* Subtext intentionally removed as per request */}
                 </div>
               )}
               {renderRightPaneContent()}
@@ -678,7 +731,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
           </ScrollArea>
 
           {showActionButtonsFooterRightPane && activeQuizDBEntry && (
-            <div className="p-4 flex justify-end space-x-3 flex-shrink-0"> {/* Removed border-t and bg-card */}
+            <div className="p-4 flex justify-end space-x-3 flex-shrink-0">
               {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed' && (
                 <>
                   {showRegenerateButtonInMain && (
@@ -714,7 +767,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         open={isUploadDialogOpen}
         onOpenChange={setIsUploadDialogOpen}
         onDialogClose={handleUploadDialogClose}
-        onQuizGenerationStart={() => {}} // setIsGeneratingQuiz was removed, ensure this is handled if needed elsewhere
+        onQuizGenerationStart={() => {}} 
         onQuizGenerated={handleQuizGenerationComplete}
         initialNumQuestions={activeQuizDBEntry?.num_questions}
         existingQuizIdToUpdate={activeQuizDBEntry?.id}
@@ -722,8 +775,8 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       />
       <RenameQuizDialog
         quiz={quizToRename}
-        open={isRenameDialogOpen}
-        onOpenChange={setIsRenameDialogOpen}
+        open={isRenameQuizDialogOpen}
+        onOpenChange={setIsRenameQuizDialogOpen}
         onQuizRenamed={handleQuizRenamed}
       />
       <AlertDialog open={!!quizToDeleteId} onOpenChange={(open) => !open && setQuizToDeleteId(null)}>
@@ -739,6 +792,29 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
             <AlertDialogAction onClick={confirmDeleteQuiz} disabled={isDeletingQuiz} className="bg-destructive hover:bg-destructive/90">
               {isDeletingQuiz ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {isDeletingQuiz ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <RenameSourceFileDialog
+        oldName={sourceFileToRename}
+        open={isRenameSourceFileDialogOpen}
+        onOpenChange={setIsRenameSourceFileDialogOpen}
+        onSourceFileRenamed={handleSourceFileRenamed}
+      />
+       <AlertDialog open={!!sourceFileToDeleteName} onOpenChange={(open) => !open && setSourceFileToDeleteName(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete all quizzes related to this source file?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. All quizzes associated with the source file &quot;{sourceFileToDeleteName}&quot; will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setSourceFileToDeleteName(null)} disabled={isDeletingSourceFile}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteSourceFile} disabled={isDeletingSourceFile} className="bg-destructive hover:bg-destructive/90">
+              {isDeletingSourceFile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isDeletingSourceFile ? "Deleting..." : "Delete All"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -824,3 +900,4 @@ export default function WorkspacePageWrapper() {
     </SidebarProvider>
   );
 }
+

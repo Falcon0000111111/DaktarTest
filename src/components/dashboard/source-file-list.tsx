@@ -2,13 +2,15 @@
 "use client";
 
 import { SourceFileItem } from "./source-file-item";
-import { Inbox, FileArchive } from "lucide-react";
+import { FileArchive } from "lucide-react";
 
 interface SourceFileListProps {
   pdfNames: string[];
+  onRenameSourceFile: (oldName: string) => void;
+  onDeleteSourceFile: (name: string) => void;
 }
 
-export function SourceFileList({ pdfNames }: SourceFileListProps) {
+export function SourceFileList({ pdfNames, onRenameSourceFile, onDeleteSourceFile }: SourceFileListProps) {
   if (pdfNames.length === 0) {
     return (
       <div className="text-center py-3 px-1">
@@ -20,9 +22,7 @@ export function SourceFileList({ pdfNames }: SourceFileListProps) {
       </div>
     );
   }
-  // Sort PDF names alphabetically for consistent display
   const sortedPdfNames = [...pdfNames].sort((a, b) => a.localeCompare(b));
-
 
   return (
     <div className="space-y-1 py-1">
@@ -30,9 +30,10 @@ export function SourceFileList({ pdfNames }: SourceFileListProps) {
         <SourceFileItem 
           key={`${name}-${index}`} 
           pdfName={name}
+          onRename={() => onRenameSourceFile(name)}
+          onDelete={() => onDeleteSourceFile(name)}
         />
       ))}
     </div>
   );
 }
-
