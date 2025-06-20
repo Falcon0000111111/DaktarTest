@@ -411,11 +411,12 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     setViewMode("loading_quiz_data");
     setIsGeneratingQuiz(false); 
     try {
-      const allQuizzes = await getQuizzesForWorkspace(workspaceId); 
+      // Fetch only the newly generated/updated quiz instead of all quizzes
+      const allQuizzes = await getQuizzesForWorkspace(workspaceId); // still needed to get the single quiz
       const generatedQuiz = allQuizzes.find(q => q.id === quizId);
       
       const pdfNames = Array.from(new Set(allQuizzes.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
-      setSourcePdfsForWorkspace(pdfNames);
+      setSourcePdfsForWorkspace(pdfNames); // Update source files list immediately
 
       if (generatedQuiz && generatedQuiz.generated_quiz_data && generatedQuiz.status === 'completed') {
         setActiveQuizDBEntry(generatedQuiz);
@@ -456,9 +457,9 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       if (selectedQuiz.status === 'completed' && selectedQuiz.generated_quiz_data) {
         setActiveQuizDBEntry(selectedQuiz);
         setActiveQuizDisplayData(selectedQuiz.generated_quiz_data as StoredQuizData);
-        setCanShowAnswers(false); 
+        setCanShowAnswers(false);  // Answers not shown immediately for history items
         setIsQuizFromHistory(true);
-        setShowRegenerateButtonInMain(false); 
+        setShowRegenerateButtonInMain(false); // Do not show regenerate for historical quizzes
         setViewMode('quiz_review');
       } else if (selectedQuiz.status === 'failed') {
         setActiveQuizDBEntry(selectedQuiz);
@@ -499,15 +500,19 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     setCanShowAnswers(true); 
     setViewMode("quiz_results");
 
+    // Add to history only if it's not already from history and is a valid quiz entry
     if (!isQuizFromHistory && activeQuizDBEntry) {
-      const isAlreadyInLocalHistory = allQuizzesForWorkspace.find(q => q.id === activeQuizDBEntry.id);
-      if (!isAlreadyInLocalHistory) {
-        refreshSidebarData();
-      }
+        // Check if it's already in the local list (might be redundant if refreshSidebarData is smart, but safe)
+        const isAlreadyInLocalHistory = allQuizzesForWorkspace.find(q => q.id === activeQuizDBEntry.id);
+        if (!isAlreadyInLocalHistory) {
+            // It implies this was a new quiz, now being submitted.
+            // Or if it was an update to an existing one, refreshSidebarData will get the latest.
+            refreshSidebarData(); // Refresh history after submission
+        }
     }
     
     if (activeQuizDBEntry) {
-        setIsQuizFromHistory(true);
+        setIsQuizFromHistory(true); // After submission, consider it part of history flow for button text
     }
     setIsSubmittingQuiz(false);
   };
@@ -685,10 +690,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   return (
     <div className="flex flex-col h-screen bg-background">
       <header
-        className={cn(
-            "fixed top-0 z-40 flex items-center justify-end px-4 bg-background transition-all duration-200",
-            headerBorderVisible && "border-b border-border" 
-        )}
+        className="fixed top-0 z-40 flex items-center justify-end px-4 bg-background transition-all duration-200"
         style={{
           height: 'var(--app-header-height)',
           left: dynamicHeaderLeftOffset,
@@ -734,7 +736,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
               {viewMode !== 'empty_state' && (
                 <div className="mb-6 text-center">
                   <h1 className="text-3xl font-bold font-headline">
-                    {workspace?.name}
+                    {workspace?.name} Quiz
                   </h1>
                 </div>
               )}
