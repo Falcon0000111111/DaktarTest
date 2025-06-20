@@ -9,9 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useState, type FormEvent, useEffect, ChangeEvent, RefObject } from "react";
 import { generateQuizFromPdfsAction } from "@/lib/actions/quiz.actions";
-import { FileUp, Info, FileText, BadgeAlert, X } from "lucide-react";
+import { FileUp, Info, FileText, BadgeAlert, X, Percent } from "lucide-react";
 import type { Quiz } from "@/types/supabase";
-// ScrollArea is no longer used here
 import { cn } from "@/lib/utils";
 
 interface UploadQuizFormProps {
@@ -21,6 +20,7 @@ interface UploadQuizFormProps {
   onActualCancel: () => void; 
   onFormValidityChange: (isValid: boolean) => void;
   initialNumQuestions?: number;
+  initialPassingScore?: number | null;
   existingQuizIdToUpdate?: string;
   initialPdfNameHint?: string;
   className?: string; 
@@ -44,6 +44,7 @@ export function UploadQuizForm({
     onActualCancel,
     onFormValidityChange,
     initialNumQuestions,
+    initialPassingScore,
     existingQuizIdToUpdate,
     initialPdfNameHint,
     className,
@@ -51,6 +52,7 @@ export function UploadQuizForm({
 }: UploadQuizFormProps) {
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const [numQuestions, setNumQuestions] = useState(initialNumQuestions || 5);
+  const [passingScore, setPassingScore] = useState<number | null>(initialPassingScore === undefined ? 70 : initialPassingScore);
   const [selectedQuestionStyles, setSelectedQuestionStyles] = useState<string[]>(["multiple-choice"]);
   const [hardMode, setHardMode] = useState(false);
   const [topicsToFocus, setTopicsToFocus] = useState("");
@@ -61,27 +63,37 @@ export function UploadQuizForm({
   const isRegenerationMode = !!existingQuizIdToUpdate;
 
   useEffect(() => {
-    const isValid = pdfFiles.length > 0 && numQuestions >= 1 && numQuestions <= MAX_QUESTIONS;
+    const isValid = pdfFiles.length > 0 && 
+                    numQuestions >= 1 && numQuestions <= MAX_QUESTIONS &&
+                    (passingScore === null || (passingScore >=0 && passingScore <= 100));
     onFormValidityChange(isValid);
-  }, [pdfFiles, numQuestions, onFormValidityChange]);
+  }, [pdfFiles, numQuestions, passingScore, onFormValidityChange]);
 
 
   useEffect(() => {
     if (initialNumQuestions !== undefined) {
       setNumQuestions(initialNumQuestions);
     }
+    if (initialPassingScore !== undefined) {
+      setPassingScore(initialPassingScore);
+    } else {
+      setPassingScore(70); // Default if not regenerating
+    }
+
     if (!isRegenerationMode) {
         setSelectedQuestionStyles(["multiple-choice"]); 
         setHardMode(false);
         setTopicsToFocus("");
         setTopicsToDrop("");
     } else {
+        // For regeneration, retain advanced options from previous state or reset if needed
+        // For now, advanced options are reset/defaulted similar to new quiz generation
         setSelectedQuestionStyles(["multiple-choice"]);
         setHardMode(false);
         setTopicsToFocus("");
         setTopicsToDrop("");
     }
-  }, [initialNumQuestions, isRegenerationMode]);
+  }, [initialNumQuestions, initialPassingScore, isRegenerationMode]);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -154,6 +166,21 @@ export function UploadQuizForm({
       }
     }
   };
+  
+  const handlePassingScoreChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === "") {
+      setPassingScore(null); // Allow clearing the field
+    } else {
+      const parsedValue = parseInt(value, 10);
+      if (!isNaN(parsedValue) && parsedValue >= 0 && parsedValue <= 100) {
+        setPassingScore(parsedValue);
+      } else if (!isNaN(parsedValue) && (parsedValue < 0 || parsedValue > 100)) {
+        // Temporarily allow invalid input for user to correct, form validation will catch it
+        setPassingScore(parsedValue); 
+      }
+    }
+  };
 
   const handleQuestionStyleChange = (styleId: string, checked: boolean) => {
     setSelectedQuestionStyles(prev =>
@@ -171,6 +198,11 @@ export function UploadQuizForm({
       toast({ title: "Invalid Question Count", description: `Total number of questions must be between 1 and ${MAX_QUESTIONS}.`, variant: "destructive" });
       return;
     }
+    if (passingScore !== null && (passingScore < 0 || passingScore > 100)) {
+      toast({ title: "Invalid Passing Score", description: "Passing score must be between 0 and 100, or left empty.", variant: "destructive" });
+      return;
+    }
+
 
     setLoading(true); 
     onUploadStarted(); 
@@ -209,6 +241,7 @@ export function UploadQuizForm({
         workspaceId,
         pdfDocuments: filesToProcess,
         totalNumberOfQuestions: numQuestions,
+        passingScorePercentage: passingScore, // Pass the passing score
         quizTitle: quizTitle,
         existingQuizIdToUpdate: isRegenerationMode ? existingQuizIdToUpdate : undefined,
         preferredQuestionStyles: preferredStylesString || undefined,
@@ -239,6 +272,7 @@ export function UploadQuizForm({
         setHardMode(false);
         setTopicsToFocus("");
         setTopicsToDrop("");
+        setPassingScore(70); // Reset passing score for new quiz
       }
       const formElement = document.getElementById('pdf-upload-form-in-dialog') as HTMLFormElement;
       if (formElement) formElement.reset(); 
@@ -255,7 +289,7 @@ export function UploadQuizForm({
     >
       <button type="submit" ref={formSubmitRef} style={{ display: 'none' }} aria-hidden="true" />
 
-      <div className="flex-shrink-0"> {/* Info messages wrapper */}
+      <div className="flex-shrink-0"> 
         {isRegenerationMode && initialPdfNameHint && (
           <div className="p-3 mb-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-start">
               <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
@@ -270,7 +304,6 @@ export function UploadQuizForm({
         )}
       </div>
       
-      {/* Content inside scrollable area (form is scrollable now) */}
       <div className="space-y-4 pr-4"> 
         <div className="space-y-2">
           <Label htmlFor="pdf-file-dialog" className="flex items-center">
@@ -297,7 +330,6 @@ export function UploadQuizForm({
         {pdfFiles.length > 0 && (
           <div className="space-y-2">
               <Label className="text-sm">Selected file(s):</Label>
-              {/* Removed inner ScrollArea for selected files, they will be part of the main form scroll */}
               <div className="max-h-24 overflow-y-auto w-full rounded-md border p-2 bg-muted/50">
                   <ul className="space-y-1.5">
                       {pdfFiles.map((file, index) => (
@@ -344,6 +376,26 @@ export function UploadQuizForm({
             disabled={loading}
           />
         </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="passing-score-dialog" className="flex items-center">
+             <Percent className="mr-2 h-4 w-4 text-muted-foreground" /> Passing Score (Optional, 0-100%)
+          </Label>
+          <Input
+            id="passing-score-dialog"
+            type="number"
+            value={passingScore === null ? "" : passingScore.toString()}
+            onChange={handlePassingScoreChange}
+            min="0"
+            max="100"
+            placeholder="e.g., 70 (for 70%)"
+            disabled={loading}
+          />
+           {passingScore !== null && (passingScore < 0 || passingScore > 100) && (
+            <p className="text-xs text-destructive">Passing score must be between 0 and 100.</p>
+          )}
+        </div>
+
 
         <div className="space-y-2">
           <Label>Preferred Question Styles (Optional)</Label>

@@ -15,6 +15,7 @@ interface GenerateQuizFromPdfsParams {
   workspaceId: string;
   pdfDocuments: PdfDocumentInput[];
   totalNumberOfQuestions: number;
+  passingScorePercentage?: number | null; // New
   quizTitle?: string;
   existingQuizIdToUpdate?: string;
   preferredQuestionStyles?: string;
@@ -35,6 +36,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     workspaceId, 
     pdfDocuments, 
     totalNumberOfQuestions, 
+    passingScorePercentage, // New
     quizTitle, 
     existingQuizIdToUpdate,
     preferredQuestionStyles,
@@ -46,6 +48,10 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
   if (!pdfDocuments || pdfDocuments.length === 0) {
     throw new Error("At least one PDF document is required.");
   }
+  if (passingScorePercentage !== undefined && passingScorePercentage !== null && (passingScorePercentage < 0 || passingScorePercentage > 100)) {
+    throw new Error("Passing score percentage must be between 0 and 100.");
+  }
+
 
   let quizEntryId = existingQuizIdToUpdate;
 
@@ -66,6 +72,9 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
       user_id: user.id,
       pdf_name: dbQuizName,
       num_questions: totalNumberOfQuestions,
+      passing_score_percentage: passingScorePercentage, // New
+      last_attempt_score_percentage: null, // Initialize
+      last_attempt_passed: null, // Initialize
       status: "processing",
       error_message: null,
     };
@@ -89,6 +98,9 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
         error_message: null,
         num_questions: totalNumberOfQuestions,
         pdf_name: dbQuizName, 
+        passing_score_percentage: passingScorePercentage, // Update if regenerating
+        last_attempt_score_percentage: null, // Reset attempt on regeneration
+        last_attempt_passed: null, // Reset attempt on regeneration
         updated_at: new Date().toISOString()
       })
       .eq("id", quizEntryId)
@@ -166,6 +178,40 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     revalidatePath(`/dashboard/workspace/${workspaceId}`);
     throw new Error(detailedErrorMessage);
   }
+}
+
+export async function updateQuizAttemptResultAction(
+  quizId: string, 
+  scorePercentage: number, 
+  passed: boolean,
+  numQuestions: number, // Kept for potential future use, not directly stored now
+  passingScorePercentage: number | null // Kept for potential future use, not directly stored now
+  ): Promise<Quiz> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User not authenticated.");
+  }
+
+  const { data: updatedQuiz, error } = await supabase
+    .from("quizzes")
+    .update({
+      last_attempt_score_percentage: scorePercentage,
+      last_attempt_passed: passed,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", quizId)
+    .eq("user_id", user.id)
+    .select()
+    .single();
+
+  if (error || !updatedQuiz) {
+    console.error("Error updating quiz attempt result:", error);
+    throw new Error(error?.message || "Failed to update quiz attempt result.");
+  }
+  revalidatePath(`/dashboard/workspace/${updatedQuiz.workspace_id}`);
+  return updatedQuiz;
 }
 
 
@@ -274,7 +320,7 @@ export async function renameSourcePdfInQuizzesAction(workspaceId: string, oldPdf
     throw new Error("New PDF name cannot be empty.");
   }
   if (oldPdfName === newPdfName) {
-    return; // No change needed
+    return; 
   }
 
   const { error } = await supabase

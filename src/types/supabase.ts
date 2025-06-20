@@ -45,11 +45,14 @@ export interface Database {
           user_id: string
           pdf_name: string | null
           num_questions: number
-          generated_quiz_data: Json | null // Actually { quiz: GeneratedQuizQuestion[] }
+          generated_quiz_data: Json | null 
           status: "pending" | "processing" | "completed" | "failed"
           error_message: string | null
           created_at: string
           updated_at: string
+          passing_score_percentage: number | null // New
+          last_attempt_score_percentage: number | null // New
+          last_attempt_passed: boolean | null // New
         }
         Insert: {
           id?: string
@@ -62,6 +65,9 @@ export interface Database {
           error_message?: string | null
           created_at?: string
           updated_at?: string
+          passing_score_percentage?: number | null // New
+          last_attempt_score_percentage?: number | null // New
+          last_attempt_passed?: boolean | null // New
         }
         Update: {
           id?: string
@@ -74,6 +80,9 @@ export interface Database {
           error_message?: string | null
           created_at?: string
           updated_at?: string
+          passing_score_percentage?: number | null // New
+          last_attempt_score_percentage?: number | null // New
+          last_attempt_passed?: boolean | null // New
         }
         Relationships: [
           {
@@ -114,15 +123,13 @@ export type NewQuiz = Database['public']['Tables']['quizzes']['Insert'];
 
 export type GeneratedQuizQuestion = {
   question: string;
-  options: string[]; // Should be 4 options
+  options: string[]; 
   answer: string;
-  explanation: string; // New field
+  explanation: string; 
 };
 
-// Type for the structure stored in generated_quiz_data
 export type StoredQuizData = {
   quiz: GeneratedQuizQuestion[];
 };
 
-// Type for user's answers when taking a quiz
-export type UserAnswers = Record<number, string>; // questionIndex: selectedOption
+export type UserAnswers = Record<number, string>;

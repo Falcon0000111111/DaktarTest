@@ -3,19 +3,21 @@
 
 import type { Quiz, GeneratedQuizQuestion, UserAnswers } from "@/types/supabase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, XCircle, HelpCircle, InfoIcon, RefreshCcw, ListChecks } from "lucide-react";
+import { CheckCircle, XCircle, HelpCircle, InfoIcon, RefreshCcw, ListChecks, ChevronDown, ChevronUp, Award, AlertTriangleIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 interface QuizResultsDisplayProps {
   quiz: Quiz;
   quizData: GeneratedQuizQuestion[];
   userAnswers: UserAnswers;
   onRetake: () => void;
-  onReviewAll: () => void;
 }
 
-export function QuizResultsDisplay({ quiz, quizData, userAnswers, onRetake, onReviewAll }: QuizResultsDisplayProps) {
+export function QuizResultsDisplay({ quiz, quizData, userAnswers, onRetake }: QuizResultsDisplayProps) {
+  const [expandedExplanations, setExpandedExplanations] = useState<Record<number, boolean>>({});
+
   if (!quizData || quizData.length === 0) {
     return <p className="text-muted-foreground">No quiz data available to display results.</p>;
   }
@@ -27,20 +29,41 @@ export function QuizResultsDisplay({ quiz, quizData, userAnswers, onRetake, onRe
     }
   });
   const percentage = quizData.length > 0 ? Math.round((score / quizData.length) * 100) : 0;
+  
+  const passingScore = quiz.passing_score_percentage;
+  let passed: boolean | null = null;
+  if (passingScore !== null && passingScore !== undefined) {
+    passed = percentage >= passingScore;
+  }
+
+  const toggleExplanation = (index: number) => {
+    setExpandedExplanations(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
 
   return (
     <div className="space-y-8">
       <div className="p-6 rounded-lg border bg-card shadow-sm">
         <h3 className="text-xl font-semibold mb-1">Quiz Results: {quiz.pdf_name || "Untitled Quiz"}</h3>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground mb-2">
           You scored {score} out of {quizData.length} ({percentage}%)
         </p>
+        {passed !== null && (
+          <div className={cn(
+            "flex items-center text-lg font-semibold p-3 rounded-md",
+            passed ? "bg-green-100 text-green-700 dark:bg-green-800/30 dark:text-green-300" 
+                   : "bg-red-100 text-red-700 dark:bg-red-800/30 dark:text-red-300"
+          )}>
+            {passed ? <Award className="mr-2 h-5 w-5" /> : <AlertTriangleIcon className="mr-2 h-5 w-5" />}
+            Status: {passed ? "Passed" : "Failed"}
+            {passingScore !== null && <span className="text-sm font-normal ml-1">(Passing score: {passingScore}%)</span>}
+          </div>
+        )}
         <div className="mt-4 flex space-x-3">
             <Button onClick={onRetake}>
                 <RefreshCcw className="mr-2 h-4 w-4" /> Retake Quiz
-            </Button>
-            <Button variant="outline" onClick={onReviewAll}>
-                <ListChecks className="mr-2 h-4 w-4" /> Review All Questions
             </Button>
         </div>
       </div>
@@ -50,6 +73,7 @@ export function QuizResultsDisplay({ quiz, quizData, userAnswers, onRetake, onRe
           const userAnswer = userAnswers[index];
           const isCorrect = userAnswer === q.answer;
           const wasAttempted = userAnswer !== undefined && userAnswer !== null && userAnswer !== "";
+          const isExplanationVisible = expandedExplanations[index];
 
           return (
             <div key={index} className="p-4 rounded-lg border bg-card shadow-sm">
@@ -94,11 +118,21 @@ export function QuizResultsDisplay({ quiz, quizData, userAnswers, onRetake, onRe
                 )}
                 
                 <div className="mt-3 pt-3 border-t border-border">
-                    <p className="text-sm font-semibold mb-1 flex items-center">
-                        <InfoIcon className="h-4 w-4 mr-2 text-blue-500"/>
-                        Explanation:
-                    </p>
-                    <p className="text-sm text-muted-foreground pl-1">{q.explanation || "No explanation provided."}</p>
+                    <div className="flex items-center justify-between mb-1">
+                        <p className="text-sm font-semibold flex items-center">
+                            <InfoIcon className="h-4 w-4 mr-2 text-blue-500"/>
+                            Explanation:
+                        </p>
+                        <Button variant="ghost" size="icon" onClick={() => toggleExplanation(index)} className="h-7 w-7 text-muted-foreground">
+                            {isExplanationVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            <span className="sr-only">{isExplanationVisible ? "Hide" : "Show"} explanation</span>
+                        </Button>
+                    </div>
+                    {isExplanationVisible && (
+                        <p className="text-sm text-muted-foreground pl-1 animate-accordion-down">
+                            {q.explanation || "No explanation provided."}
+                        </p>
+                    )}
                 </div>
               </div>
             </div>

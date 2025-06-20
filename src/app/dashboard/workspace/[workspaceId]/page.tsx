@@ -9,14 +9,15 @@ import { Button } from "@/components/ui/button";
 import {
   Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings, BookOpen,
   RefreshCw, Send, Inbox, FolderOpen, PlusCircle, LayoutDashboard,
-  Cpu, PanelLeftClose, PanelRightOpen, CheckCircle, MoreVertical, Trash2, Edit3
+  Cpu, PanelLeftClose, PanelRightOpen, CheckCircle, MoreVertical, Trash2, Edit3,
+  Award, AlertTriangleIcon, ChevronDown, ChevronUp
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UploadQuizDialog } from "@/components/dashboard/upload-quiz-dialog";
 import { QuizReviewDisplay } from "@/components/dashboard/quiz-review-display";
 import { QuizTakerForm } from "@/components/dashboard/quiz-taker-form";
 import { QuizResultsDisplay } from "@/components/dashboard/quiz-results-display";
-import { getQuizzesForWorkspace, deleteQuizAction, renameQuizAction, deleteQuizzesBySourcePdfAction, renameSourcePdfInQuizzesAction } from "@/lib/actions/quiz.actions";
+import { getQuizzesForWorkspace, deleteQuizAction, renameQuizAction, deleteQuizzesBySourcePdfAction, renameSourcePdfInQuizzesAction, updateQuizAttemptResultAction } from "@/lib/actions/quiz.actions";
 import { useParams } from "next/navigation";
 import { SourceFileList } from "@/components/dashboard/source-file-list";
 import {
@@ -115,6 +116,47 @@ const QuizList: React.FC<QuizListProps> = ({
   );
   const [dropdownOpenItemId, setDropdownOpenItemId] = useState<string | null>(null);
 
+  const getStatusBadge = (quiz: Quiz) => {
+    const baseBadgeClass = "inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2";
+    const iconClass = "mr-1 h-3 w-3";
+
+    if (quiz.status === 'failed') { // Generation failed
+      return (
+        <div className={cn(baseBadgeClass, "border-transparent bg-red-500/20 text-red-400 hover:bg-red-500/30")}>
+          <AlertCircleIcon className={iconClass} /> Failed
+        </div>
+      );
+    }
+    if (quiz.status === 'processing' || quiz.status === 'pending') {
+       return (
+        <div className={cn(baseBadgeClass, "border-transparent bg-blue-500/20 text-blue-400 hover:bg-blue-500/30")}>
+          <Loader2 className={cn(iconClass, "animate-spin")} /> {quiz.status.charAt(0).toUpperCase() + quiz.status.slice(1)}
+        </div>
+      );
+    }
+    // Status is 'completed' (generation succeeded)
+    if (quiz.last_attempt_passed === true) {
+      return (
+        <div className={cn(baseBadgeClass, "border-transparent bg-green-500/20 text-green-400 hover:bg-green-500/30")}>
+          <Award className={iconClass} /> Passed
+        </div>
+      );
+    }
+    if (quiz.last_attempt_passed === false) {
+      return (
+         <div className={cn(baseBadgeClass, "border-transparent bg-destructive/20 text-destructive hover:bg-destructive/30")}>
+          <AlertTriangleIcon className={iconClass} /> Failed
+        </div>
+      );
+    }
+    // If completed but not taken or no passing score set for a conclusive Pass/Fail attempt status
+    return (
+      <div className={cn(baseBadgeClass, "border-transparent bg-green-500/20 text-green-400 hover:bg-green-500/30")}>
+        <CheckCircle className={iconClass} /> Complete
+      </div>
+    );
+  };
+
 
   return (
     <div className="flex flex-col space-y-1">
@@ -140,18 +182,10 @@ const QuizList: React.FC<QuizListProps> = ({
                     </div>
                 </div>
                 <div className="pl-[28px] mt-1.5">
-                    {quiz.status === 'completed' && (
-                    <div className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/20 text-green-400 hover:bg-green-500/30">
-                        <CheckCircle className="mr-1 h-3 w-3" />
-                        Complete
-                    </div>
-                    )}
-                    {quiz.status === 'failed' && (
-                    <div className="flex items-start text-destructive text-xs">
-                        <AlertCircle className="h-3 w-3 mr-1 mt-0.5 flex-shrink-0" />
-                        <p className="leading-tight">{truncateError(quiz.error_message)}</p>
-                    </div>
-                    )}
+                    {getStatusBadge(quiz)}
+                     {quiz.status === 'failed' && quiz.error_message && ( // For generation errors specifically
+                       <p className="text-xs text-destructive mt-0.5">{truncateError(quiz.error_message)}</p>
+                     )}
                 </div>
             </button>
             <DropdownMenu onOpenChange={(open) => setDropdownOpenItemId(open ? quiz.id : null)}>
@@ -170,11 +204,11 @@ const QuizList: React.FC<QuizListProps> = ({
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenuItem onClick={() => onRenameQuiz(quiz)}>
+                    <DropdownMenuItem onClick={() => onRenameQuiz(quiz)} disabled={quiz.status === 'processing'}>
                         <Edit3 className="mr-2 h-4 w-4" /> Rename
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => onDeleteQuiz(quiz.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                    <DropdownMenuItem onClick={() => onDeleteQuiz(quiz.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={quiz.status === 'processing'}>
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
                     </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -416,7 +450,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       const generatedQuiz = allQuizzes.find(q => q.id === quizId);
       
       const pdfNames = Array.from(new Set(allQuizzes.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
-      setSourcePdfsForWorkspace(pdfNames); // Update source files list immediately
+      setSourcePdfsForWorkspace(pdfNames); 
 
       if (generatedQuiz && generatedQuiz.generated_quiz_data && generatedQuiz.status === 'completed') {
         setActiveQuizDBEntry(generatedQuiz);
@@ -447,6 +481,9 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     setIsUploadDialogOpen(false);
     setIsGeneratingQuiz(false);
     if (refresh) { 
+      // This refresh is usually for sidebar after some operations, 
+      // but handleQuizGenerationComplete already handles its specific refresh needs.
+      // Keep it if other dialog closing scenarios need full refresh.
       refreshSidebarData(); 
     }
   };
@@ -457,7 +494,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       if (selectedQuiz.status === 'completed' && selectedQuiz.generated_quiz_data) {
         setActiveQuizDBEntry(selectedQuiz);
         setActiveQuizDisplayData(selectedQuiz.generated_quiz_data as StoredQuizData);
-        setCanShowAnswers(false);  // Answers not shown immediately for history items
+        setCanShowAnswers(false);  // Answers not shown immediately for history items, user needs to take it.
         setIsQuizFromHistory(true);
         setShowRegenerateButtonInMain(false); // Do not show regenerate for historical quizzes
         setViewMode('quiz_review');
@@ -494,26 +531,49 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     }
   };
 
-  const handleSubmitQuiz = (answers: UserAnswers) => {
+  const handleSubmitQuiz = async (answers: UserAnswers) => {
     setIsSubmittingQuiz(true);
     setUserAnswers(answers);
-    setCanShowAnswers(true); 
-    setViewMode("quiz_results");
-
-    // Add to history only if it's not already from history and is a valid quiz entry
-    if (!isQuizFromHistory && activeQuizDBEntry) {
-        // Check if it's already in the local list (might be redundant if refreshSidebarData is smart, but safe)
-        const isAlreadyInLocalHistory = allQuizzesForWorkspace.find(q => q.id === activeQuizDBEntry.id);
-        if (!isAlreadyInLocalHistory) {
-            // It implies this was a new quiz, now being submitted.
-            // Or if it was an update to an existing one, refreshSidebarData will get the latest.
-            refreshSidebarData(); // Refresh history after submission
-        }
-    }
+    setCanShowAnswers(true);
     
     if (activeQuizDBEntry) {
-        setIsQuizFromHistory(true); // After submission, consider it part of history flow for button text
+        let score = 0;
+        const quizData = activeQuizDBEntry.generated_quiz_data as StoredQuizData | null;
+        if (quizData) {
+            quizData.quiz.forEach((q, index) => {
+                if (answers[index] === q.answer) {
+                score++;
+                }
+            });
+            const percentage = quizData.quiz.length > 0 ? Math.round((score / quizData.quiz.length) * 100) : 0;
+            
+            let passed = null;
+            if (activeQuizDBEntry.passing_score_percentage !== null) {
+                passed = percentage >= activeQuizDBEntry.passing_score_percentage;
+            }
+
+            try {
+                const updatedQuiz = await updateQuizAttemptResultAction(
+                    activeQuizDBEntry.id,
+                    percentage,
+                    passed!, // pass null if `passed` is null, action should handle it
+                    activeQuizDBEntry.num_questions,
+                    activeQuizDBEntry.passing_score_percentage
+                );
+                setActiveQuizDBEntry(updatedQuiz); // Update active quiz with new attempt data
+            } catch (error) {
+                toast({ title: "Error Saving Attempt", description: (error as Error).message, variant: "destructive"});
+            }
+        }
+        
+        // Add to history only if it's not already from history
+        if (!isQuizFromHistory) {
+            refreshSidebarData(); 
+        }
+        setIsQuizFromHistory(true); // After submission of a new quiz, it's now considered "historical" for button text
     }
+    
+    setViewMode("quiz_results");
     setIsSubmittingQuiz(false);
   };
 
@@ -694,7 +754,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         style={{
           height: 'var(--app-header-height)',
           left: dynamicHeaderLeftOffset,
-          right: 0
+          right: 0,
         }}
       >
       </header>
@@ -784,6 +844,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         onQuizGenerationStart={() => setIsGeneratingQuiz(true)} 
         onQuizGenerated={handleQuizGenerationComplete}
         initialNumQuestions={activeQuizDBEntry?.num_questions}
+        initialPassingScore={activeQuizDBEntry?.passing_score_percentage}
         existingQuizIdToUpdate={activeQuizDBEntry?.id}
         initialPdfNameHint={activeQuizDBEntry?.pdf_name || undefined}
       />
@@ -914,4 +975,3 @@ export default function WorkspacePageWrapper() {
     </SidebarProvider>
   );
 }
-

@@ -26,6 +26,7 @@ interface UploadQuizDialogProps {
   onQuizGenerated: (quizId: string) => void; 
   initialPdfNameHint?: string;
   initialNumQuestions?: number;
+  initialPassingScore?: number | null; // New
   existingQuizIdToUpdate?: string;
 }
 
@@ -39,6 +40,7 @@ export function UploadQuizDialog({
   onQuizGenerated,
   initialPdfNameHint,
   initialNumQuestions,
+  initialPassingScore, // New
   existingQuizIdToUpdate,
 }: UploadQuizDialogProps) {
   
@@ -71,12 +73,12 @@ export function UploadQuizDialog({
         <DialogHeader className="p-6 pb-4 flex-shrink-0 border-b">
           <DialogTitle className="font-headline flex items-center">
             <FileUp className="mr-2 h-5 w-5 text-primary" /> 
-            {isRegenerationMode ? "Re-Generate Quiz" : "Generate New Quiz(zes)"}
+            {isRegenerationMode ? "Re-Generate Quiz" : "Generate New Quiz"}
           </DialogTitle>
           <DialogDescription>
             {isRegenerationMode 
               ? `Re-generating quiz for "${initialPdfNameHint || 'document'}". You will need to re-upload the PDF.` 
-              : "Upload one or more PDF documents (max 5) and specify the number of questions. The AI will generate a quiz based on each document's content."
+              : "Upload PDF(s), set questions, and optionally a passing score. The AI will generate quiz(zes)."
             }
           </DialogDescription>
         </DialogHeader>
@@ -93,6 +95,7 @@ export function UploadQuizDialog({
           }}
           onFormValidityChange={setIsFormValidForSubmission}
           initialNumQuestions={initialNumQuestions}
+          initialPassingScore={initialPassingScore} // Pass down
           existingQuizIdToUpdate={existingQuizIdToUpdate}
           initialPdfNameHint={initialPdfNameHint}
           formSubmitRef={formSubmitButtonRef}
@@ -100,7 +103,7 @@ export function UploadQuizDialog({
             onOpenChange(false);
             handleDialogClose(false);
           }}
-          className="flex-1 min-h-0 px-6 py-4" // This makes UploadQuizForm the flexible middle part
+          className="flex-1 min-h-0 px-6 py-4" 
         />
         <DialogFooter className="p-6 pt-4 flex-shrink-0 border-t">
             <Button type="button" variant="outline" onClick={() => {
