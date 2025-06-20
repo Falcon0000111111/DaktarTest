@@ -3,6 +3,7 @@
 
 import { SourceFileItem } from "./source-file-item";
 import { FileArchive } from "lucide-react";
+import React from 'react'; // Ensure React is imported for memo
 
 interface SourceFileListProps {
   pdfNames: string[];
@@ -10,7 +11,7 @@ interface SourceFileListProps {
   onDeleteSourceFile: (name: string) => void;
 }
 
-export function SourceFileList({ pdfNames, onRenameSourceFile, onDeleteSourceFile }: SourceFileListProps) {
+export const SourceFileList = React.memo(function SourceFileList({ pdfNames, onRenameSourceFile, onDeleteSourceFile }: SourceFileListProps) {
   if (pdfNames.length === 0) {
     return (
       <div className="text-center py-3 px-1">
@@ -36,4 +37,8 @@ export function SourceFileList({ pdfNames, onRenameSourceFile, onDeleteSourceFil
       ))}
     </div>
   );
-}
+});
+
+SourceFileList.displayName = 'SourceFileList';
+
+    

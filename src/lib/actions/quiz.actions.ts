@@ -3,7 +3,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { generateQuizFromPdfs, type GenerateQuizInput, type GenerateQuizOutput } from "@/ai/flows/generate-quiz-from-pdf";
-import type { Quiz, NewQuiz } from "@/types/supabase";
+import type { Quiz, NewQuiz, StoredQuizData } from "@/types/supabase";
 import { revalidatePath } from "next/cache";
 
 interface PdfDocumentInput {
@@ -15,7 +15,7 @@ interface GenerateQuizFromPdfsParams {
   workspaceId: string;
   pdfDocuments: PdfDocumentInput[];
   totalNumberOfQuestions: number;
-  passingScorePercentage?: number | null; // New
+  passingScorePercentage?: number | null;
   quizTitle?: string;
   existingQuizIdToUpdate?: string;
   preferredQuestionStyles?: string;
@@ -36,7 +36,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     workspaceId, 
     pdfDocuments, 
     totalNumberOfQuestions, 
-    passingScorePercentage, // New
+    passingScorePercentage,
     quizTitle, 
     existingQuizIdToUpdate,
     preferredQuestionStyles,
@@ -51,7 +51,6 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
   if (passingScorePercentage !== undefined && passingScorePercentage !== null && (passingScorePercentage < 0 || passingScorePercentage > 100)) {
     throw new Error("Passing score percentage must be between 0 and 100.");
   }
-
 
   let quizEntryId = existingQuizIdToUpdate;
 
@@ -72,17 +71,18 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
       user_id: user.id,
       pdf_name: dbQuizName,
       num_questions: totalNumberOfQuestions,
-      passing_score_percentage: passingScorePercentage, // New
-      last_attempt_score_percentage: null, // Initialize
-      last_attempt_passed: null, // Initialize
+      passing_score_percentage: passingScorePercentage,
+      last_attempt_score_percentage: null,
+      last_attempt_passed: null,
       status: "processing",
       error_message: null,
+      generated_quiz_data: null, // Ensure this is null initially
     };
 
     const { data: newQuizEntry, error: createError } = await supabase
       .from("quizzes")
       .insert(initialQuizData)
-      .select()
+      .select("id") // Only select ID initially
       .single();
 
     if (createError || !newQuizEntry) {
@@ -96,11 +96,12 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
       .update({
         status: "processing",
         error_message: null,
+        generated_quiz_data: null, // Clear old data before regenerating
         num_questions: totalNumberOfQuestions,
         pdf_name: dbQuizName, 
-        passing_score_percentage: passingScorePercentage, // Update if regenerating
-        last_attempt_score_percentage: null, // Reset attempt on regeneration
-        last_attempt_passed: null, // Reset attempt on regeneration
+        passing_score_percentage: passingScorePercentage,
+        last_attempt_score_percentage: null, 
+        last_attempt_passed: null, 
         updated_at: new Date().toISOString()
       })
       .eq("id", quizEntryId)
@@ -129,14 +130,14 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     const { data: updatedQuiz, error: updateError } = await supabase
       .from("quizzes")
       .update({
-        generated_quiz_data: generatedData as any,
+        generated_quiz_data: generatedData as any, // Cast as StoredQuizData,
         status: "completed",
         error_message: null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", quizEntryId)
       .eq("user_id", user.id)
-      .select()
+      .select() // Select all fields for the returned promise
       .single();
 
     if (updateError || !updatedQuiz) {
@@ -176,6 +177,14 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     }
 
     revalidatePath(`/dashboard/workspace/${workspaceId}`);
+    // Attempt to fetch the failed quiz entry to return to the client for UI update
+    const { data: failedQuizEntry } = await supabase
+        .from("quizzes")
+        .select()
+        .eq("id", quizEntryId)
+        .single();
+    if (failedQuizEntry) return failedQuizEntry;
+
     throw new Error(detailedErrorMessage);
   }
 }
@@ -183,10 +192,8 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
 export async function updateQuizAttemptResultAction(
   quizId: string, 
   scorePercentage: number, 
-  passed: boolean,
-  numQuestions: number, // Kept for potential future use, not directly stored now
-  passingScorePercentage: number | null // Kept for potential future use, not directly stored now
-  ): Promise<Quiz> {
+  passed: boolean | null
+): Promise<Quiz> {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -224,9 +231,10 @@ export async function getQuizzesForWorkspace(workspaceId: string): Promise<Quiz[
     return [];
   }
 
+  // Select only necessary fields for the list view, exclude generated_quiz_data
   const { data, error } = await supabase
     .from("quizzes")
-    .select("*")
+    .select("id, workspace_id, user_id, pdf_name, num_questions, status, error_message, created_at, updated_at, passing_score_percentage, last_attempt_score_percentage, last_attempt_passed")
     .eq("workspace_id", workspaceId)
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
@@ -246,6 +254,32 @@ export async function getQuizzesForWorkspace(workspaceId: string): Promise<Quiz[
   }
   return data || [];
 }
+
+export async function getQuizById(quizId: string): Promise<Quiz | null> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User not authenticated for getQuizById.");
+  }
+
+  const { data, error } = await supabase
+    .from("quizzes")
+    .select("*") // Fetch all columns for a single quiz
+    .eq("id", quizId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') { // Code for "No rows found"
+      return null;
+    }
+    console.error("Error fetching quiz by ID:", error);
+    throw new Error(error.message || "Failed to fetch quiz by ID.");
+  }
+  return data;
+}
+
 
 export async function deleteQuizAction(quizId: string): Promise<void> {
   const supabase = createClient();
@@ -360,3 +394,5 @@ export async function deleteQuizzesBySourcePdfAction(workspaceId: string, pdfNam
   revalidatePath(`/dashboard/workspace/${workspaceId}`);
   revalidatePath(`/dashboard`);
 }
+
+    

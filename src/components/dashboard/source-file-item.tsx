@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import React, { useState } from "react"; // Ensure React and useState are imported
 
 interface SourceFileItemProps {
   pdfName: string;
@@ -19,14 +19,14 @@ interface SourceFileItemProps {
   onDelete: () => void;
 }
 
-export function SourceFileItem({ pdfName, onRename, onDelete }: SourceFileItemProps) {
+export const SourceFileItem = React.memo(function SourceFileItem({ pdfName, onRename, onDelete }: SourceFileItemProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   return (
     <div
       className={cn(
         "group relative flex items-center justify-between p-2 rounded-md text-left space-x-2 text-sm",
-        "text-foreground hover:bg-muted/50"
+        "text-foreground hover:bg-muted/50" // Use muted for hover
       )}
     >
       <div className="flex items-center flex-grow overflow-hidden pr-2">
@@ -62,4 +62,8 @@ export function SourceFileItem({ pdfName, onRename, onDelete }: SourceFileItemPr
       </DropdownMenu>
     </div>
   );
-}
+});
+SourceFileItem.displayName = 'SourceFileItem';
+
+
+    
