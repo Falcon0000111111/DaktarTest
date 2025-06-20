@@ -370,9 +370,10 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
 
 interface WorkspacePageContentProps {
   initialWorkspace: Workspace;
+  initialQuizzes: Quiz[]; // New prop for server-fetched initial quizzes
 }
 
-const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWorkspace }) => {
+const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWorkspace, initialQuizzes }) => {
   const { state: sidebarState } = useSidebar();
   const workspaceId = initialWorkspace.id;
   const [workspace, setWorkspace] = useState<Workspace | null>(initialWorkspace);
@@ -383,7 +384,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const [activeQuizDisplayData, setActiveQuizDisplayData] = useState<StoredQuizData | null>(null);
   const [userAnswers, setUserAnswers] = useState<UserAnswers | null>(null);
   const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false);
-  const [allQuizzesForWorkspace, setAllQuizzesForWorkspace] = useState<Quiz[]>([]);
+  const [allQuizzesForWorkspace, setAllQuizzesForWorkspace] = useState<Quiz[]>(initialQuizzes); // Initialize with prop
   const [sourcePdfsForWorkspace, setSourcePdfsForWorkspace] = useState<string[]>([]);
   const [isLoadingSidebarData, setIsLoadingSidebarData] = useState(false);
   const [isLoadingActiveQuiz, setIsLoadingActiveQuiz] = useState(false);
@@ -408,7 +409,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     if (!workspaceId) return;
     setIsLoadingSidebarData(true);
     try {
-      const quizzes = await getQuizzesForWorkspace(workspaceId); // Fetches lightweight quiz list
+      const quizzes = await getQuizzesForWorkspace(workspaceId); 
       setAllQuizzesForWorkspace(quizzes);
       const pdfNames = Array.from(new Set(quizzes.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
       setSourcePdfsForWorkspace(pdfNames);
@@ -422,19 +423,17 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
 
   useEffect(() => {
     setWorkspace(initialWorkspace);
+    setAllQuizzesForWorkspace(initialQuizzes); // Ensure state is updated if initialQuizzes prop changes
+    const initialPdfNames = Array.from(new Set(initialQuizzes.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
+    setSourcePdfsForWorkspace(initialPdfNames);
     setViewMode("empty_state");
     setActiveQuizDBEntry(null);
     setActiveQuizDisplayData(null);
     setUserAnswers(null);
     setCanShowAnswers(false);
     setIsQuizFromHistory(false);
-  }, [initialWorkspace]);
+  }, [initialWorkspace, initialQuizzes]);
 
-  useEffect(() => {
-    if (workspace) {
-        refreshSidebarData();
-    }
-  }, [workspace, refreshSidebarData]);
 
   useEffect(() => {
     rightPaneContentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -472,7 +471,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         toast({ title: "Error", description: "Could not load the generated quiz data.", variant: "destructive" });
         setViewMode("empty_state");
       }
-      // Refresh source PDF list in case a new PDF was used
+      // Refresh source PDF list in case a new PDF was used (not the full history list)
       const quizzesForSources = await getQuizzesForWorkspace(workspaceId);
       const pdfNames = Array.from(new Set(quizzesForSources.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
       setSourcePdfsForWorkspace(pdfNames);
@@ -496,21 +495,19 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const handleQuizSelectionFromHistory = useCallback(async (quizId: string) => {
     setViewMode("loading_quiz_data");
     setIsLoadingActiveQuiz(true);
-    setShowRegenerateButtonInMain(false); // Hide regenerate button when selecting from history
+    setShowRegenerateButtonInMain(false); 
+    setCanShowAnswers(false);
+    setIsQuizFromHistory(true);
     try {
-        const selectedQuizFull = await getQuizById(quizId); // Fetch full data
+        const selectedQuizFull = await getQuizById(quizId); 
         if (selectedQuizFull) {
             if (selectedQuizFull.status === 'completed' && selectedQuizFull.generated_quiz_data) {
                 setActiveQuizDBEntry(selectedQuizFull);
                 setActiveQuizDisplayData(selectedQuizFull.generated_quiz_data as StoredQuizData);
-                setCanShowAnswers(false); // Answers hidden initially on selection from history
-                setIsQuizFromHistory(true);
                 setViewMode('quiz_review');
             } else if (selectedQuizFull.status === 'failed') {
                 setActiveQuizDBEntry(selectedQuizFull);
                 setActiveQuizDisplayData(null);
-                setCanShowAnswers(false); // Even for failed, hide specific answers initially
-                setIsQuizFromHistory(true);
                 setViewMode('quiz_review');
             } else {
                 toast({ title: "Still Processing", description: `Quiz (${selectedQuizFull.pdf_name || 'Untitled'}) is processing. Please wait.`, variant: "default" });
@@ -574,14 +571,11 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                     percentage,
                     passedStatus
                 );
-                setActiveQuizDBEntry(updatedQuizEntry); // Update local state with the result of the action
-
-                // Only refresh sidebar data (which adds to history) if it wasn't already from history
+                setActiveQuizDBEntry(updatedQuizEntry); 
+                
                 if (!isQuizFromHistory) {
                     refreshSidebarData(); 
                 } else {
-                    // If it was from history, update just that item in the local state for immediate badge update
-                    // This ensures the history list itself doesn't re-order or duplicate
                     setAllQuizzesForWorkspace(prevQuizzes => 
                         prevQuizzes.map(q => q.id === updatedQuizEntry.id ? updatedQuizEntry : q)
                     );
@@ -604,7 +598,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const handleQuizRenamed = useCallback(() => {
     refreshSidebarData(); 
     if (activeQuizDBEntry && quizToRename && activeQuizDBEntry.id === quizToRename.id) {
-      // Optimistically update active quiz name if it's the one being viewed
        setActiveQuizDBEntry(prev => prev ? {...prev, pdf_name: name, updated_at: new Date().toISOString() } : null);
     }
     setQuizToRename(null);
@@ -924,10 +917,14 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
 
 type ViewMode = "empty_state" | "quiz_review" | "quiz_taking" | "quiz_results" | "loading_quiz_data";
 
-export default function WorkspacePageWrapper() {
-  const routeParams = useParams();
-  const workspaceId = routeParams.workspaceId as string;
+export default function WorkspacePageWrapper({
+  params,
+}: {
+  params: { workspaceId: string };
+}) {
+  const workspaceId = params.workspaceId;
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [initialQuizzes, setInitialQuizzes] = useState<Quiz[]>([]); // State for initial quizzes
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [errorPage, setErrorPage] = useState<string | null>(null);
 
@@ -947,6 +944,9 @@ export default function WorkspacePageWrapper() {
           setWorkspace(null);
         } else {
           setWorkspace(ws);
+          // Fetch initial quizzes for the workspace server-side
+          const quizzes = await getQuizzesForWorkspace(workspaceId);
+          setInitialQuizzes(quizzes);
         }
       } catch (e) {
         setErrorPage((e as Error).message);
@@ -995,7 +995,7 @@ export default function WorkspacePageWrapper() {
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <WorkspacePageContent initialWorkspace={workspace} />
+      <WorkspacePageContent initialWorkspace={workspace} initialQuizzes={initialQuizzes} />
     </SidebarProvider>
   );
 }
