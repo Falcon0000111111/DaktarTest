@@ -1,12 +1,12 @@
 "use client";
 
 import type { GeneratedQuizQuestion } from "@/types/supabase";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface QuizReviewDisplayProps {
   quizData: GeneratedQuizQuestion[];
   quizName: string;
-  showAnswers: boolean; // <-- New prop
+  showAnswers: boolean;
 }
 
 export function QuizReviewDisplay({ quizData, quizName, showAnswers }: QuizReviewDisplayProps) {
@@ -21,15 +21,7 @@ export function QuizReviewDisplay({ quizData, quizName, showAnswers }: QuizRevie
 
   return (
     <div className="space-y-8">
-      <div className="text-center">
-        <h2 className="text-2xl font-semibold mb-1">
-          Review Quiz: {quizName}
-        </h2>
-        <p className="text-muted-foreground">
-          Here are the questions generated for your quiz. You can proceed to take the quiz or regenerate it.
-        </p>
-      </div>
-
+      {/* Heading removed from here */}
       <div className="space-y-6">
         {quizData.map((q, index) => (
           <Card key={index} className="bg-card shadow-md">
@@ -48,7 +40,6 @@ export function QuizReviewDisplay({ quizData, quizName, showAnswers }: QuizRevie
                   </li>
                 ))}
               </ul>
-              {/* V-- This entire block is now conditional --V */}
               {showAnswers && (
                 <div className="mt-4 pt-4 border-t">
                   <p className="text-sm font-semibold">Correct Answer:</p>
@@ -61,3 +52,6 @@ export function QuizReviewDisplay({ quizData, quizName, showAnswers }: QuizRevie
           </Card>
         ))}
       </div>
+    </div>
+  );
+}
