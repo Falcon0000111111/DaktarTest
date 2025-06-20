@@ -411,11 +411,9 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     setViewMode("loading_quiz_data");
     setIsGeneratingQuiz(false); 
     try {
-      // Fetch only the newly generated/updated quiz, don't refresh allQuizzesForWorkspace yet
       const allQuizzes = await getQuizzesForWorkspace(workspaceId); 
       const generatedQuiz = allQuizzes.find(q => q.id === quizId);
       
-      // Update source PDF list as it might have changed
       const pdfNames = Array.from(new Set(allQuizzes.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
       setSourcePdfsForWorkspace(pdfNames);
 
@@ -423,15 +421,15 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         setActiveQuizDBEntry(generatedQuiz);
         setActiveQuizDisplayData(generatedQuiz.generated_quiz_data as StoredQuizData);
         setShowRegenerateButtonInMain(true); 
-        setCanShowAnswers(false); // CRITICAL: Answers hidden for new quiz review
-        setIsQuizFromHistory(false);
+        setCanShowAnswers(false); 
+        setIsQuizFromHistory(false); 
         setViewMode("quiz_review");
       } else if (generatedQuiz && generatedQuiz.status === 'failed') {
         toast({ title: "Quiz Generation Failed", description: generatedQuiz.error_message || "The AI failed to generate the quiz.", variant: "destructive" });
         setActiveQuizDBEntry(generatedQuiz);
         setActiveQuizDisplayData(null);
         setShowRegenerateButtonInMain(true); 
-        setCanShowAnswers(false); // Answers hidden even for failed new quiz
+        setCanShowAnswers(false); 
         setIsQuizFromHistory(false);
         setViewMode("quiz_review"); 
       } else {
@@ -448,7 +446,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     setIsUploadDialogOpen(false);
     setIsGeneratingQuiz(false);
     if (refresh) { 
-      // This refresh might be reconsidered if we only want history to update on submit
       refreshSidebarData(); 
     }
   };
@@ -459,14 +456,14 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       if (selectedQuiz.status === 'completed' && selectedQuiz.generated_quiz_data) {
         setActiveQuizDBEntry(selectedQuiz);
         setActiveQuizDisplayData(selectedQuiz.generated_quiz_data as StoredQuizData);
-        setCanShowAnswers(false); // CRITICAL: Answers hidden when selecting from history for review/retake
+        setCanShowAnswers(false); 
         setIsQuizFromHistory(true);
         setShowRegenerateButtonInMain(false); 
         setViewMode('quiz_review');
       } else if (selectedQuiz.status === 'failed') {
         setActiveQuizDBEntry(selectedQuiz);
         setActiveQuizDisplayData(null);
-        setCanShowAnswers(false); // CRITICAL: Answers hidden for failed quiz from history
+        setCanShowAnswers(false); 
         setIsQuizFromHistory(true);
         setShowRegenerateButtonInMain(false); 
         setViewMode('quiz_review');
@@ -481,7 +478,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const handleTakeQuiz = () => {
     if (activeQuizDisplayData && activeQuizDBEntry?.status === 'completed') {
       setUserAnswers({}); 
-      setCanShowAnswers(false); // Ensure answers are hidden while taking
+      setCanShowAnswers(false); 
       setViewMode("quiz_taking");
     } else {
       toast({title: "Cannot take quiz", description: "The quiz is not available or has an issue.", variant: "destructive"});
@@ -499,9 +496,19 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const handleSubmitQuiz = (answers: UserAnswers) => {
     setIsSubmittingQuiz(true);
     setUserAnswers(answers);
-    setCanShowAnswers(true); // CRITICAL: Answers shown for results view
+    setCanShowAnswers(true); 
     setViewMode("quiz_results");
-    refreshSidebarData(); // CRITICAL: Update history AFTER quiz submission
+
+    if (!isQuizFromHistory && activeQuizDBEntry) {
+      const isAlreadyInLocalHistory = allQuizzesForWorkspace.find(q => q.id === activeQuizDBEntry.id);
+      if (!isAlreadyInLocalHistory) {
+        refreshSidebarData();
+      }
+    }
+    
+    if (activeQuizDBEntry) {
+        setIsQuizFromHistory(true);
+    }
     setIsSubmittingQuiz(false);
   };
 
@@ -513,7 +520,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const handleQuizRenamed = () => {
     refreshSidebarData(); 
     if (activeQuizDBEntry && quizToRename && activeQuizDBEntry.id === quizToRename.id) {
-      // Update the active quiz entry's name if it was the one renamed
       setActiveQuizDBEntry(prev => prev ? {...prev, pdf_name: quizToRename.pdf_name } : null);
     }
     setQuizToRename(null);
@@ -689,7 +695,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
           right: 0
         }}
       >
-        {/* User icon removed */}
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -731,7 +736,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                   <h1 className="text-3xl font-bold font-headline">
                     {workspace?.name}
                   </h1>
-                  {/* Subtext removed */}
                 </div>
               )}
               {renderRightPaneContent()}
@@ -760,7 +764,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
               )}
               {viewMode === 'quiz_results' && (
                 <>
-                  {/* "Review All" button removed earlier */}
                   <Button onClick={() => {setUserAnswers(null); setCanShowAnswers(false); setIsQuizFromHistory(true); setViewMode("quiz_taking"); }}>
                       <RefreshCw className="mr-2 h-4 w-4" /> Retake Quiz
                   </Button>
