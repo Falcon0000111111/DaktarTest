@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { GeneratedQuizQuestion } from "@/types/supabase";
@@ -6,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 interface QuizReviewDisplayProps {
   quizData: GeneratedQuizQuestion[];
   quizName: string;
-  showAnswers: boolean;
+  showAnswers: boolean; 
 }
 
 export function QuizReviewDisplay({ quizData, quizName, showAnswers }: QuizReviewDisplayProps) {
@@ -21,7 +22,7 @@ export function QuizReviewDisplay({ quizData, quizName, showAnswers }: QuizRevie
 
   return (
     <div className="space-y-8">
-      {/* Heading removed from here */}
+      {/* Heading moved to page.tsx or header */}
       <div className="space-y-6">
         {quizData.map((q, index) => (
           <Card key={index} className="bg-card shadow-md">

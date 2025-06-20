@@ -3,22 +3,20 @@
 
 import { getWorkspaceById } from "@/lib/actions/workspace.actions";
 import type { Workspace, Quiz, StoredQuizData, UserAnswers } from "@/types/supabase";
-import { useEffect, useState, type ReactNode, useRef } from "react";
+import { useEffect, useState, type ReactNode, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings, BookOpen,
-  RefreshCw, Send, Newspaper, ChevronLeft, PackageSearch, Inbox, FolderOpen,
-  PlusCircle, Settings2, ChevronRight, LayoutDashboard, FileQuestion,
-  Cpu, PanelLeftClose, PanelRightOpen, FileArchive, CheckCircle
+  RefreshCw, Send, Inbox, FolderOpen, PlusCircle, LayoutDashboard,
+  Cpu, PanelLeftClose, PanelRightOpen, CheckCircle, MoreVertical, Trash2, Edit3
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { UploadQuizDialog } from "@/components/dashboard/upload-quiz-dialog";
 import { QuizReviewDisplay } from "@/components/dashboard/quiz-review-display";
 import { QuizTakerForm } from "@/components/dashboard/quiz-taker-form";
 import { QuizResultsDisplay } from "@/components/dashboard/quiz-results-display";
-import { getQuizzesForWorkspace } from "@/lib/actions/quiz.actions";
+import { getQuizzesForWorkspace, deleteQuizAction } from "@/lib/actions/quiz.actions";
 import { useParams } from "next/navigation";
 import { SourceFileList } from "@/components/dashboard/source-file-list";
 import {
@@ -40,8 +38,26 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from 'date-fns';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { RenameQuizDialog } from "@/components/dashboard/rename-quiz-dialog";
 
-// Sidebar Trigger Component (Used inside SidebarHeader)
+
 const CustomSidebarTrigger = () => {
   const { toggleSidebar, open, state } = useSidebar();
   const IconToRender = open ? PanelLeftClose : PanelRightOpen;
@@ -70,11 +86,12 @@ const CustomSidebarTrigger = () => {
   );
 };
 
-// --- Inlined QuizList component with requested changes ---
 interface QuizListProps {
   initialQuizzes: Quiz[];
   onQuizSelect: (quizId: string) => void;
   selectedQuizId?: string | null;
+  onRenameQuiz: (quiz: Quiz) => void;
+  onDeleteQuiz: (quizId: string) => void;
 }
 
 const truncateError = (message: string | null, length = 45): string => {
@@ -88,56 +105,85 @@ const truncateError = (message: string | null, length = 45): string => {
 const QuizList: React.FC<QuizListProps> = ({
   initialQuizzes,
   onQuizSelect,
-  selectedQuizId
+  selectedQuizId,
+  onRenameQuiz,
+  onDeleteQuiz,
 }) => {
   const sortedQuizzes = [...initialQuizzes].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
+  const [dropdownOpenItemId, setDropdownOpenItemId] = useState<string | null>(null);
+
 
   return (
     <div className="flex flex-col space-y-1">
       {sortedQuizzes.map((quiz) => (
-        <button
-          key={quiz.id}
-          onClick={() => onQuizSelect(quiz.id)}
-          className={cn(
-            "w-full text-left p-2 rounded-md hover:bg-accent flex flex-col",
-            selectedQuizId === quiz.id && "bg-accent text-accent-foreground"
-          )}
+        <div 
+            key={quiz.id} 
+            className={cn(
+                "group relative flex items-center justify-between p-2 rounded-md",
+                selectedQuizId === quiz.id ? "bg-accent text-accent-foreground" : "hover:bg-muted/50"
+            )}
         >
-          {/* Main content: icon + title/details */}
-          <div className="flex items-start w-full">
-            <FileText className="h-4 w-4 mt-0.5 mr-3 flex-shrink-0 text-muted-foreground" />
-            <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium truncate">{quiz.pdf_name || "Untitled Quiz"}</p>
-              <p className="text-xs text-muted-foreground">
-                {quiz.num_questions || 'N/A'} questions • {formatDistanceToNow(new Date(quiz.created_at), { addSuffix: true })}
-              </p>
-            </div>
-          </div>
-
-          {/* Status line below, indented */}
-          <div className="pl-[28px] mt-1.5">
-            {quiz.status === 'completed' && (
-               <div className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/20 text-green-400 hover:bg-green-500/30">
-                 <CheckCircle className="mr-1 h-3 w-3" />
-                 Complete
-               </div>
-            )}
-            {quiz.status === 'failed' && (
-              <div className="flex items-start text-destructive text-xs">
-                <AlertCircle className="h-3 w-3 mr-1 mt-0.5 flex-shrink-0" />
-                <p className="leading-tight">{truncateError(quiz.error_message)}</p>
-              </div>
-            )}
-          </div>
-        </button>
+            <button
+                onClick={() => onQuizSelect(quiz.id)}
+                className="flex-grow text-left flex flex-col overflow-hidden pr-2"
+            >
+                <div className="flex items-start w-full">
+                    <FileText className="h-4 w-4 mt-0.5 mr-3 flex-shrink-0 text-muted-foreground" />
+                    <div className="flex-1 overflow-hidden">
+                        <p className="text-sm font-medium truncate">{quiz.pdf_name || "Untitled Quiz"}</p>
+                        <p className="text-xs text-muted-foreground">
+                        {quiz.num_questions || 'N/A'} questions • {formatDistanceToNow(new Date(quiz.created_at), { addSuffix: true })}
+                        </p>
+                    </div>
+                </div>
+                <div className="pl-[28px] mt-1.5">
+                    {quiz.status === 'completed' && (
+                    <div className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/20 text-green-400 hover:bg-green-500/30">
+                        <CheckCircle className="mr-1 h-3 w-3" />
+                        Complete
+                    </div>
+                    )}
+                    {quiz.status === 'failed' && (
+                    <div className="flex items-start text-destructive text-xs">
+                        <AlertCircle className="h-3 w-3 mr-1 mt-0.5 flex-shrink-0" />
+                        <p className="leading-tight">{truncateError(quiz.error_message)}</p>
+                    </div>
+                    )}
+                </div>
+            </button>
+            <DropdownMenu onOpenChange={(open) => setDropdownOpenItemId(open ? quiz.id : null)}>
+                <DropdownMenuTrigger asChild>
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className={cn(
+                            "h-7 w-7 flex-shrink-0",
+                            dropdownOpenItemId === quiz.id ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        )}
+                        onClick={(e) => e.stopPropagation()} // Prevent item selection
+                    >
+                        <MoreVertical className="h-4 w-4" />
+                        <span className="sr-only">Quiz options</span>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenuItem onClick={() => onRenameQuiz(quiz)}>
+                        <Edit3 className="mr-2 h-4 w-4" /> Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => onDeleteQuiz(quiz.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
       ))}
     </div>
   );
 };
 
-// --- End of Inlined QuizList component ---
 
 interface WorkspaceSidebarInternalsProps {
   workspaceId: string;
@@ -148,6 +194,9 @@ interface WorkspaceSidebarInternalsProps {
   handleQuizSelectionFromHistory: (quizId: string) => void;
   activeQuizDBEntryId?: string | null;
   toast: ReturnType<typeof useToast>['toast'];
+  headerBorderVisible: boolean;
+  onRenameQuiz: (quiz: Quiz) => void;
+  onDeleteQuizConfirmation: (quizId: string) => void;
 }
 
 const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
@@ -158,7 +207,10 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
   allQuizzesForWorkspace,
   handleQuizSelectionFromHistory,
   activeQuizDBEntryId,
-  toast
+  toast,
+  headerBorderVisible,
+  onRenameQuiz,
+  onDeleteQuizConfirmation
 }) => {
   const { state: sidebarState } = useSidebar();
 
@@ -166,11 +218,11 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
     <>
       <SidebarHeader
         className={cn(
-          "border-b flex items-center bg-sidebar text-sidebar-foreground",
+          "flex items-center bg-sidebar text-sidebar-foreground transition-colors duration-200",
           sidebarState === 'expanded'
             ? "p-3 justify-between flex-row"
             : "p-2 justify-center flex-col items-center gap-1",
-          "transition-all duration-200"
+          headerBorderVisible && "border-b border-border"
         )}
         style={{ height: 'var(--app-header-height)' }}
       >
@@ -184,7 +236,6 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
       <SidebarContent className="p-0">
         <ScrollArea className="h-full">
             <Accordion type="multiple" defaultValue={["knowledge", "history"]} className="w-full px-3 py-2">
-
             <AccordionItem value="knowledge">
                 <AccordionTrigger
                   className={cn(
@@ -197,7 +248,6 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                         {sidebarState === 'expanded' && <span className="ml-2">Knowledge</span>}
                     </div>
                 </AccordionTrigger>
-
                 {sidebarState === 'expanded' && (
                     <AccordionContent className="pl-1 pt-1 pb-0">
                         <Button variant="ghost" size="sm" className="w-full justify-start mb-2 text-primary" onClick={() => handleOpenUploadDialog()}>
@@ -206,13 +256,12 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                         </Button>
                         {isLoadingSidebarData ? <Loader2 className="mx-auto my-4 h-6 w-6 animate-spin text-muted-foreground" /> :
                         sourcePdfsForWorkspace.length > 0 ?
-                        <SourceFileList pdfNames={sourcePdfsForWorkspace} isCollapsed={false} /> :
+                        <SourceFileList pdfNames={sourcePdfsForWorkspace} /> :
                         <p className="text-xs text-muted-foreground px-2 py-1">No PDFs uploaded yet.</p>
                         }
                     </AccordionContent>
                  )}
             </AccordionItem>
-
             <AccordionItem value="history" className="border-b-0">
                 <AccordionTrigger
                   className={cn(
@@ -233,6 +282,8 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                                 initialQuizzes={allQuizzesForWorkspace}
                                 onQuizSelect={handleQuizSelectionFromHistory}
                                 selectedQuizId={activeQuizDBEntryId}
+                                onRenameQuiz={onRenameQuiz}
+                                onDeleteQuiz={onDeleteQuizConfirmation}
                             />
                         ) : <p className="text-xs text-muted-foreground px-2 py-1">No quizzes generated yet.</p>
                         }
@@ -275,10 +326,9 @@ interface WorkspacePageContentProps {
 }
 
 const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWorkspace }) => {
-  const { open: sidebarOpen, state: sidebarState } = useSidebar();
+  const { state: sidebarState } = useSidebar();
   const workspaceId = initialWorkspace.id;
   const [workspace, setWorkspace] = useState<Workspace | null>(initialWorkspace);
-
   const { toast } = useToast();
   const [viewMode, setViewMode] = useState<ViewMode>("empty_state");
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
@@ -286,48 +336,20 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const [activeQuizDisplayData, setActiveQuizDisplayData] = useState<StoredQuizData | null>(null);
   const [userAnswers, setUserAnswers] = useState<UserAnswers | null>(null);
   const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false);
-  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [allQuizzesForWorkspace, setAllQuizzesForWorkspace] = useState<Quiz[]>([]);
   const [sourcePdfsForWorkspace, setSourcePdfsForWorkspace] = useState<string[]>([]);
   const [isLoadingSidebarData, setIsLoadingSidebarData] = useState(false);
   const [showRegenerateButtonInMain, setShowRegenerateButtonInMain] = useState(false);
   const [canShowAnswers, setCanShowAnswers] = useState(false);
+  const [isQuizFromHistory, setIsQuizFromHistory] = useState(false);
+  const [headerBorderVisible, setHeaderBorderVisible] = useState(false);
+  const [quizToRename, setQuizToRename] = useState<Quiz | null>(null);
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [quizToDeleteId, setQuizToDeleteId] = useState<string | null>(null);
+  const [isDeletingQuiz, setIsDeletingQuiz] = useState(false);
   const rightPaneContentRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    setWorkspace(initialWorkspace);
-    setViewMode("empty_state");
-    setActiveQuizDBEntry(null);
-    setActiveQuizDisplayData(null);
-  }, [initialWorkspace]);
-
-
-  useEffect(() => {
-    const fetchSidebarQuizzes = async () => {
-      if (!workspaceId) return;
-      setIsLoadingSidebarData(true);
-      try {
-        const quizzes = await getQuizzesForWorkspace(workspaceId);
-        setAllQuizzesForWorkspace(quizzes);
-        const pdfNames = Array.from(new Set(quizzes.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
-        setSourcePdfsForWorkspace(pdfNames);
-      } catch (error) {
-        toast({ title: "Error fetching sidebar data", description: (error as Error).message, variant: "destructive" });
-      } finally {
-        setIsLoadingSidebarData(false);
-      }
-    };
-    if (workspace) {
-        fetchSidebarQuizzes();
-    }
-  }, [workspaceId, workspace, toast]);
-
-
-  useEffect(() => {
-    rightPaneContentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [viewMode, activeQuizDisplayData, userAnswers]);
-
-  const refreshSidebarData = async () => {
+  const refreshSidebarData = useCallback(async () => {
     if (!workspaceId) return;
     setIsLoadingSidebarData(true);
     try {
@@ -341,22 +363,42 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     } finally {
       setIsLoadingSidebarData(false);
     }
-  };
+  }, [workspaceId, toast]);
+
+  useEffect(() => {
+    setWorkspace(initialWorkspace);
+    setViewMode("empty_state");
+    setActiveQuizDBEntry(null);
+    setActiveQuizDisplayData(null);
+    setUserAnswers(null);
+    setCanShowAnswers(false);
+    setIsQuizFromHistory(false);
+  }, [initialWorkspace]);
+
+  useEffect(() => {
+    if (workspace) {
+        refreshSidebarData();
+    }
+  }, [workspace, refreshSidebarData]);
+
+  useEffect(() => {
+    rightPaneContentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [viewMode, activeQuizDisplayData, userAnswers]);
 
   const handleOpenUploadDialog = (existingQuiz?: Quiz) => {
-    setActiveQuizDBEntry(existingQuiz || null);
+    setActiveQuizDBEntry(existingQuiz || null); // For regeneration context
     setIsUploadDialogOpen(true);
   };
 
   const handleQuizGenerationComplete = async (quizId: string) => {
     setIsUploadDialogOpen(false);
     setViewMode("loading_quiz_data");
-    setIsGeneratingQuiz(false);
-
     try {
-      const allQuizzes = await getQuizzesForWorkspace(workspaceId);
+      // Fetch only the generated quiz, don't update full history list yet
+      const allQuizzes = await getQuizzesForWorkspace(workspaceId); // Need this to find the single quiz
       const generatedQuiz = allQuizzes.find(q => q.id === quizId);
-      
+
+      // Update source PDF list as a new PDF might have been added
       const pdfNames = Array.from(new Set(allQuizzes.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
       setSourcePdfsForWorkspace(pdfNames);
 
@@ -364,7 +406,8 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         setActiveQuizDBEntry(generatedQuiz);
         setActiveQuizDisplayData(generatedQuiz.generated_quiz_data as StoredQuizData);
         setShowRegenerateButtonInMain(true);
-        setCanShowAnswers(false); 
+        setCanShowAnswers(false);
+        setIsQuizFromHistory(false);
         setViewMode("quiz_review");
       } else if (generatedQuiz && generatedQuiz.status === 'failed') {
         toast({ title: "Quiz Generation Failed", description: generatedQuiz.error_message || "The AI failed to generate the quiz.", variant: "destructive" });
@@ -372,12 +415,10 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         setActiveQuizDisplayData(null);
         setShowRegenerateButtonInMain(true);
         setCanShowAnswers(false);
-        setViewMode("quiz_review");
-      } else if (generatedQuiz && (generatedQuiz.status === 'processing' || generatedQuiz.status === 'pending')) {
-         toast({ title: "Quiz is still processing", description: "Please wait a moment. The history list will update.", variant: "default" });
-         setViewMode("empty_state");
+        setIsQuizFromHistory(false);
+        setViewMode("quiz_review"); // Show failed state in review
       } else {
-        toast({ title: "Error", description: "Could not load the generated quiz data. It might still be processing or an error occurred.", variant: "destructive" });
+        toast({ title: "Error", description: "Could not load the generated quiz data.", variant: "destructive" });
         setViewMode("empty_state");
       }
     } catch (error) {
@@ -385,23 +426,24 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       setViewMode("empty_state");
     }
   };
-
+  
   const handleUploadDialogClose = (refresh?: boolean) => {
     setIsUploadDialogOpen(false);
-    setIsGeneratingQuiz(false);
-    if (refresh) {
-      refreshSidebarData();
+    if (refresh) { 
+      // This refresh is usually for the source PDF list if a new one was used.
+      // History list is updated on quiz submission.
+      refreshSidebarData(); 
     }
   };
 
   const handleQuizSelectionFromHistory = (quizId: string) => {
     const selectedQuiz = allQuizzesForWorkspace.find(q => q.id === quizId);
-
     if (selectedQuiz) {
       if (selectedQuiz.status === 'completed' && selectedQuiz.generated_quiz_data) {
         setActiveQuizDBEntry(selectedQuiz);
         setActiveQuizDisplayData(selectedQuiz.generated_quiz_data as StoredQuizData);
-        setCanShowAnswers(true); 
+        setCanShowAnswers(true);
+        setIsQuizFromHistory(true);
         const sortedQuizzes = [...allQuizzesForWorkspace].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         setShowRegenerateButtonInMain(sortedQuizzes.length > 0 && sortedQuizzes[0].id === selectedQuiz.id);
         setViewMode('quiz_review');
@@ -409,13 +451,12 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         setActiveQuizDBEntry(selectedQuiz);
         setActiveQuizDisplayData(null);
         setCanShowAnswers(true); 
+        setIsQuizFromHistory(true);
         const sortedQuizzes = [...allQuizzesForWorkspace].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         setShowRegenerateButtonInMain(sortedQuizzes.length > 0 && sortedQuizzes[0].id === selectedQuiz.id);
         setViewMode('quiz_review');
-      } else if (selectedQuiz.status === 'processing' || selectedQuiz.status === 'pending') {
-         toast({ title: "Still Processing", description: `This quiz (${selectedQuiz.pdf_name || 'Untitled'}) is still being generated. Please wait.`, variant: "default" });
       } else {
-        toast({ title: "Not Ready", description: `This quiz (${selectedQuiz.pdf_name || 'Untitled'}) is not ready for review.`, variant: "destructive"});
+         toast({ title: "Still Processing", description: `Quiz (${selectedQuiz.pdf_name || 'Untitled'}) is processing. Please wait.`, variant: "default" });
       }
     } else {
       toast({ title: "Error", description: "Selected quiz not found.", variant: "destructive"});
@@ -424,28 +465,68 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
 
   const handleTakeQuiz = () => {
     if (activeQuizDisplayData && activeQuizDBEntry?.status === 'completed') {
-      setUserAnswers({});
+      setUserAnswers({}); // Reset answers for a new attempt
+      setCanShowAnswers(false); // Hide answers while taking
       setViewMode("quiz_taking");
     } else {
-      toast({title: "Cannot take quiz", description: "The quiz is not available or has not been completed successfully.", variant: "destructive"});
+      toast({title: "Cannot take quiz", description: "The quiz is not available or has an issue.", variant: "destructive"});
     }
   };
-
+  
   const handleRegenerateActiveQuiz = () => {
     if (activeQuizDBEntry) {
         handleOpenUploadDialog(activeQuizDBEntry);
     } else {
-        toast({title: "Error", description: "No active quiz context for regeneration.", variant: "destructive"});
+        toast({title: "Error", description: "No active quiz to regenerate.", variant: "destructive"});
     }
   };
 
   const handleSubmitQuiz = (answers: UserAnswers) => {
     setIsSubmittingQuiz(true);
     setUserAnswers(answers);
-    setCanShowAnswers(true); 
+    setCanShowAnswers(true);
     setViewMode("quiz_results");
-    refreshSidebarData(); 
+    refreshSidebarData(); // Refresh history list NOW
     setIsSubmittingQuiz(false);
+  };
+
+  const handleOpenRenameDialog = (quiz: Quiz) => {
+    setQuizToRename(quiz);
+    setIsRenameDialogOpen(true);
+  };
+
+  const handleQuizRenamed = () => {
+    refreshSidebarData(); // Refresh list to show new name
+    if (activeQuizDBEntry && quizToRename && activeQuizDBEntry.id === quizToRename.id) {
+      // If the active quiz was renamed, update its local state too
+      setActiveQuizDBEntry(prev => prev ? {...prev, pdf_name: quizToRename.pdf_name } : null);
+    }
+    setQuizToRename(null);
+  };
+
+  const handleDeleteQuizConfirmation = (quizId: string) => {
+    setQuizToDeleteId(quizId);
+  };
+
+  const confirmDeleteQuiz = async () => {
+    if (!quizToDeleteId) return;
+    setIsDeletingQuiz(true);
+    try {
+      await deleteQuizAction(quizToDeleteId);
+      toast({ title: "Quiz Deleted", description: "The quiz has been successfully deleted." });
+      setQuizToDeleteId(null);
+      refreshSidebarData();
+      // If the deleted quiz was active, reset view
+      if (activeQuizDBEntry && activeQuizDBEntry.id === quizToDeleteId) {
+        setActiveQuizDBEntry(null);
+        setActiveQuizDisplayData(null);
+        setViewMode("empty_state");
+      }
+    } catch (error) {
+      toast({ title: "Error Deleting Quiz", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setIsDeletingQuiz(false);
+    }
   };
 
   const renderRightPaneContent = () => {
@@ -505,8 +586,9 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                 quizData={activeQuizDisplayData.quiz}
                 userAnswers={userAnswers}
                 onRetake={() => {
-                  setUserAnswers(null);
-                  setCanShowAnswers(false); 
+                  setUserAnswers(null); 
+                  setCanShowAnswers(false);
+                  setIsQuizFromHistory(true); // Retaking implies it was historical or just taken
                   setViewMode("quiz_taking");
                 }}
               />
@@ -538,14 +620,17 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   return (
     <div className="flex flex-col h-screen bg-background">
       <header
-        className="fixed top-0 z-40 flex items-center justify-end px-4 bg-background transition-all duration-200"
+        className={cn(
+            "fixed top-0 z-40 flex items-center justify-end px-4 bg-background transition-all duration-200",
+            headerBorderVisible && "border-b border-border"
+        )}
         style={{
           height: 'var(--app-header-height)',
           left: dynamicHeaderLeftOffset,
           right: 0
         }}
       >
-        {/* User icon removed from here */}
+        {/* User icon removed, Workspace title moved to scrollable content */}
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -559,6 +644,9 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
             handleQuizSelectionFromHistory={handleQuizSelectionFromHistory}
             activeQuizDBEntryId={activeQuizDBEntry?.id}
             toast={toast}
+            headerBorderVisible={headerBorderVisible}
+            onRenameQuiz={handleOpenRenameDialog}
+            onDeleteQuizConfirmation={handleDeleteQuizConfirmation}
           />
         </Sidebar>
 
@@ -569,14 +657,20 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
             paddingTop: 'var(--app-header-height)'
           }}
         >
-          <ScrollArea ref={rightPaneContentRef} className="flex-1 min-h-0">
+          <ScrollArea 
+            ref={rightPaneContentRef} 
+            className="flex-1 min-h-0"
+            onScroll={(event) => {
+                setHeaderBorderVisible(event.currentTarget.scrollTop > 0);
+            }}
+          >
             <div className="p-4 md:p-6">
-              {viewMode !== 'empty_state' && (
+              {viewMode !== 'empty_state' && workspace && (
                 <div className="mb-6">
-                  <h1 className="text-3xl font-bold font-headline mb-1">
-                    {workspace?.name}
+                  <h1 className="text-3xl font-bold font-headline">
+                    {workspace.name}
                   </h1>
-                  {/* Subtext removed from here */}
+                  {/* Subtext intentionally removed as per request */}
                 </div>
               )}
               {renderRightPaneContent()}
@@ -584,8 +678,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
           </ScrollArea>
 
           {showActionButtonsFooterRightPane && activeQuizDBEntry && (
-            <div className="p-4 border-t flex justify-end space-x-3 flex-shrink-0">
-              {/* bg-card removed */}
+            <div className="p-4 flex justify-end space-x-3 flex-shrink-0"> {/* Removed border-t and bg-card */}
               {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed' && (
                 <>
                   {showRegenerateButtonInMain && (
@@ -594,7 +687,8 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                     </Button>
                   )}
                   <Button onClick={handleTakeQuiz}>
-                        <BookOpen className="mr-2 h-4 w-4" /> Take Quiz
+                        <BookOpen className="mr-2 h-4 w-4" /> 
+                        {isQuizFromHistory ? "Retake Quiz" : "Take Quiz"}
                   </Button>
                 </>
               )}
@@ -605,8 +699,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
               )}
               {viewMode === 'quiz_results' && (
                 <>
-                  {/* "Review All" button removed */}
-                  <Button onClick={() => {setUserAnswers(null); setCanShowAnswers(false); setViewMode("quiz_taking"); }}>
+                  <Button onClick={() => {setUserAnswers(null); setCanShowAnswers(false); setIsQuizFromHistory(true); setViewMode("quiz_taking"); }}>
                       <RefreshCw className="mr-2 h-4 w-4" /> Retake Quiz
                   </Button>
                 </>
@@ -621,20 +714,41 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         open={isUploadDialogOpen}
         onOpenChange={setIsUploadDialogOpen}
         onDialogClose={handleUploadDialogClose}
-        onQuizGenerationStart={() => setIsGeneratingQuiz(true)}
+        onQuizGenerationStart={() => {}} // setIsGeneratingQuiz was removed, ensure this is handled if needed elsewhere
         onQuizGenerated={handleQuizGenerationComplete}
         initialNumQuestions={activeQuizDBEntry?.num_questions}
         existingQuizIdToUpdate={activeQuizDBEntry?.id}
         initialPdfNameHint={activeQuizDBEntry?.pdf_name || undefined}
       />
+      <RenameQuizDialog
+        quiz={quizToRename}
+        open={isRenameDialogOpen}
+        onOpenChange={setIsRenameDialogOpen}
+        onQuizRenamed={handleQuizRenamed}
+      />
+      <AlertDialog open={!!quizToDeleteId} onOpenChange={(open) => !open && setQuizToDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this quiz?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The quiz &quot;{allQuizzesForWorkspace.find(q => q.id === quizToDeleteId)?.pdf_name || 'Selected Quiz'}&quot; will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setQuizToDeleteId(null)} disabled={isDeletingQuiz}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteQuiz} disabled={isDeletingQuiz} className="bg-destructive hover:bg-destructive/90">
+              {isDeletingQuiz ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isDeletingQuiz ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
-
 type ViewMode = "empty_state" | "quiz_review" | "quiz_taking" | "quiz_results" | "loading_quiz_data";
 
-// Wrapper for initial data fetching and SidebarProvider
 export default function WorkspacePageWrapper() {
   const routeParams = useParams();
   const workspaceId = routeParams.workspaceId as string;

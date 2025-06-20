@@ -68,11 +68,6 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
       num_questions: totalNumberOfQuestions,
       status: "processing",
       error_message: null,
-      // placeholder for new params if we decide to store them on the quiz row later
-      // preferred_question_styles: preferredQuestionStyles, 
-      // hard_mode: hardMode,
-      // topics_focus: topicsToFocus,
-      // topics_drop: topicsToDrop,
     };
 
     const { data: newQuizEntry, error: createError } = await supabase
@@ -93,9 +88,8 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
         status: "processing",
         error_message: null,
         num_questions: totalNumberOfQuestions,
-        pdf_name: dbQuizName,
+        pdf_name: dbQuizName, // Update name in case it changed during regeneration
         updated_at: new Date().toISOString()
-        // placeholder for new params if we decide to store them
       })
       .eq("id", quizEntryId)
       .eq("user_id", user.id);
@@ -106,8 +100,9 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     }
   }
 
+  // Revalidate immediately to show processing status in sidebar if user navigates away
   revalidatePath(`/dashboard/workspace/${workspaceId}`);
-  revalidatePath(`/dashboard`);
+  // Do not revalidate /dashboard yet, quiz not finalized for history
 
   try {
     const aiInput: GenerateQuizInput = {
@@ -143,13 +138,12 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
           .eq("id", quizEntryId)
           .eq("user_id", user.id);
       }
-      revalidatePath(`/dashboard/workspace/${workspaceId}`);
-      revalidatePath(`/dashboard`);
+      revalidatePath(`/dashboard/workspace/${workspaceId}`); // Revalidate on error too
       throw new Error(updateError?.message || "Failed to update quiz with generated data.");
     }
 
     revalidatePath(`/dashboard/workspace/${workspaceId}`);
-    revalidatePath(`/dashboard`);
+    // Do not revalidate /dashboard for history until quiz is taken
     return updatedQuiz;
 
   } catch (error) {
@@ -173,7 +167,6 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     }
 
     revalidatePath(`/dashboard/workspace/${workspaceId}`);
-    revalidatePath(`/dashboard`);
     throw new Error(detailedErrorMessage);
   }
 }
@@ -209,4 +202,67 @@ export async function getQuizzesForWorkspace(workspaceId: string): Promise<Quiz[
     throw new Error(errorMessage);
   }
   return data || [];
+}
+
+export async function deleteQuizAction(quizId: string): Promise<void> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User not authenticated.");
+  }
+
+  // Optional: Fetch workspace_id if needed for revalidation, or pass it
+  const { data: quizData, error: fetchError } = await supabase
+    .from("quizzes")
+    .select("workspace_id")
+    .eq("id", quizId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (fetchError || !quizData) {
+    console.error("Error fetching quiz for deletion or quiz not found:", fetchError);
+    throw new Error(fetchError?.message || "Quiz not found or permission denied.");
+  }
+  
+  const { error } = await supabase
+    .from("quizzes")
+    .delete()
+    .eq("id", quizId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("Error deleting quiz:", error);
+    throw new Error(error.message || "Failed to delete quiz.");
+  }
+  revalidatePath(`/dashboard/workspace/${quizData.workspace_id}`);
+  revalidatePath(`/dashboard`); // For global workspace list if it shows quiz counts
+}
+
+export async function renameQuizAction(quizId: string, newName: string): Promise<Quiz> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User not authenticated.");
+  }
+  if (!newName.trim()) {
+    throw new Error("Quiz name cannot be empty.");
+  }
+
+  const { data: updatedQuiz, error } = await supabase
+    .from("quizzes")
+    .update({ pdf_name: newName, updated_at: new Date().toISOString() })
+    .eq("id", quizId)
+    .eq("user_id", user.id)
+    .select()
+    .single();
+
+  if (error || !updatedQuiz) {
+    console.error("Error renaming quiz:", error);
+    throw new Error(error?.message || "Failed to rename quiz.");
+  }
+  revalidatePath(`/dashboard/workspace/${updatedQuiz.workspace_id}`);
+  revalidatePath(`/dashboard`);
+  return updatedQuiz;
 }
