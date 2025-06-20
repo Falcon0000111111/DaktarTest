@@ -362,6 +362,8 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const [isRenameSourceFileDialogOpen, setIsRenameSourceFileDialogOpen] = useState(false);
   const [sourceFileToDeleteName, setSourceFileToDeleteName] = useState<string | null>(null);
   const [isDeletingSourceFile, setIsDeletingSourceFile] = useState(false);
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+
 
   const refreshSidebarData = useCallback(async () => {
     if (!workspaceId) return;
@@ -407,6 +409,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const handleQuizGenerationComplete = async (quizId: string) => {
     setIsUploadDialogOpen(false);
     setViewMode("loading_quiz_data");
+    setIsGeneratingQuiz(false); 
     try {
       const allQuizzes = await getQuizzesForWorkspace(workspaceId); 
       const generatedQuiz = allQuizzes.find(q => q.id === quizId);
@@ -417,7 +420,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       if (generatedQuiz && generatedQuiz.generated_quiz_data && generatedQuiz.status === 'completed') {
         setActiveQuizDBEntry(generatedQuiz);
         setActiveQuizDisplayData(generatedQuiz.generated_quiz_data as StoredQuizData);
-        setShowRegenerateButtonInMain(true); // Only show for newly generated
+        setShowRegenerateButtonInMain(true); 
         setCanShowAnswers(false);
         setIsQuizFromHistory(false);
         setViewMode("quiz_review");
@@ -425,7 +428,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         toast({ title: "Quiz Generation Failed", description: generatedQuiz.error_message || "The AI failed to generate the quiz.", variant: "destructive" });
         setActiveQuizDBEntry(generatedQuiz);
         setActiveQuizDisplayData(null);
-        setShowRegenerateButtonInMain(true); // Allow regeneration for failed new quiz
+        setShowRegenerateButtonInMain(true); 
         setCanShowAnswers(false);
         setIsQuizFromHistory(false);
         setViewMode("quiz_review"); 
@@ -441,6 +444,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   
   const handleUploadDialogClose = (refresh?: boolean) => {
     setIsUploadDialogOpen(false);
+    setIsGeneratingQuiz(false);
     if (refresh) { 
       refreshSidebarData(); 
     }
@@ -454,14 +458,14 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         setActiveQuizDisplayData(selectedQuiz.generated_quiz_data as StoredQuizData);
         setCanShowAnswers(true);
         setIsQuizFromHistory(true);
-        setShowRegenerateButtonInMain(false); // Do not show regenerate for historical quizzes
+        setShowRegenerateButtonInMain(false); 
         setViewMode('quiz_review');
       } else if (selectedQuiz.status === 'failed') {
         setActiveQuizDBEntry(selectedQuiz);
         setActiveQuizDisplayData(null);
         setCanShowAnswers(true); 
         setIsQuizFromHistory(true);
-        setShowRegenerateButtonInMain(false); // Do not show regenerate for historical quizzes
+        setShowRegenerateButtonInMain(false); 
         setViewMode('quiz_review');
       } else {
          toast({ title: "Still Processing", description: `Quiz (${selectedQuiz.pdf_name || 'Untitled'}) is processing. Please wait.`, variant: "default" });
@@ -606,7 +610,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         }
         if (!activeQuizDisplayData) return <div className="p-8 text-center"><p>Quiz data not available. It might be processing or failed.</p></div>;
         return (
-            <div className="mx-auto w-[80%]">
+            <div className="mx-auto w-[85%]">
               <QuizReviewDisplay
                 quizData={activeQuizDisplayData.quiz}
                 quizName={activeQuizDBEntry.pdf_name || "Untitled Quiz"}
@@ -617,7 +621,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       case "quiz_taking":
         if (!activeQuizDisplayData || !activeQuizDBEntry) return <div className="p-8 text-center"><p>Quiz data not available for taking.</p></div>;
         return (
-          <div className="mx-auto w-[80%]">
+          <div className="mx-auto w-[85%]">
             <p className="text-sm text-muted-foreground mb-6 text-center">
                 Select the best answer for each question.
             </p>
@@ -632,7 +636,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       case "quiz_results":
         if (!activeQuizDisplayData || !userAnswers || !activeQuizDBEntry) return <div className="p-8 text-center"><p>Quiz results not available.</p></div>;
         return (
-            <div className="mx-auto w-[80%]">
+            <div className="mx-auto w-[85%]">
               <QuizResultsDisplay
                 quiz={activeQuizDBEntry}
                 quizData={activeQuizDisplayData.quiz}
@@ -674,7 +678,8 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       <header
         className={cn(
             "fixed top-0 z-40 flex items-center justify-end px-4 bg-background transition-all duration-200",
-            headerBorderVisible && "border-b border-border"
+             // Removed border-b and border-border
+            headerBorderVisible && "border-b border-border" 
         )}
         style={{
           height: 'var(--app-header-height)',
@@ -682,7 +687,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
           right: 0
         }}
       >
-        {/* User icon removed, Workspace title moved to scrollable content */}
+        {/* User icon removed */}
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -719,11 +724,12 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
             }}
           >
             <div className="p-4 md:p-6">
-              {viewMode !== 'empty_state' && workspace && (
-                <div className="mb-6">
+              {viewMode !== 'empty_state' && (
+                <div className="mb-6 text-center">
                   <h1 className="text-3xl font-bold font-headline">
-                    {workspace.name}
+                    {workspace?.name}
                   </h1>
+                  {/* Subtext removed */}
                 </div>
               )}
               {renderRightPaneContent()}
@@ -732,6 +738,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
 
           {showActionButtonsFooterRightPane && activeQuizDBEntry && (
             <div className="p-4 flex justify-end space-x-3 flex-shrink-0">
+              {/* Footer's top border removed by removing border-t. Background was already transparent. */}
               {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed' && (
                 <>
                   {showRegenerateButtonInMain && (
@@ -752,6 +759,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
               )}
               {viewMode === 'quiz_results' && (
                 <>
+                  {/* "Review All" button removed earlier */}
                   <Button onClick={() => {setUserAnswers(null); setCanShowAnswers(false); setIsQuizFromHistory(true); setViewMode("quiz_taking"); }}>
                       <RefreshCw className="mr-2 h-4 w-4" /> Retake Quiz
                   </Button>
@@ -767,7 +775,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         open={isUploadDialogOpen}
         onOpenChange={setIsUploadDialogOpen}
         onDialogClose={handleUploadDialogClose}
-        onQuizGenerationStart={() => {}} 
+        onQuizGenerationStart={() => setIsGeneratingQuiz(true)} 
         onQuizGenerated={handleQuizGenerationComplete}
         initialNumQuestions={activeQuizDBEntry?.num_questions}
         existingQuizIdToUpdate={activeQuizDBEntry?.id}
