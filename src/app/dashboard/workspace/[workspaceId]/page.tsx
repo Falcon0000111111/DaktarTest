@@ -123,7 +123,7 @@ const QuizList: React.FC<QuizListProps> = ({
     if (quiz.status === 'failed') { // Generation failed
       return (
         <div className={cn(baseBadgeClass, "border-transparent bg-red-500/20 text-red-400 hover:bg-red-500/30")}>
-          <AlertCircleIcon className={iconClass} /> Failed
+          <AlertCircle className={iconClass} /> Failed
         </div>
       );
     }
@@ -165,7 +165,7 @@ const QuizList: React.FC<QuizListProps> = ({
             key={quiz.id} 
             className={cn(
                 "group relative flex items-center justify-between p-2 rounded-md",
-                selectedQuizId === quiz.id ? "bg-accent text-accent-foreground" : "hover:bg-muted/50"
+                selectedQuizId === quiz.id ? "bg-muted text-foreground" : "hover:bg-muted/50"
             )}
         >
             <button
@@ -481,9 +481,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     setIsUploadDialogOpen(false);
     setIsGeneratingQuiz(false);
     if (refresh) { 
-      // This refresh is usually for sidebar after some operations, 
-      // but handleQuizGenerationComplete already handles its specific refresh needs.
-      // Keep it if other dialog closing scenarios need full refresh.
       refreshSidebarData(); 
     }
   };
@@ -494,9 +491,9 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       if (selectedQuiz.status === 'completed' && selectedQuiz.generated_quiz_data) {
         setActiveQuizDBEntry(selectedQuiz);
         setActiveQuizDisplayData(selectedQuiz.generated_quiz_data as StoredQuizData);
-        setCanShowAnswers(false);  // Answers not shown immediately for history items, user needs to take it.
+        setCanShowAnswers(false);  
         setIsQuizFromHistory(true);
-        setShowRegenerateButtonInMain(false); // Do not show regenerate for historical quizzes
+        setShowRegenerateButtonInMain(false); 
         setViewMode('quiz_review');
       } else if (selectedQuiz.status === 'failed') {
         setActiveQuizDBEntry(selectedQuiz);
@@ -548,7 +545,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
             const percentage = quizData.quiz.length > 0 ? Math.round((score / quizData.quiz.length) * 100) : 0;
             
             let passed = null;
-            if (activeQuizDBEntry.passing_score_percentage !== null) {
+            if (activeQuizDBEntry.passing_score_percentage !== null && activeQuizDBEntry.passing_score_percentage !== undefined) {
                 passed = percentage >= activeQuizDBEntry.passing_score_percentage;
             }
 
@@ -556,21 +553,23 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                 const updatedQuiz = await updateQuizAttemptResultAction(
                     activeQuizDBEntry.id,
                     percentage,
-                    passed!, // pass null if `passed` is null, action should handle it
+                    passed, 
                     activeQuizDBEntry.num_questions,
                     activeQuizDBEntry.passing_score_percentage
                 );
-                setActiveQuizDBEntry(updatedQuiz); // Update active quiz with new attempt data
+                setActiveQuizDBEntry(updatedQuiz);
+                if (!isQuizFromHistory) {
+                    refreshSidebarData(); 
+                } else {
+                    // If it was from history, update just that item in the local state for immediate badge update
+                    setAllQuizzesForWorkspace(prevQuizzes => 
+                        prevQuizzes.map(q => q.id === updatedQuiz.id ? updatedQuiz : q)
+                    );
+                }
             } catch (error) {
                 toast({ title: "Error Saving Attempt", description: (error as Error).message, variant: "destructive"});
             }
         }
-        
-        // Add to history only if it's not already from history
-        if (!isQuizFromHistory) {
-            refreshSidebarData(); 
-        }
-        setIsQuizFromHistory(true); // After submission of a new quiz, it's now considered "historical" for button text
     }
     
     setViewMode("quiz_results");
@@ -600,13 +599,14 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     try {
       await deleteQuizAction(quizToDeleteId);
       toast({ title: "Quiz Deleted", description: "The quiz has been successfully deleted." });
-      setQuizToDeleteId(null);
-      refreshSidebarData();
+      
       if (activeQuizDBEntry && activeQuizDBEntry.id === quizToDeleteId) {
         setActiveQuizDBEntry(null);
         setActiveQuizDisplayData(null);
         setViewMode("empty_state");
       }
+      setQuizToDeleteId(null); // Reset after operations
+      refreshSidebarData(); // Refresh sidebar after deletion
     } catch (error) {
       toast({ title: "Error Deleting Quiz", description: (error as Error).message, variant: "destructive" });
     } finally {
@@ -624,14 +624,15 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     try {
         await renameSourcePdfInQuizzesAction(workspaceId, oldName, newName);
         toast({ title: "Source File Renamed", description: `All quizzes associated with "${oldName}" are now associated with "${newName}".` });
-        refreshSidebarData();
+        
         if (activeQuizDBEntry && activeQuizDBEntry.pdf_name === oldName) {
             setActiveQuizDBEntry(prev => prev ? { ...prev, pdf_name: newName } : null);
         }
+        refreshSidebarData(); // Refresh sidebar after rename
     } catch (error) {
         toast({ title: "Error Renaming Source File", description: (error as Error).message, variant: "destructive" });
     }
-    setSourceFileToRename(null);
+    setSourceFileToRename(null); // Reset after operations
   };
   
   const handleDeleteSourceFileConfirmation = (sourceFileName: string) => {
@@ -644,13 +645,14 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     try {
       await deleteQuizzesBySourcePdfAction(workspaceId, sourceFileToDeleteName);
       toast({ title: "Source File Quizzes Deleted", description: `All quizzes associated with "${sourceFileToDeleteName}" have been deleted.` });
-      setSourceFileToDeleteName(null);
-      refreshSidebarData();
+      
       if (activeQuizDBEntry && activeQuizDBEntry.pdf_name === sourceFileToDeleteName) {
         setActiveQuizDBEntry(null);
         setActiveQuizDisplayData(null);
         setViewMode("empty_state");
       }
+      setSourceFileToDeleteName(null); // Reset after operations
+      refreshSidebarData(); // Refresh sidebar after deletion
     } catch (error) {
       toast({ title: "Error Deleting Source File Quizzes", description: (error as Error).message, variant: "destructive" });
     } finally {
@@ -975,3 +977,6 @@ export default function WorkspacePageWrapper() {
     </SidebarProvider>
   );
 }
+
+
+    
