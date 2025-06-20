@@ -61,6 +61,3 @@ export function QuizReviewDisplay({ quizData, quizName, showAnswers }: QuizRevie
           </Card>
         ))}
       </div>
-    </div>
-  );
-}
