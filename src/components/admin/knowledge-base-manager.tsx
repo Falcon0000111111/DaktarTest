@@ -95,14 +95,11 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
     setIsRenameDialogOpen(true);
   };
 
-  const handleFileRenamed = () => {
+  const handleFileRenamed = async () => {
     // Refresh the list from the server to get the latest data
-    const refreshDocs = async () => {
-        const { listKnowledgeBaseDocuments } = await import('@/lib/actions/knowledge.actions');
-        const updatedDocs = await listKnowledgeBaseDocuments();
-        setDocuments(updatedDocs);
-    };
-    refreshDocs();
+    const { listKnowledgeBaseDocuments } = await import('@/lib/actions/knowledge.actions');
+    const updatedDocs = await listKnowledgeBaseDocuments();
+    setDocuments(updatedDocs);
   };
 
   return (
