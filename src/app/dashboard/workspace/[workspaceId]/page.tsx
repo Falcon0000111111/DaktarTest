@@ -55,6 +55,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { RenameQuizDialog } from "@/components/dashboard/rename-quiz-dialog";
+import { useParams } from "next/navigation";
 
 const CustomSidebarTrigger = () => {
   const { toggleSidebar, open, state } = useSidebar();
@@ -797,12 +798,9 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
 
 type ViewMode = "empty_state" | "quiz_review" | "quiz_taking" | "quiz_results" | "loading_quiz_data";
 
-export default function WorkspacePageWrapper({
-  params,
-}: {
-  params: { workspaceId: string };
-}) {
-  const workspaceId = params.workspaceId;
+export default function WorkspacePageWrapper() {
+  const params = useParams();
+  const workspaceId = params.workspaceId as string;
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [initialQuizzes, setInitialQuizzes] = useState<Quiz[]>([]);
   const [initialKnowledgeDocuments, setInitialKnowledgeDocuments] = useState<KnowledgeBaseDocument[]>([]);
