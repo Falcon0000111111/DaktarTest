@@ -15,6 +15,7 @@ import { UploadQuizForm } from "./upload-quiz-form";
 import type { ReactNode} from "react";
 import { FileUp, X, Wand2, Loader2 } from "lucide-react";
 import React, { useRef, useState } from "react";
+import type { KnowledgeBaseFile } from "@/types/supabase";
 
 interface UploadQuizDialogProps {
   children?: ReactNode; 
@@ -26,8 +27,9 @@ interface UploadQuizDialogProps {
   onQuizGenerated: (quizId: string) => void; 
   initialPdfNameHint?: string;
   initialNumQuestions?: number;
-  initialPassingScore?: number | null; // New
+  initialPassingScore?: number | null;
   existingQuizIdToUpdate?: string;
+  knowledgeFiles: KnowledgeBaseFile[];
 }
 
 export function UploadQuizDialog({
@@ -40,8 +42,9 @@ export function UploadQuizDialog({
   onQuizGenerated,
   initialPdfNameHint,
   initialNumQuestions,
-  initialPassingScore, // New
+  initialPassingScore,
   existingQuizIdToUpdate,
+  knowledgeFiles,
 }: UploadQuizDialogProps) {
   
   const isRegenerationMode = !!existingQuizIdToUpdate;
@@ -72,13 +75,13 @@ export function UploadQuizDialog({
       <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col p-0">
         <DialogHeader className="p-6 pb-4 flex-shrink-0 border-b">
           <DialogTitle className="font-headline flex items-center">
-            <FileUp className="mr-2 h-5 w-5 text-primary" /> 
+            <Wand2 className="mr-2 h-5 w-5 text-primary" /> 
             {isRegenerationMode ? "Re-Generate Quiz" : "Generate New Quiz"}
           </DialogTitle>
           <DialogDescription>
             {isRegenerationMode 
               ? `Re-generating quiz for "${initialPdfNameHint || 'document'}". You will need to re-upload the PDF.` 
-              : "Upload PDF(s), set questions, and optionally a passing score. The AI will generate quiz(zes)."
+              : "Upload a new PDF or select from your Knowledge Base. Configure options to generate a quiz."
             }
           </DialogDescription>
         </DialogHeader>
@@ -95,7 +98,7 @@ export function UploadQuizDialog({
           }}
           onFormValidityChange={setIsFormValidForSubmission}
           initialNumQuestions={initialNumQuestions}
-          initialPassingScore={initialPassingScore} // Pass down
+          initialPassingScore={initialPassingScore}
           existingQuizIdToUpdate={existingQuizIdToUpdate}
           initialPdfNameHint={initialPdfNameHint}
           formSubmitRef={formSubmitButtonRef}
@@ -103,6 +106,7 @@ export function UploadQuizDialog({
             onOpenChange(false);
             handleDialogClose(false);
           }}
+          knowledgeFiles={knowledgeFiles}
           className="flex-1 min-h-0 px-6 py-4" 
         />
         <DialogFooter className="p-6 pt-4 flex-shrink-0 border-t">

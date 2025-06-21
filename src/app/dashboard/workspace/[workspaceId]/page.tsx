@@ -2,7 +2,7 @@
 "use client";
 
 import { getWorkspaceById } from "@/lib/actions/workspace.actions";
-import type { Workspace, Quiz, StoredQuizData, UserAnswers } from "@/types/supabase";
+import type { Workspace, Quiz, StoredQuizData, UserAnswers, KnowledgeBaseFile } from "@/types/supabase";
 import { useEffect, useState, type ReactNode, useRef, useCallback, memo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -10,16 +10,17 @@ import {
   Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings, BookOpen,
   RefreshCw, Send, Inbox, FolderOpen, PlusCircle, LayoutDashboard,
   Cpu, PanelLeftClose, PanelRightOpen, CheckCircle, MoreVertical, Trash2, Edit3,
-  Award, AlertTriangleIcon
+  Award, AlertTriangleIcon, FileUp
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UploadQuizDialog } from "@/components/dashboard/upload-quiz-dialog";
 import { QuizReviewDisplay } from "@/components/dashboard/quiz-review-display";
 import { QuizTakerForm } from "@/components/dashboard/quiz-taker-form";
 import { QuizResultsDisplay } from "@/components/dashboard/quiz-results-display";
-import { getQuizzesForWorkspace, deleteQuizAction, renameQuizAction, deleteQuizzesBySourcePdfAction, renameSourcePdfInQuizzesAction, updateQuizAttemptResultAction, getQuizById } from "@/lib/actions/quiz.actions";
+import { getQuizzesForWorkspace, deleteQuizAction, renameQuizAction, updateQuizAttemptResultAction, getQuizById } from "@/lib/actions/quiz.actions";
+import { getKnowledgeBaseFiles, deleteKnowledgeBaseFile, renameKnowledgeBaseFile } from "@/lib/actions/knowledge.actions";
 import { useParams } from "next/navigation";
-import { SourceFileList } from "@/components/dashboard/source-file-list";
+import { KnowledgeFileList } from "@/components/dashboard/source-file-list";
 import {
   SidebarProvider,
   Sidebar,
@@ -57,7 +58,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { RenameQuizDialog } from "@/components/dashboard/rename-quiz-dialog";
-import { RenameSourceFileDialog } from "@/components/dashboard/rename-source-file-dialog";
+import { UploadToKnowledgeBaseDialog } from "@/components/dashboard/upload-to-knowledge-base-dialog";
+import { RenameKnowledgeFileDialog } from "@/components/dashboard/rename-knowledge-file-dialog";
 
 
 const CustomSidebarTrigger = () => {
@@ -228,7 +230,7 @@ interface WorkspaceSidebarInternalsProps {
   workspaceId: string;
   handleOpenUploadDialog: (existingQuiz?: Quiz) => void;
   isLoadingSidebarData: boolean;
-  sourcePdfsForWorkspace: string[];
+  knowledgeFiles: KnowledgeBaseFile[];
   allQuizzesForWorkspace: Quiz[];
   handleQuizSelectionFromHistory: (quizId: string) => void;
   activeQuizDBEntryId?: string | null;
@@ -236,15 +238,16 @@ interface WorkspaceSidebarInternalsProps {
   headerBorderVisible: boolean;
   onRenameQuiz: (quiz: Quiz) => void;
   onDeleteQuizConfirmation: (quizId: string) => void;
-  onRenameSourceFile: (sourceFileName: string) => void;
-  onDeleteSourceFileConfirmation: (sourceFileName: string) => void;
+  onRenameKnowledgeFile: (file: KnowledgeBaseFile) => void;
+  onDeleteKnowledgeFile: (fileId: string) => void;
+  onOpenKnowledgeBaseUpload: () => void;
 }
 
 const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
   workspaceId,
   handleOpenUploadDialog,
   isLoadingSidebarData,
-  sourcePdfsForWorkspace,
+  knowledgeFiles,
   allQuizzesForWorkspace,
   handleQuizSelectionFromHistory,
   activeQuizDBEntryId,
@@ -252,8 +255,9 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
   headerBorderVisible,
   onRenameQuiz,
   onDeleteQuizConfirmation,
-  onRenameSourceFile,
-  onDeleteSourceFileConfirmation,
+  onRenameKnowledgeFile,
+  onDeleteKnowledgeFile,
+  onOpenKnowledgeBaseUpload,
 }) => {
   const { state: sidebarState } = useSidebar();
 
@@ -293,18 +297,23 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                 </AccordionTrigger>
                 {sidebarState === 'expanded' && (
                     <AccordionContent className="pl-1 pt-1 pb-0">
-                        <Button variant="ghost" size="sm" className="w-full justify-start mb-2 text-primary" onClick={() => handleOpenUploadDialog()}>
-                            <PlusCircle className="mr-2 h-4 w-4"/>
-                            Generate New Quiz
-                        </Button>
+                        <div className="space-y-2">
+                            <Button variant="ghost" size="sm" className="w-full justify-start text-primary" onClick={() => handleOpenUploadDialog()}>
+                                <Wand2 className="mr-2 h-4 w-4"/>
+                                Generate New Quiz
+                            </Button>
+                             <Button variant="ghost" size="sm" className="w-full justify-start" onClick={onOpenKnowledgeBaseUpload}>
+                                <FileUp className="mr-2 h-4 w-4"/>
+                                Add to Knowledge Base
+                            </Button>
+                        </div>
+                         <div className="my-2 border-b border-border/70 -mx-1"></div>
                         {isLoadingSidebarData ? <Loader2 className="mx-auto my-4 h-6 w-6 animate-spin text-muted-foreground" /> :
-                        sourcePdfsForWorkspace.length > 0 ?
-                        <SourceFileList 
-                            pdfNames={sourcePdfsForWorkspace}
-                            onRenameSourceFile={onRenameSourceFile}
-                            onDeleteSourceFile={onDeleteSourceFileConfirmation}
-                        /> :
-                        <p className="text-xs text-muted-foreground px-2 py-1">No PDFs uploaded yet.</p>
+                        <KnowledgeFileList 
+                            files={knowledgeFiles}
+                            onRenameFile={onRenameKnowledgeFile}
+                            onDeleteFile={onDeleteKnowledgeFile}
+                        />
                         }
                     </AccordionContent>
                  )}
@@ -370,10 +379,11 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
 
 interface WorkspacePageContentProps {
   initialWorkspace: Workspace;
-  initialQuizzes: Quiz[]; // New prop for server-fetched initial quizzes
+  initialQuizzes: Quiz[];
+  initialKnowledgeFiles: KnowledgeBaseFile[];
 }
 
-const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWorkspace, initialQuizzes }) => {
+const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWorkspace, initialQuizzes, initialKnowledgeFiles }) => {
   const { state: sidebarState } = useSidebar();
   const workspaceId = initialWorkspace.id;
   const [workspace, setWorkspace] = useState<Workspace | null>(initialWorkspace);
@@ -384,8 +394,8 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const [activeQuizDisplayData, setActiveQuizDisplayData] = useState<StoredQuizData | null>(null);
   const [userAnswers, setUserAnswers] = useState<UserAnswers | null>(null);
   const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false);
-  const [allQuizzesForWorkspace, setAllQuizzesForWorkspace] = useState<Quiz[]>(initialQuizzes); // Initialize with prop
-  const [sourcePdfsForWorkspace, setSourcePdfsForWorkspace] = useState<string[]>([]);
+  const [allQuizzesForWorkspace, setAllQuizzesForWorkspace] = useState<Quiz[]>(initialQuizzes);
+  const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeBaseFile[]>(initialKnowledgeFiles);
   const [isLoadingSidebarData, setIsLoadingSidebarData] = useState(false);
   const [isLoadingActiveQuiz, setIsLoadingActiveQuiz] = useState(false);
   const [showRegenerateButtonInMain, setShowRegenerateButtonInMain] = useState(false);
@@ -397,22 +407,25 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const [quizToDeleteId, setQuizToDeleteId] = useState<string | null>(null);
   const [isDeletingQuiz, setIsDeletingQuiz] = useState(false);
   const rightPaneContentRef = useRef<HTMLDivElement>(null);
-
-  const [sourceFileToRename, setSourceFileToRename] = useState<string | null>(null);
-  const [isRenameSourceFileDialogOpen, setIsRenameSourceFileDialogOpen] = useState(false);
-  const [sourceFileToDeleteName, setSourceFileToDeleteName] = useState<string | null>(null);
-  const [isDeletingSourceFile, setIsDeletingSourceFile] = useState(false);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
 
+  // Knowledge Base state
+  const [isUploadKBOpen, setIsUploadKBOpen] = useState(false);
+  const [fileToRename, setFileToRename] = useState<KnowledgeBaseFile | null>(null);
+  const [isRenameFileDialogOpen, setIsRenameFileDialogOpen] = useState(false);
+  const [fileToDeleteId, setFileToDeleteId] = useState<string | null>(null);
+  const [isDeletingFile, setIsDeletingFile] = useState(false);
 
   const refreshSidebarData = useCallback(async () => {
     if (!workspaceId) return;
     setIsLoadingSidebarData(true);
     try {
-      const quizzes = await getQuizzesForWorkspace(workspaceId); 
+      const [quizzes, files] = await Promise.all([
+        getQuizzesForWorkspace(workspaceId),
+        getKnowledgeBaseFiles(workspaceId)
+      ]);
       setAllQuizzesForWorkspace(quizzes);
-      const pdfNames = Array.from(new Set(quizzes.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
-      setSourcePdfsForWorkspace(pdfNames);
+      setKnowledgeFiles(files);
     } catch (error) {
       console.error("Error refreshing sidebar data:", error);
       toast({ title: "Error refreshing workspace data", description: (error as Error).message, variant: "destructive" });
@@ -423,16 +436,15 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
 
   useEffect(() => {
     setWorkspace(initialWorkspace);
-    setAllQuizzesForWorkspace(initialQuizzes); // Ensure state is updated if initialQuizzes prop changes
-    const initialPdfNames = Array.from(new Set(initialQuizzes.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
-    setSourcePdfsForWorkspace(initialPdfNames);
+    setAllQuizzesForWorkspace(initialQuizzes);
+    setKnowledgeFiles(initialKnowledgeFiles);
     setViewMode("empty_state");
     setActiveQuizDBEntry(null);
     setActiveQuizDisplayData(null);
     setUserAnswers(null);
     setCanShowAnswers(false);
     setIsQuizFromHistory(false);
-  }, [initialWorkspace, initialQuizzes]);
+  }, [initialWorkspace, initialQuizzes, initialKnowledgeFiles]);
 
 
   useEffect(() => {
@@ -450,7 +462,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     setIsGeneratingQuiz(false); 
     setIsLoadingActiveQuiz(true);
     try {
-      const fetchedQuiz = await getQuizById(generatedQuizId); // Fetch full data for the new quiz
+      const fetchedQuiz = await getQuizById(generatedQuizId);
       
       if (fetchedQuiz && fetchedQuiz.generated_quiz_data && fetchedQuiz.status === 'completed') {
         setActiveQuizDBEntry(fetchedQuiz);
@@ -471,10 +483,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         toast({ title: "Error", description: "Could not load the generated quiz data.", variant: "destructive" });
         setViewMode("empty_state");
       }
-      // Refresh source PDF list in case a new PDF was used (not the full history list)
-      const quizzesForSources = await getQuizzesForWorkspace(workspaceId);
-      const pdfNames = Array.from(new Set(quizzesForSources.map(q => q.pdf_name).filter(Boolean as (value: string | null) => value is string)));
-      setSourcePdfsForWorkspace(pdfNames);
+      refreshSidebarData();
 
     } catch (error) {
       toast({ title: "Error loading generated quiz", description: (error as Error).message, variant: "destructive" });
@@ -482,7 +491,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     } finally {
       setIsLoadingActiveQuiz(false);
     }
-  }, [workspaceId, toast]);
+  }, [workspaceId, toast, refreshSidebarData]);
   
   const handleUploadDialogClose = useCallback((refresh?: boolean) => {
     setIsUploadDialogOpen(false);
@@ -546,7 +555,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const handleSubmitQuiz = useCallback(async (answers: UserAnswers) => {
     setIsSubmittingQuiz(true);
     setUserAnswers(answers);
-    setCanShowAnswers(true);
     
     let score = 0;
     let passedStatus: boolean | null = null;
@@ -585,7 +593,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
             }
         }
     }
-    
+    setCanShowAnswers(true);
     setViewMode("quiz_results");
     setIsSubmittingQuiz(false);
   }, [activeQuizDBEntry, isQuizFromHistory, refreshSidebarData, toast]);
@@ -628,52 +636,35 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     }
   }, [quizToDeleteId, activeQuizDBEntry, refreshSidebarData, toast]);
 
-  const handleOpenRenameSourceFileDialog = useCallback((sourceFileName: string) => {
-    setSourceFileToRename(sourceFileName);
-    setIsRenameSourceFileDialogOpen(true);
+  // Knowledge Base Handlers
+  const handleOpenRenameFileDialog = useCallback((file: KnowledgeBaseFile) => {
+    setFileToRename(file);
+    setIsRenameFileDialogOpen(true);
   }, []);
-
-  const handleSourceFileRenamed = useCallback(async (oldName: string, newName: string) => {
-    if (!workspaceId) return;
-    try {
-        await renameSourcePdfInQuizzesAction(workspaceId, oldName, newName);
-        toast({ title: "Source File Renamed", description: `All quizzes associated with "${oldName}" are now associated with "${newName}".` });
-        
-        if (activeQuizDBEntry && activeQuizDBEntry.pdf_name === oldName) {
-            setActiveQuizDBEntry(prev => prev ? { ...prev, pdf_name: newName } : null);
-        }
-        refreshSidebarData(); 
-    } catch (error) {
-        toast({ title: "Error Renaming Source File", description: (error as Error).message, variant: "destructive" });
-    }
-    setSourceFileToRename(null); 
-  }, [workspaceId, activeQuizDBEntry, refreshSidebarData, toast]);
   
-  const handleDeleteSourceFileConfirmation = useCallback((sourceFileName: string) => {
-    setSourceFileToDeleteName(sourceFileName);
+  const handleFileRenamed = useCallback(() => {
+    refreshSidebarData();
+    setFileToRename(null);
+  }, [refreshSidebarData]);
+
+  const handleDeleteFileConfirmation = useCallback((fileId: string) => {
+    setFileToDeleteId(fileId);
   }, []);
 
-  const confirmDeleteSourceFile = useCallback(async () => {
-    if (!sourceFileToDeleteName || !workspaceId) return;
-    setIsDeletingSourceFile(true);
+  const confirmDeleteFile = useCallback(async () => {
+    if (!fileToDeleteId) return;
+    setIsDeletingFile(true);
     try {
-      await deleteQuizzesBySourcePdfAction(workspaceId, sourceFileToDeleteName);
-      toast({ title: "Source File Quizzes Deleted", description: `All quizzes associated with "${sourceFileToDeleteName}" have been deleted.` });
-      
-      if (activeQuizDBEntry && activeQuizDBEntry.pdf_name === sourceFileToDeleteName) {
-        setActiveQuizDBEntry(null);
-        setActiveQuizDisplayData(null);
-        setViewMode("empty_state");
-      }
-      setSourceFileToDeleteName(null); 
-      refreshSidebarData(); 
+      await deleteKnowledgeBaseFile(fileToDeleteId);
+      toast({ title: "File Deleted", description: "The file has been deleted from your knowledge base." });
+      setFileToDeleteId(null);
+      refreshSidebarData();
     } catch (error) {
-      toast({ title: "Error Deleting Source File Quizzes", description: (error as Error).message, variant: "destructive" });
+       toast({ title: "Error Deleting File", description: (error as Error).message, variant: "destructive" });
     } finally {
-      setIsDeletingSourceFile(false);
+      setIsDeletingFile(false);
     }
-  }, [sourceFileToDeleteName, workspaceId, activeQuizDBEntry, refreshSidebarData, toast]);
-
+  }, [fileToDeleteId, refreshSidebarData, toast]);
 
   const renderRightPaneContent = () => {
     if (isLoadingActiveQuiz || (viewMode === "loading_quiz_data" && !activeQuizDBEntry)) {
@@ -782,7 +773,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
             workspaceId={workspaceId}
             handleOpenUploadDialog={handleOpenUploadDialog}
             isLoadingSidebarData={isLoadingSidebarData}
-            sourcePdfsForWorkspace={sourcePdfsForWorkspace}
+            knowledgeFiles={knowledgeFiles}
             allQuizzesForWorkspace={allQuizzesForWorkspace}
             handleQuizSelectionFromHistory={handleQuizSelectionFromHistory}
             activeQuizDBEntryId={activeQuizDBEntry?.id}
@@ -790,8 +781,9 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
             headerBorderVisible={headerBorderVisible}
             onRenameQuiz={handleOpenRenameQuizDialog}
             onDeleteQuizConfirmation={handleDeleteQuizConfirmation}
-            onRenameSourceFile={handleOpenRenameSourceFileDialog}
-            onDeleteSourceFileConfirmation={handleDeleteSourceFileConfirmation}
+            onRenameKnowledgeFile={handleOpenRenameFileDialog}
+            onDeleteKnowledgeFile={handleDeleteFileConfirmation}
+            onOpenKnowledgeBaseUpload={() => setIsUploadKBOpen(true)}
           />
         </Sidebar>
 
@@ -864,12 +856,25 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         initialPassingScore={activeQuizDBEntry?.passing_score_percentage}
         existingQuizIdToUpdate={activeQuizDBEntry?.id}
         initialPdfNameHint={activeQuizDBEntry?.pdf_name || undefined}
+        knowledgeFiles={knowledgeFiles}
+      />
+      <UploadToKnowledgeBaseDialog 
+        workspaceId={workspaceId}
+        open={isUploadKBOpen}
+        onOpenChange={setIsUploadKBOpen}
+        onUploadComplete={refreshSidebarData}
       />
       <RenameQuizDialog
         quiz={quizToRename}
         open={isRenameQuizDialogOpen}
         onOpenChange={setIsRenameQuizDialogOpen}
         onQuizRenamed={handleQuizRenamed}
+      />
+       <RenameKnowledgeFileDialog
+        file={fileToRename}
+        open={isRenameFileDialogOpen}
+        onOpenChange={setIsRenameFileDialogOpen}
+        onFileRenamed={handleFileRenamed}
       />
       <AlertDialog open={!!quizToDeleteId} onOpenChange={(open) => !open && setQuizToDeleteId(null)}>
         <AlertDialogContent>
@@ -888,25 +893,19 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <RenameSourceFileDialog
-        oldName={sourceFileToRename}
-        open={isRenameSourceFileDialogOpen}
-        onOpenChange={setIsRenameSourceFileDialogOpen}
-        onSourceFileRenamed={handleSourceFileRenamed}
-      />
-       <AlertDialog open={!!sourceFileToDeleteName} onOpenChange={(open) => !open && setSourceFileToDeleteName(null)}>
+       <AlertDialog open={!!fileToDeleteId} onOpenChange={(open) => !open && setFileToDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to delete all quizzes related to this source file?</AlertDialogTitle>
+            <AlertDialogTitle>Are you sure you want to delete this file?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. All quizzes associated with the source file &quot;{sourceFileToDeleteName}&quot; will be permanently deleted.
+              This action cannot be undone. The file &quot;{knowledgeFiles.find(f => f.id === fileToDeleteId)?.file_name || 'Selected File'}&quot; will be permanently deleted from your knowledge base. This does not delete quizzes already generated from it.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setSourceFileToDeleteName(null)} disabled={isDeletingSourceFile}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteSourceFile} disabled={isDeletingSourceFile} className="bg-destructive hover:bg-destructive/90">
-              {isDeletingSourceFile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {isDeletingSourceFile ? "Deleting..." : "Delete All"}
+            <AlertDialogCancel onClick={() => setFileToDeleteId(null)} disabled={isDeletingFile}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteFile} disabled={isDeletingFile} className="bg-destructive hover:bg-destructive/90">
+              {isDeletingFile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isDeletingFile ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -924,7 +923,8 @@ export default function WorkspacePageWrapper({
 }) {
   const workspaceId = params.workspaceId;
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
-  const [initialQuizzes, setInitialQuizzes] = useState<Quiz[]>([]); // State for initial quizzes
+  const [initialQuizzes, setInitialQuizzes] = useState<Quiz[]>([]);
+  const [initialKnowledgeFiles, setInitialKnowledgeFiles] = useState<KnowledgeBaseFile[]>([]);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [errorPage, setErrorPage] = useState<string | null>(null);
 
@@ -938,15 +938,19 @@ export default function WorkspacePageWrapper({
       setIsLoadingPage(true);
       setErrorPage(null);
       try {
-        const ws = await getWorkspaceById(workspaceId);
+        const [ws, quizzes, files] = await Promise.all([
+            getWorkspaceById(workspaceId),
+            getQuizzesForWorkspace(workspaceId),
+            getKnowledgeBaseFiles(workspaceId)
+        ]);
+        
         if (!ws) {
           setErrorPage("Workspace not found or access denied.");
           setWorkspace(null);
         } else {
           setWorkspace(ws);
-          // Fetch initial quizzes for the workspace server-side
-          const quizzes = await getQuizzesForWorkspace(workspaceId);
           setInitialQuizzes(quizzes);
+          setInitialKnowledgeFiles(files);
         }
       } catch (e) {
         setErrorPage((e as Error).message);
@@ -995,9 +999,7 @@ export default function WorkspacePageWrapper({
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <WorkspacePageContent initialWorkspace={workspace} initialQuizzes={initialQuizzes} />
+      <WorkspacePageContent initialWorkspace={workspace} initialQuizzes={initialQuizzes} initialKnowledgeFiles={initialKnowledgeFiles} />
     </SidebarProvider>
   );
 }
-
-    

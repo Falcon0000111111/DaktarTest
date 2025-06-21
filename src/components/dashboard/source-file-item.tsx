@@ -11,29 +11,37 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import React, { useState } from "react"; // Ensure React and useState are imported
+import React, { useState } from "react";
+import type { KnowledgeBaseFile } from "@/types/supabase";
+import { formatDistanceToNow } from 'date-fns';
 
-interface SourceFileItemProps {
-  pdfName: string;
+
+interface KnowledgeFileItemProps {
+  file: KnowledgeBaseFile;
   onRename: () => void;
   onDelete: () => void;
 }
 
-export const SourceFileItem = React.memo(function SourceFileItem({ pdfName, onRename, onDelete }: SourceFileItemProps) {
+export const KnowledgeFileItem = React.memo(function KnowledgeFileItem({ file, onRename, onDelete }: KnowledgeFileItemProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   return (
     <div
       className={cn(
         "group relative flex items-center justify-between p-2 rounded-md text-left space-x-2 text-sm",
-        "text-foreground hover:bg-muted/50" // Use muted for hover
+        "text-foreground hover:bg-muted/50"
       )}
     >
       <div className="flex items-center flex-grow overflow-hidden pr-2">
         <FileText className={cn("h-4 w-4 mr-3 flex-shrink-0 text-muted-foreground")} />
-        <span className="truncate" title={pdfName}>
-          {pdfName}
-        </span>
+        <div className="flex-1 overflow-hidden">
+            <p className="font-medium truncate" title={file.file_name}>
+                {file.file_name}
+            </p>
+             <p className="text-xs text-muted-foreground">
+                Added {formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}
+            </p>
+        </div>
       </div>
       <DropdownMenu onOpenChange={setIsDropdownOpen}>
         <DropdownMenuTrigger asChild>
@@ -56,14 +64,11 @@ export const SourceFileItem = React.memo(function SourceFileItem({ pdfName, onRe
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-            <Trash2 className="mr-2 h-4 w-4" /> Delete All Related
+            <Trash2 className="mr-2 h-4 w-4" /> Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
   );
 });
-SourceFileItem.displayName = 'SourceFileItem';
-
-
-    
+KnowledgeFileItem.displayName = 'KnowledgeFileItem';

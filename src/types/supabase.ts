@@ -101,44 +101,47 @@ export interface Database {
       }
       knowledge_base_files: {
         Row: {
-          id: string
-          created_at: string
-          file_name: string
-          file_path: string
-          workspace_id: string
-          user_id: string
-        }
+          id: string;
+          created_at: string;
+          updated_at: string;
+          file_name: string;
+          file_path: string;
+          workspace_id: string;
+          user_id: string;
+        };
         Insert: {
-          id?: string
-          created_at?: string
-          file_name: string
-          file_path: string
-          workspace_id: string
-          user_id: string
-        }
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          file_name: string;
+          file_path: string;
+          workspace_id: string;
+          user_id: string;
+        };
         Update: {
-          id?: string
-          created_at?: string
-          file_name?: string
-          file_path?: string
-          workspace_id?: string
-          user_id?: string
-        }
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          file_name?: string;
+          file_path?: string;
+          workspace_id?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "fk_user"
-            columns: ["user_id"]
-            referencedRelation: "users"
-            referencedColumns: ["id"]
+            foreignKeyName: "fk_user";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "fk_workspace"
-            columns: ["workspace_id"]
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
+            foreignKeyName: "fk_workspace";
+            columns: ["workspace_id"];
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
           }
-        ]
-      }
+        ];
+      };
     }
     Views: {
       [_ in never]: never

@@ -9,9 +9,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useState, type FormEvent, useEffect, ChangeEvent, RefObject } from "react";
 import { generateQuizFromPdfsAction } from "@/lib/actions/quiz.actions";
-import { FileUp, Info, FileText, BadgeAlert, X, Percent } from "lucide-react";
-import type { Quiz } from "@/types/supabase";
+import { getKnowledgeBaseFileAsDataUri } from "@/lib/actions/knowledge.actions";
+import { FileUp, Info, FileText, BadgeAlert, X, Percent, FolderOpen } from "lucide-react";
+import type { Quiz, KnowledgeBaseFile } from "@/types/supabase";
 import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 
 interface UploadQuizFormProps {
   workspaceId: string;
@@ -24,11 +27,11 @@ interface UploadQuizFormProps {
   existingQuizIdToUpdate?: string;
   initialPdfNameHint?: string;
   className?: string; 
-  formSubmitRef: RefObject<HTMLButtonElement>; 
+  formSubmitRef: RefObject<HTMLButtonElement>;
+  knowledgeFiles: KnowledgeBaseFile[];
 }
 
 const MAX_FILE_SIZE_MB = 10;
-const MAX_TOTAL_FILES = 5;
 const MAX_QUESTIONS = 50;
 
 const questionStyleOptions = [
@@ -49,6 +52,7 @@ export function UploadQuizForm({
     initialPdfNameHint,
     className,
     formSubmitRef,
+    knowledgeFiles
 }: UploadQuizFormProps) {
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const [numQuestions, setNumQuestions] = useState(initialNumQuestions || 5);
@@ -60,14 +64,17 @@ export function UploadQuizForm({
   const [loading, setLoading] = useState(false); 
   const { toast } = useToast();
 
+  const [selectedKnowledgeFileId, setSelectedKnowledgeFileId] = useState<string>("");
   const isRegenerationMode = !!existingQuizIdToUpdate;
 
   useEffect(() => {
-    const isValid = pdfFiles.length > 0 && 
-                    numQuestions >= 1 && numQuestions <= MAX_QUESTIONS &&
+    const isDirectUploadValid = pdfFiles.length > 0;
+    const isKnowledgeSelectionValid = !!selectedKnowledgeFileId;
+    const isConfigValid = numQuestions >= 1 && numQuestions <= MAX_QUESTIONS &&
                     (passingScore === null || (passingScore >=0 && passingScore <= 100));
-    onFormValidityChange(isValid);
-  }, [pdfFiles, numQuestions, passingScore, onFormValidityChange]);
+
+    onFormValidityChange((isDirectUploadValid || isKnowledgeSelectionValid) && isConfigValid);
+  }, [pdfFiles, selectedKnowledgeFileId, numQuestions, passingScore, onFormValidityChange]);
 
 
   useEffect(() => {
@@ -77,7 +84,7 @@ export function UploadQuizForm({
     if (initialPassingScore !== undefined) {
       setPassingScore(initialPassingScore);
     } else {
-      setPassingScore(70); // Default if not regenerating
+      setPassingScore(70);
     }
 
     if (!isRegenerationMode) {
@@ -85,63 +92,35 @@ export function UploadQuizForm({
         setHardMode(false);
         setTopicsToFocus("");
         setTopicsToDrop("");
-    } else {
-        // For regeneration, retain advanced options from previous state or reset if needed
-        // For now, advanced options are reset/defaulted similar to new quiz generation
-        setSelectedQuestionStyles(["multiple-choice"]);
-        setHardMode(false);
-        setTopicsToFocus("");
-        setTopicsToDrop("");
+        setSelectedKnowledgeFileId("");
+        setPdfFiles([]);
     }
   }, [initialNumQuestions, initialPassingScore, isRegenerationMode]);
 
+  const handleKnowledgeFileChange = (fileId: string) => {
+    setSelectedKnowledgeFileId(fileId);
+    if (fileId) {
+        setPdfFiles([]);
+        const fileInput = document.getElementById('pdf-file-dialog') as HTMLInputElement;
+        if (fileInput) fileInput.value = "";
+    }
+  };
+
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
-      const filesArray = Array.from(event.target.files);
-      const newValidFiles: File[] = [];
-      let filesSkipped = 0;
+      const file = event.target.files[0];
+      if (!file) return;
 
-      const maxFilesAllowed = isRegenerationMode ? 1 : MAX_TOTAL_FILES;
-      const currentAndNewTotal = pdfFiles.length + filesArray.length;
-
-      if (!isRegenerationMode && currentAndNewTotal > maxFilesAllowed) {
-         toast({
-            title: "File Limit Exceeded",
-            description: `You can select a maximum of ${maxFilesAllowed} files. ${currentAndNewTotal - maxFilesAllowed} additional file(s) were skipped.`,
-            variant: "destructive"
-        });
+      if (file.type !== "application/pdf") {
+        toast({ title: "Invalid File Type", description: `"${file.name}" is not a PDF.`, variant: "destructive" });
+        return;
       }
-
-      let acceptedCount = pdfFiles.length;
-
-      for (const file of filesArray) {
-        if (acceptedCount >= maxFilesAllowed) {
-            break;
-        }
-
-        if (file.type !== "application/pdf") {
-          toast({ title: "Invalid File Type", description: `"${file.name}" is not a PDF and was skipped.`, variant: "destructive" });
-          filesSkipped++;
-          continue;
-        }
-        if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-          toast({ title: "File Too Large", description: `"${file.name}" exceeds ${MAX_FILE_SIZE_MB}MB and was skipped.`, variant: "destructive" });
-          filesSkipped++;
-          continue;
-        }
-        newValidFiles.push(file);
-        acceptedCount++;
+      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+        toast({ title: "File Too Large", description: `"${file.name}" exceeds ${MAX_FILE_SIZE_MB}MB.`, variant: "destructive" });
+        return;
       }
-
-      if (isRegenerationMode) {
-        setPdfFiles(newValidFiles.slice(0, 1)); 
-      } else {
-        setPdfFiles(prevFiles => [...prevFiles, ...newValidFiles].slice(0, MAX_TOTAL_FILES));
-      }
-      
-      if (filesSkipped === filesArray.length && filesArray.length > 0) {
-         event.target.value = ""; 
-      }
+      setPdfFiles([file]);
+      setSelectedKnowledgeFileId(""); 
     }
   };
 
@@ -149,9 +128,7 @@ export function UploadQuizForm({
     setPdfFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
     if (pdfFiles.length === 1 && indexToRemove === 0) {
         const fileInput = document.getElementById('pdf-file-dialog') as HTMLInputElement;
-        if (fileInput) {
-            fileInput.value = ""; 
-        }
+        if (fileInput) fileInput.value = "";
     }
   };
 
@@ -170,13 +147,12 @@ export function UploadQuizForm({
   const handlePassingScoreChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value === "") {
-      setPassingScore(null); // Allow clearing the field
+      setPassingScore(null);
     } else {
       const parsedValue = parseInt(value, 10);
       if (!isNaN(parsedValue) && parsedValue >= 0 && parsedValue <= 100) {
         setPassingScore(parsedValue);
-      } else if (!isNaN(parsedValue) && (parsedValue < 0 || parsedValue > 100)) {
-        // Temporarily allow invalid input for user to correct, form validation will catch it
+      } else if (!isNaN(parsedValue)) {
         setPassingScore(parsedValue); 
       }
     }
@@ -190,8 +166,12 @@ export function UploadQuizForm({
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (pdfFiles.length === 0) {
-      toast({ title: "No PDF Selected", description: "Please select at least one PDF file.", variant: "destructive" });
+
+    const isDirectUpload = pdfFiles.length > 0;
+    const isKnowledgeSelection = !!selectedKnowledgeFileId;
+
+    if (!isDirectUpload && !isKnowledgeSelection) {
+      toast({ title: "No Source Selected", description: "Please either upload a PDF or select a file from the Knowledge Base.", variant: "destructive" });
       return;
     }
     if (numQuestions < 1 || numQuestions > MAX_QUESTIONS) {
@@ -203,13 +183,15 @@ export function UploadQuizForm({
       return;
     }
 
-
     setLoading(true); 
     onUploadStarted(); 
 
     try {
-      const pdfDocumentsInput = await Promise.all(
-        pdfFiles.map(async (file) => {
+      let pdfDocumentsInput: { name: string; dataUri: string }[] = [];
+      let quizTitle: string | undefined = initialPdfNameHint;
+
+      if (isDirectUpload) {
+          const file = pdfFiles[0];
           const reader = new FileReader();
           const promise = new Promise<string>((resolve, reject) => {
             reader.onloadend = () => resolve(reader.result as string);
@@ -217,31 +199,33 @@ export function UploadQuizForm({
           });
           reader.readAsDataURL(file);
           const dataUri = await promise;
-          return { name: file.name, dataUri };
-        })
-      );
-
-      let quizTitle = initialPdfNameHint;
-      if (!isRegenerationMode && pdfDocumentsInput.length > 1) {
-        quizTitle = `Quiz from ${pdfDocumentsInput.length} documents`;
-      } else if (!isRegenerationMode && pdfDocumentsInput.length === 1) {
-        quizTitle = pdfDocumentsInput[0].name;
+          pdfDocumentsInput = [{ name: file.name, dataUri }];
+          if (!isRegenerationMode) {
+              quizTitle = file.name;
+          }
+      } else if (isKnowledgeSelection) {
+          const selectedFile = knowledgeFiles.find(f => f.id === selectedKnowledgeFileId);
+          if (!selectedFile) throw new Error("Selected knowledge file not found.");
+          
+          toast({ title: "Processing File", description: `Retrieving "${selectedFile.file_name}" from Knowledge Base.`});
+          const { name, dataUri } = await getKnowledgeBaseFileAsDataUri(selectedFile.file_path);
+          pdfDocumentsInput = [{ name: name, dataUri }];
+          quizTitle = name;
       }
 
-      const filesToProcess = isRegenerationMode ? pdfDocumentsInput.slice(0,1) : pdfDocumentsInput;
 
       toast({
-        title: `Processing Document(s)`,
-        description: `Quiz generation has started for ${filesToProcess.length} document(s). This may take a moment.`
+        title: `Processing Document`,
+        description: `Quiz generation has started for "${quizTitle}". This may take a moment.`
       });
 
       const preferredStylesString = selectedQuestionStyles.join(", ");
 
       const generatedQuiz: Quiz = await generateQuizFromPdfsAction({
         workspaceId,
-        pdfDocuments: filesToProcess,
+        pdfDocuments: pdfDocumentsInput,
         totalNumberOfQuestions: numQuestions,
-        passingScorePercentage: passingScore, // Pass the passing score
+        passingScorePercentage: passingScore,
         quizTitle: quizTitle,
         existingQuizIdToUpdate: isRegenerationMode ? existingQuizIdToUpdate : undefined,
         preferredQuestionStyles: preferredStylesString || undefined,
@@ -255,24 +239,21 @@ export function UploadQuizForm({
     } catch (error) {
       console.error(`Error processing files:`, error);
       let errorMessage = "Failed to process the PDF(s).";
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      } else if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
-        errorMessage = error.message;
-      }
+      if (error instanceof Error) errorMessage = error.message;
+      else if (typeof error === 'string') errorMessage = error;
+      else if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') errorMessage = error.message;
       
       toast({ title: `Error Generating Quiz`, description: errorMessage, variant: "destructive" });
     } finally {
       setLoading(false); 
       setPdfFiles([]);
+      setSelectedKnowledgeFileId("");
       if (!isRegenerationMode) {
         setSelectedQuestionStyles(["multiple-choice"]);
         setHardMode(false);
         setTopicsToFocus("");
         setTopicsToDrop("");
-        setPassingScore(70); // Reset passing score for new quiz
+        setPassingScore(70);
       }
       const formElement = document.getElementById('pdf-upload-form-in-dialog') as HTMLFormElement;
       if (formElement) formElement.reset(); 
@@ -289,47 +270,59 @@ export function UploadQuizForm({
     >
       <button type="submit" ref={formSubmitRef} style={{ display: 'none' }} aria-hidden="true" />
 
-      <div className="flex-shrink-0"> 
-        {isRegenerationMode && initialPdfNameHint && (
-          <div className="p-3 mb-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-start">
-              <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-              <span>Re-generating for: <strong>{initialPdfNameHint}</strong>. Please re-select the PDF file. Advanced options below will apply.</span>
-          </div>
-        )}
-        {!isRegenerationMode && pdfFiles.length > 0 && numQuestions > 0 && (
-           <div className="p-3 mb-3 bg-secondary/50 rounded-md text-sm text-secondary-foreground flex items-start">
-              <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-              <span>A single quiz with {numQuestions} questions will be generated from the selected {pdfFiles.length} document(s).</span>
-          </div>
-        )}
-      </div>
-      
-      <div className="space-y-4 pr-4"> 
+      <div className="space-y-4 pr-2">
+        <div className="space-y-2">
+            <Label htmlFor="kb-select" className="flex items-center">
+              <FolderOpen className="mr-2 h-4 w-4" />
+              Knowledge Base (Select an existing file)
+            </Label>
+            <Select
+              value={selectedKnowledgeFileId}
+              onValueChange={handleKnowledgeFileChange}
+              disabled={loading || pdfFiles.length > 0 || isRegenerationMode}
+            >
+              <SelectTrigger id="kb-select">
+                <SelectValue placeholder="Select a file..." />
+              </SelectTrigger>
+              <SelectContent>
+                {knowledgeFiles.length > 0 ? (
+                  knowledgeFiles.map(file => (
+                    <SelectItem key={file.id} value={file.id}>
+                      {file.file_name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="no-files" disabled>
+                    No files in knowledge base
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+            {isRegenerationMode && <p className="text-xs text-muted-foreground">Knowledge base selection is disabled in re-generation mode.</p>}
+        </div>
+
+        <div className="relative py-2">
+            <Separator />
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-content1 px-2 text-xs uppercase text-muted-foreground bg-background">Or</span>
+        </div>
+        
         <div className="space-y-2">
           <Label htmlFor="pdf-file-dialog" className="flex items-center">
-            <FileUp className="mr-2 h-5 w-5" />
-            {isRegenerationMode ? "PDF Document (Single File)" : `PDF Document(s) (Max ${MAX_TOTAL_FILES})`}
+            <FileUp className="mr-2 h-4 w-4" />
+            Upload a New PDF
           </Label>
           <Input
             id="pdf-file-dialog"
             type="file"
             accept="application/pdf"
             onChange={handleFileChange}
-            multiple={!isRegenerationMode}
             className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-            disabled={loading || (pdfFiles.length >= MAX_TOTAL_FILES && !isRegenerationMode) || (isRegenerationMode && pdfFiles.length >=1)}
+            disabled={loading || !!selectedKnowledgeFileId}
           />
-          {pdfFiles.length >= MAX_TOTAL_FILES && !isRegenerationMode && (
-              <p className="text-xs text-muted-foreground">Maximum of {MAX_TOTAL_FILES} files reached.</p>
-          )}
-          {isRegenerationMode && pdfFiles.length >= 1 && (
-              <p className="text-xs text-muted-foreground">Maximum of 1 file for re-generation.</p>
-          )}
         </div>
 
         {pdfFiles.length > 0 && (
           <div className="space-y-2">
-              <Label className="text-sm">Selected file(s):</Label>
               <div className="max-h-24 overflow-y-auto w-full rounded-md border p-2 bg-muted/50">
                   <ul className="space-y-1.5">
                       {pdfFiles.map((file, index) => (
@@ -338,15 +331,7 @@ export function UploadQuizForm({
                               <FileText className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 text-muted-foreground" />
                               <span className="truncate" title={file.name}>{file.name}</span>
                           </div>
-                          <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5 opacity-50 group-hover:opacity-100 focus:opacity-100 text-destructive hover:text-destructive"
-                              onClick={() => handleRemoveFile(index)}
-                              disabled={loading}
-                              title={`Remove ${file.name}`}
-                          >
+                          <Button type="button" variant="ghost" size="icon" className="h-5 w-5 opacity-50 group-hover:opacity-100 focus:opacity-100 text-destructive hover:text-destructive" onClick={() => handleRemoveFile(index)} disabled={loading} title={`Remove ${file.name}`} >
                               <X className="h-3.5 w-3.5" />
                           </Button>
                       </li>
@@ -355,47 +340,32 @@ export function UploadQuizForm({
               </div>
           </div>
         )}
-        {pdfFiles.length === 0 && !loading && (
+        
+        {!pdfFiles.length && !selectedKnowledgeFileId && !loading && (
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-700 flex items-start">
               <BadgeAlert className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-              <span>{isRegenerationMode ? "Please select a PDF file to re-generate the quiz." : "Please select one or more PDF files to generate a quiz."}</span>
+              <span>Please select a file from the Knowledge Base or upload a new PDF.</span>
           </div>
         )}
 
+        <Separator className="my-4" />
+        
+        <h3 className="text-md font-semibold">Quiz Configuration</h3>
+
         <div className="space-y-2">
           <Label htmlFor="num-questions-dialog">Total Number of Questions (1-{MAX_QUESTIONS})</Label>
-          <Input
-            id="num-questions-dialog"
-            type="number"
-            value={numQuestions > 0 ? numQuestions.toString() : ""}
-            onChange={handleNumQuestionsChange}
-            min="1"
-            max={MAX_QUESTIONS.toString()}
-            placeholder="e.g., 10"
-            required
-            disabled={loading}
-          />
+          <Input id="num-questions-dialog" type="number" value={numQuestions > 0 ? numQuestions.toString() : ""} onChange={handleNumQuestionsChange} min="1" max={MAX_QUESTIONS.toString()} placeholder="e.g., 10" required disabled={loading} />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="passing-score-dialog" className="flex items-center">
              <Percent className="mr-2 h-4 w-4 text-muted-foreground" /> Passing Score (Optional, 0-100%)
           </Label>
-          <Input
-            id="passing-score-dialog"
-            type="number"
-            value={passingScore === null ? "" : passingScore.toString()}
-            onChange={handlePassingScoreChange}
-            min="0"
-            max="100"
-            placeholder="e.g., 70 (for 70%)"
-            disabled={loading}
-          />
+          <Input id="passing-score-dialog" type="number" value={passingScore === null ? "" : passingScore.toString()} onChange={handlePassingScoreChange} min="0" max="100" placeholder="e.g., 70 (for 70%)" disabled={loading} />
            {passingScore !== null && (passingScore < 0 || passingScore > 100) && (
             <p className="text-xs text-destructive">Passing score must be between 0 and 100.</p>
           )}
         </div>
-
 
         <div className="space-y-2">
           <Label>Preferred Question Styles (Optional)</Label>
@@ -403,12 +373,7 @@ export function UploadQuizForm({
           <div className="grid grid-cols-1 sm:grid-cols-1 gap-x-4 gap-y-2 pt-1"> 
             {questionStyleOptions.map((style) => (
               <div key={style.id} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`style-${style.id}`}
-                  checked={selectedQuestionStyles.includes(style.id)}
-                  onCheckedChange={(checked) => handleQuestionStyleChange(style.id, !!checked)}
-                  disabled={loading}
-                />
+                <Checkbox id={`style-${style.id}`} checked={selectedQuestionStyles.includes(style.id)} onCheckedChange={(checked) => handleQuestionStyleChange(style.id, !!checked)} disabled={loading} />
                 <Label htmlFor={`style-${style.id}`} className="text-sm font-normal cursor-pointer">
                   {style.label}
                 </Label>
@@ -418,37 +383,18 @@ export function UploadQuizForm({
         </div>
         
         <div className="flex items-center space-x-2 pt-2">
-          <Switch
-            id="hard-mode"
-            checked={hardMode}
-            onCheckedChange={setHardMode}
-            disabled={loading}
-          />
+          <Switch id="hard-mode" checked={hardMode} onCheckedChange={setHardMode} disabled={loading} />
           <Label htmlFor="hard-mode">Hard Mode (More challenging questions)</Label>
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="topics-to-focus">Topics/Keywords to Focus On (Optional, comma-separated)</Label>
-          <Input
-            id="topics-to-focus"
-            type="text"
-            placeholder="e.g., photosynthesis, cell division"
-            value={topicsToFocus}
-            onChange={(e) => setTopicsToFocus(e.target.value)}
-            disabled={loading}
-          />
+          <Input id="topics-to-focus" type="text" placeholder="e.g., photosynthesis, cell division" value={topicsToFocus} onChange={(e) => setTopicsToFocus(e.target.value)} disabled={loading} />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="topics-to-drop">Topics/Keywords to Drop (Optional, comma-separated)</Label>
-          <Input
-            id="topics-to-drop"
-            type="text"
-            placeholder="e.g., historical background, specific dates"
-            value={topicsToDrop}
-            onChange={(e) => setTopicsToDrop(e.target.value)}
-            disabled={loading}
-          />
+          <Input id="topics-to-drop" type="text" placeholder="e.g., historical background, specific dates" value={topicsToDrop} onChange={(e) => setTopicsToDrop(e.target.value)} disabled={loading} />
         </div>
       </div>
     </form>
