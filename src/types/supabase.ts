@@ -10,6 +10,28 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      profiles: {
+        Row: {
+          id: string
+          role: string
+        }
+        Insert: {
+          id: string
+          role?: string
+        }
+        Update: {
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_id_fkey"
+            columns: ["id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       workspaces: {
         Row: {
           id: string
@@ -46,7 +68,7 @@ export interface Database {
           pdf_name: string | null
           num_questions: number
           generated_quiz_data: Json | null 
-          status: "pending" | "processing" | "completed" | "failed"
+          status: string
           error_message: string | null
           created_at: string
           updated_at: string
@@ -61,7 +83,7 @@ export interface Database {
           pdf_name?: string | null
           num_questions: number
           generated_quiz_data?: Json | null
-          status?: "pending" | "processing" | "completed" | "failed"
+          status?: string
           error_message?: string | null
           created_at?: string
           updated_at?: string
@@ -76,7 +98,7 @@ export interface Database {
           pdf_name?: string | null
           num_questions?: number
           generated_quiz_data?: Json | null
-          status?: "pending" | "processing" | "completed" | "failed"
+          status?: string
           error_message?: string | null
           created_at?: string
           updated_at?: string
@@ -128,7 +150,10 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
@@ -140,6 +165,7 @@ export interface Database {
 }
 
 // Helper types
+export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type Workspace = Database['public']['Tables']['workspaces']['Row'];
 export type NewWorkspace = Database['public']['Tables']['workspaces']['Insert'];
 export type Quiz = Database['public']['Tables']['quizzes']['Row'];
