@@ -1,20 +1,18 @@
--- This script is now idempotent and can be run multiple times safely.
+-- This script is idempotent and can be run multiple times safely.
 
--- Clean up in reverse order of creation to avoid dependency errors
-DROP TRIGGER IF EXISTS on_kb_documents_update ON public.knowledge_base_documents;
-DROP TRIGGER IF EXISTS on_quizzes_update ON public.quizzes;
-DROP TRIGGER IF EXISTS on_workspaces_update ON public.workspaces;
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+-- Clean up in the correct order
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users; -- Must be dropped as we don't own the table
 
+-- Drop all tables. CASCADE handles their triggers and dependencies automatically.
 DROP TABLE IF EXISTS public.knowledge_base_documents CASCADE;
 DROP TABLE IF EXISTS public.quizzes CASCADE;
 DROP TABLE IF EXISTS public.workspaces CASCADE;
 DROP TABLE IF EXISTS public.profiles CASCADE;
 
+-- Drop functions and types last
 DROP FUNCTION IF EXISTS public.is_admin();
 DROP FUNCTION IF EXISTS public.handle_new_user();
 DROP FUNCTION IF EXISTS public.handle_updated_at();
-
 DROP TYPE IF EXISTS public.user_role;
 
 
