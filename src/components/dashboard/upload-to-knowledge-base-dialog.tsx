@@ -148,6 +148,3 @@ export function UploadToKnowledgeBaseDialog({
     </Dialog>
   );
 }
-
-
-    
