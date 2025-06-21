@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { getWorkspaceById } from "@/lib/actions/workspace.actions";
@@ -59,6 +60,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { RenameQuizDialog } from "@/components/dashboard/rename-quiz-dialog";
 import { RenameKnowledgeFileDialog } from "@/components/dashboard/rename-knowledge-file-dialog";
+import { UploadToKnowledgeBaseDialog } from "@/components/dashboard/upload-to-knowledge-base-dialog";
 
 
 const CustomSidebarTrigger = () => {
@@ -239,6 +241,7 @@ interface WorkspaceSidebarInternalsProps {
   onDeleteQuizConfirmation: (quizId: string) => void;
   onRenameKnowledgeFile: (file: KnowledgeBaseFile) => void;
   onDeleteKnowledgeFile: (fileId: string) => void;
+  onOpenKnowledgeBaseUpload: () => void;
 }
 
 const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
@@ -255,6 +258,7 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
   onDeleteQuizConfirmation,
   onRenameKnowledgeFile,
   onDeleteKnowledgeFile,
+  onOpenKnowledgeBaseUpload,
 }) => {
   const { state: sidebarState } = useSidebar();
 
@@ -299,6 +303,10 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                                 <Wand2 className="mr-2 h-4 w-4"/>
                                 Generate New Quiz
                             </Button>
+                            <Button variant="ghost" size="sm" className="w-full justify-start text-primary/90" onClick={onOpenKnowledgeBaseUpload}>
+                                <FileUp className="mr-2 h-4 w-4"/>
+                                Add File
+                            </Button>
                         </div>
                          <div className="my-2 border-b border-border/70 -mx-1"></div>
                         {isLoadingSidebarData ? <Loader2 className="mx-auto my-4 h-6 w-6 animate-spin text-muted-foreground" /> :
@@ -330,7 +338,7 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                             <MemoizedQuizList
                                 initialQuizzes={allQuizzesForWorkspace}
                                 onQuizSelect={handleQuizSelectionFromHistory}
-                                selectedQuizId={activeQuizDBEntryId}
+                                selectedQuizId={activeQuizDBEntry?.id}
                                 onRenameQuiz={onRenameQuiz}
                                 onDeleteQuiz={onDeleteQuizConfirmation}
                             />
@@ -403,6 +411,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
 
   // Knowledge Base state
+  const [isUploadKnowledgeFileDialogOpen, setIsUploadKnowledgeFileDialogOpen] = useState(false);
   const [fileToRename, setFileToRename] = useState<KnowledgeBaseFile | null>(null);
   const [isRenameFileDialogOpen, setIsRenameFileDialogOpen] = useState(false);
   const [fileToDeleteId, setFileToDeleteId] = useState<string | null>(null);
@@ -660,6 +669,11 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       setIsDeletingFile(false);
     }
   }, [fileToDeleteId, refreshSidebarData, toast]);
+  
+  const handleKnowledgeBaseUploadComplete = useCallback(() => {
+    toast({ title: "Upload Complete", description: "Your file is now available in the Knowledge Base." });
+    refreshSidebarData();
+  }, [refreshSidebarData, toast]);
 
   const renderRightPaneContent = () => {
     if (isLoadingActiveQuiz || (viewMode === "loading_quiz_data" && !activeQuizDBEntry)) {
@@ -778,6 +792,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
             onDeleteQuizConfirmation={handleDeleteQuizConfirmation}
             onRenameKnowledgeFile={handleOpenRenameFileDialog}
             onDeleteKnowledgeFile={handleDeleteFileConfirmation}
+            onOpenKnowledgeBaseUpload={() => setIsUploadKnowledgeFileDialogOpen(true)}
           />
         </Sidebar>
 
@@ -851,6 +866,12 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         existingQuizIdToUpdate={activeQuizDBEntry?.id}
         initialPdfNameHint={activeQuizDBEntry?.pdf_name || undefined}
         knowledgeFiles={knowledgeFiles}
+      />
+      <UploadToKnowledgeBaseDialog
+        workspaceId={workspaceId}
+        open={isUploadKnowledgeFileDialogOpen}
+        onOpenChange={setIsUploadKnowledgeFileDialogOpen}
+        onUploadComplete={handleKnowledgeBaseUploadComplete}
       />
       <RenameQuizDialog
         quiz={quizToRename}
@@ -991,3 +1012,5 @@ export default function WorkspacePageWrapper({
     </SidebarProvider>
   );
 }
+
+    
