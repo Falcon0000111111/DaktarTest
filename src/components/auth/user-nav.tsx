@@ -15,14 +15,17 @@ import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LogOut, Moon, Sun } from "lucide-react";
+import { LogOut, Moon, Sun, ShieldCheck } from "lucide-react";
 import { useTheme } from "@/components/providers/theme-provider";
+import { useAdminStatus } from "@/hooks/use-admin-status";
+import Link from "next/link";
 
 export function UserNav() {
   const supabase = createClient();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const { theme, setTheme } = useTheme();
+  const { isAdmin, isLoading: isAdminLoading } = useAdminStatus();
 
   useEffect(() => {
     const getUserSession = async () => {
@@ -89,6 +92,19 @@ export function UserNav() {
           )}
           <span>{theme === 'dark' ? 'Light Theme' : 'Dark Theme'}</span>
         </DropdownMenuItem>
+
+        {!isAdminLoading && isAdmin && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild className="cursor-pointer">
+              <Link href="/admin/knowledge-base">
+                <ShieldCheck className="mr-2 h-4 w-4" />
+                <span>Admin Panel</span>
+              </Link>
+            </DropdownMenuItem>
+          </>
+        )}
+
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
           <LogOut className="mr-2 h-4 w-4" />
