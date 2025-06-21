@@ -23,7 +23,6 @@ interface UploadQuizFormProps {
   initialNumQuestions?: number;
   initialPassingScore?: number | null;
   existingQuizIdToUpdate?: string;
-  initialPdfNameHint?: string;
   className?: string; 
   formSubmitRef: RefObject<HTMLButtonElement>;
   knowledgeFiles: KnowledgeBaseFile[];
@@ -47,7 +46,6 @@ export function UploadQuizForm({
     initialNumQuestions,
     initialPassingScore,
     existingQuizIdToUpdate,
-    initialPdfNameHint,
     className,
     formSubmitRef,
     knowledgeFiles
@@ -180,7 +178,7 @@ export function UploadQuizForm({
         knowledgeFilePaths: selectedFilePaths,
         totalNumberOfQuestions: numQuestions,
         passingScorePercentage: passingScore,
-        quizTitle: isRegenerationMode ? initialPdfNameHint : undefined,
+        quizTitle: isRegenerationMode ? undefined : quizTitle,
         existingQuizIdToUpdate: isRegenerationMode ? existingQuizIdToUpdate : undefined,
         preferredQuestionStyles: preferredStylesString || undefined,
         hardMode: hardMode,
@@ -235,7 +233,7 @@ export function UploadQuizForm({
                                 id={file.file_path}
                                 checked={selectedFilePaths.includes(file.file_path)}
                                 onCheckedChange={(checked) => handleFileSelectionChange(file.file_path, !!checked)}
-                                disabled={loading || (isRegenerationMode && selectedFilePaths[0] !== file.file_path) || (selectedFilePaths.length >= MAX_SELECTED_FILES && !selectedFilePaths.includes(file.file_path))}
+                                disabled={loading || (selectedFilePaths.length >= MAX_SELECTED_FILES && !selectedFilePaths.includes(file.file_path))}
                             />
                             <Label htmlFor={file.file_path} className="font-normal truncate cursor-pointer flex-1" title={file.file_name}>
                               {file.file_name}
@@ -243,10 +241,9 @@ export function UploadQuizForm({
                         </div>
                     ))
                 ) : (
-                  <p className="text-sm text-muted-foreground p-2 text-center">No files in knowledge base.</p>
+                  <p className="text-sm text-muted-foreground p-2 text-center">No files in knowledge base. Admin can add files.</p>
                 )}
             </div>
-            {isRegenerationMode && <p className="text-xs text-muted-foreground">Source file selection is disabled in re-generation mode.</p>}
         </div>
 
         {selectedFilePaths.length === 0 && !loading && (

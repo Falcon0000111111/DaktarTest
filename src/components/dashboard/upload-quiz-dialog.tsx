@@ -25,7 +25,6 @@ interface UploadQuizDialogProps {
   onDialogClose: (refresh?: boolean) => void; 
   onQuizGenerationStart: () => void; 
   onQuizGenerated: (quizId: string) => void; 
-  initialPdfNameHint?: string;
   initialNumQuestions?: number;
   initialPassingScore?: number | null;
   existingQuizIdToUpdate?: string;
@@ -40,7 +39,6 @@ export function UploadQuizDialog({
   onDialogClose,
   onQuizGenerationStart,
   onQuizGenerated,
-  initialPdfNameHint,
   initialNumQuestions,
   initialPassingScore,
   existingQuizIdToUpdate,
@@ -80,8 +78,8 @@ export function UploadQuizDialog({
           </DialogTitle>
           <DialogDescription>
             {isRegenerationMode 
-              ? `Re-generating quiz for "${initialPdfNameHint || 'document'}".` 
-              : "Select up to 5 files from your Knowledge Base and configure options to generate a quiz."
+              ? `Re-generating quiz.` 
+              : "Select up to 5 files from the global Knowledge Base and configure options to generate a quiz."
             }
           </DialogDescription>
         </DialogHeader>
@@ -100,7 +98,6 @@ export function UploadQuizDialog({
           initialNumQuestions={initialNumQuestions}
           initialPassingScore={initialPassingScore}
           existingQuizIdToUpdate={existingQuizIdToUpdate}
-          initialPdfNameHint={initialPdfNameHint}
           formSubmitRef={formSubmitButtonRef}
           onActualCancel={() => { 
             onOpenChange(false);

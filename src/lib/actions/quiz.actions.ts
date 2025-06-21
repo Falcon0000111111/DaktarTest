@@ -341,35 +341,6 @@ export async function renameQuizAction(quizId: string, newName: string): Promise
   return updatedQuiz;
 }
 
-export async function renameSourcePdfInQuizzesAction(workspaceId: string, oldPdfName: string, newPdfName: string): Promise<void> {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("User not authenticated.");
-  }
-  if (!newPdfName.trim()) {
-    throw new Error("New PDF name cannot be empty.");
-  }
-  if (oldPdfName === newPdfName) {
-    return; 
-  }
-
-  const { error } = await supabase
-    .from("quizzes")
-    .update({ pdf_name: newPdfName, updated_at: new Date().toISOString() })
-    .eq("workspace_id", workspaceId)
-    .eq("user_id", user.id)
-    .eq("pdf_name", oldPdfName);
-
-  if (error) {
-    console.error("Error renaming source PDF in quizzes:", error);
-    throw new Error(error.message || "Failed to rename source PDF in quizzes.");
-  }
-  revalidatePath(`/dashboard/workspace/${workspaceId}`);
-  revalidatePath(`/dashboard`);
-}
-
 export async function deleteQuizzesBySourcePdfAction(workspaceId: string, pdfName: string): Promise<void> {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();

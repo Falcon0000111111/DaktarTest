@@ -2,31 +2,35 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import type { KnowledgeBaseFile, NewKnowledgeBaseFile } from "@/types/supabase";
+import type { KnowledgeBaseFile } from "@/types/supabase";
 import { revalidatePath } from "next/cache";
 
-/**
- * Uploads a PDF file to Supabase Storage and creates a corresponding record in the knowledge_base_files table.
- * @param workspaceId The ID of the workspace to associate the file with.
- * @param formData The FormData object containing the file to upload.
- */
-export async function uploadKnowledgeBaseFile(workspaceId: string, formData: FormData): Promise<void> {
+async function verifyAdmin() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
     throw new Error("User not authenticated.");
   }
+  if (!process.env.ADMIN_USER_ID) {
+    throw new Error("ADMIN_USER_ID is not configured on the server.");
+  }
+  if (user.id !== process.env.ADMIN_USER_ID) {
+    throw new Error("Access Denied: You do not have permission to perform this action.");
+  }
+  return user;
+}
+
+
+export async function uploadKnowledgeBaseFile(formData: FormData): Promise<KnowledgeBaseFile> {
+  const user = await verifyAdmin();
+  const supabase = createClient();
 
   const file = formData.get("file") as File;
-  if (!file) {
-    throw new Error("No file provided.");
-  }
-  if (file.type !== 'application/pdf') {
-      throw new Error("Only PDF files are allowed.");
-  }
+  if (!file) throw new Error("No file provided.");
+  if (file.type !== 'application/pdf') throw new Error("Only PDF files are allowed.");
 
-  const filePath = `${user.id}/${workspaceId}/${Date.now()}-${file.name}`;
+  const filePath = `global/${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
 
   const { error: uploadError } = await supabase.storage
     .from("knowledge-base-files")
@@ -34,64 +38,49 @@ export async function uploadKnowledgeBaseFile(workspaceId: string, formData: For
 
   if (uploadError) {
     console.error("Error uploading file to storage:", uploadError);
-    throw new Error(uploadError.message || "Failed to upload file to storage.");
+    throw new Error(uploadError.message);
   }
 
-  const newFileEntry: NewKnowledgeBaseFile = {
-    file_name: file.name,
-    file_path: filePath,
-    workspace_id: workspaceId,
-    user_id: user.id,
-  };
-
-  const { error: dbError } = await supabase
+  const { data: newFileEntry, error: dbError } = await supabase
     .from("knowledge_base_files")
-    .insert(newFileEntry);
+    .insert({
+      file_name: file.name,
+      file_path: filePath,
+    })
+    .select()
+    .single();
 
-  if (dbError) {
+  if (dbError || !newFileEntry) {
     console.error("Error creating knowledge base file record:", dbError);
-    // Attempt to delete the orphaned file from storage
     await supabase.storage.from("knowledge-base-files").remove([filePath]);
-    throw new Error(dbError.message || "Failed to save file metadata to the database.");
+    throw new Error(dbError?.message || "Failed to save file metadata.");
   }
 
-  revalidatePath(`/dashboard/workspace/${workspaceId}`);
+  revalidatePath("/admin/knowledge-base");
+  revalidatePath("/dashboard/workspace/.*", "layout"); // Revalidate all workspaces
+  return newFileEntry;
 }
 
-
-/**
- * Lists all knowledge base files for a given workspace from the database table.
- * @param workspaceId The ID of the workspace.
- * @returns An array of KnowledgeBaseFile objects.
- */
-export async function listKnowledgeBaseFiles(workspaceId: string): Promise<KnowledgeBaseFile[]> {
+export async function listKnowledgeBaseFiles(): Promise<KnowledgeBaseFile[]> {
   const supabase = createClient();
+  // Any authenticated user can list the files.
   const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("User not authenticated.");
-  }
-
+  if (!user) throw new Error("User not authenticated.");
+  
   const { data, error } = await supabase
     .from("knowledge_base_files")
     .select("*")
-    .eq("workspace_id", workspaceId)
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+    .order("file_name", { ascending: true });
 
   if (error) {
     console.error("Error listing knowledge base files:", error);
-    throw new Error(error.message || "Failed to list knowledge base files.");
+    throw new Error(error.message);
   }
 
   return data || [];
 }
 
-/**
- * Downloads a file from Supabase Storage using its path and returns it as a data URI.
- * @param filePath The path to the file in storage.
- * @returns An object containing the file's name and its data URI representation.
- */
+
 export async function getKnowledgeBaseFileAsDataUri(filePath: string): Promise<{name: string; dataUri: string}> {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -109,8 +98,8 @@ export async function getKnowledgeBaseFileAsDataUri(filePath: string): Promise<{
         throw new Error(error.message || "Could not download file from knowledge base.");
     }
     
-    // Extract original filename from the end of the path.
-    const fileName = filePath.substring(filePath.lastIndexOf('/') + 1).replace(/^\d+-/, '');
+    const fileNameWithPrefix = filePath.substring(filePath.lastIndexOf('/') + 1);
+    const fileName = fileNameWithPrefix.substring(fileNameWithPrefix.indexOf('-') + 1).replace(/_/g, " ");
 
     const buffer = Buffer.from(await blob.arrayBuffer());
     const dataUri = `data:${blob.type || 'application/pdf'};base64,${buffer.toString('base64')}`;
@@ -119,63 +108,18 @@ export async function getKnowledgeBaseFileAsDataUri(filePath: string): Promise<{
 }
 
 
-/**
- * Renames a knowledge base file in the database. Does not change the file in storage.
- * @param fileId The ID of the file record to rename.
- * @param newName The new name for the file.
- */
-export async function renameKnowledgeBaseFile(fileId: string, newName: string): Promise<void> {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("User not authenticated.");
-  }
-
-  const { data: file, error: fetchError } = await supabase
-    .from("knowledge_base_files")
-    .select("workspace_id")
-    .eq("id", fileId)
-    .eq("user_id", user.id)
-    .single();
-
-  if (fetchError || !file) {
-    throw new Error("File not found or permission denied.");
-  }
-
-  const { error: updateError } = await supabase
-    .from("knowledge_base_files")
-    .update({ file_name: newName, updated_at: new Date().toISOString() })
-    .eq("id", fileId);
-
-  if (updateError) {
-    throw new Error(updateError.message || "Failed to rename file.");
-  }
-  revalidatePath(`/dashboard/workspace/${file.workspace_id}`);
-}
-
-
-/**
- * Deletes a knowledge base file from the database and from Supabase Storage.
- * @param fileId The ID of the file record to delete.
- */
 export async function deleteKnowledgeBaseFile(fileId: string): Promise<void> {
+  const user = await verifyAdmin();
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("User not authenticated.");
-  }
 
   const { data: file, error: fetchError } = await supabase
     .from("knowledge_base_files")
-    .select("file_path, workspace_id")
+    .select("file_path")
     .eq("id", fileId)
-    .eq("user_id", user.id)
     .single();
 
   if (fetchError || !file) {
-    throw new Error("File not found or permission denied.");
+    throw new Error("File not found.");
   }
 
   const { error: storageError } = await supabase.storage
@@ -183,9 +127,7 @@ export async function deleteKnowledgeBaseFile(fileId: string): Promise<void> {
     .remove([file.file_path]);
   
   if (storageError) {
-    console.error("Error deleting file from storage:", storageError);
-    // Decide if you want to proceed or throw an error.
-    // Proceeding might leave an orphaned DB record.
+    console.error("Error deleting file from storage, but proceeding to delete DB record:", storageError);
   }
 
   const { error: dbError } = await supabase
@@ -196,5 +138,6 @@ export async function deleteKnowledgeBaseFile(fileId: string): Promise<void> {
   if (dbError) {
     throw new Error(dbError.message || "Failed to delete file record from database.");
   }
-  revalidatePath(`/dashboard/workspace/${file.workspace_id}`);
+  revalidatePath("/admin/knowledge-base");
+  revalidatePath("/dashboard/workspace/.*", "layout");
 }

@@ -106,8 +106,6 @@ export interface Database {
           updated_at: string;
           file_name: string;
           file_path: string;
-          workspace_id: string;
-          user_id: string;
         };
         Insert: {
           id?: string;
@@ -115,8 +113,6 @@ export interface Database {
           updated_at?: string;
           file_name: string;
           file_path: string;
-          workspace_id: string;
-          user_id: string;
         };
         Update: {
           id?: string;
@@ -124,23 +120,8 @@ export interface Database {
           updated_at?: string;
           file_name?: string;
           file_path?: string;
-          workspace_id?: string;
-          user_id?: string;
         };
-        Relationships: [
-          {
-            foreignKeyName: "fk_user";
-            columns: ["user_id"];
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "fk_workspace";
-            columns: ["workspace_id"];
-            referencedRelation: "workspaces";
-            referencedColumns: ["id"];
-          }
-        ];
+        Relationships: [];
       };
     }
     Views: {
