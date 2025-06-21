@@ -50,9 +50,9 @@ export interface Database {
           error_message: string | null
           created_at: string
           updated_at: string
-          passing_score_percentage: number | null // New
-          last_attempt_score_percentage: number | null // New
-          last_attempt_passed: boolean | null // New
+          passing_score_percentage: number | null
+          last_attempt_score_percentage: number | null
+          last_attempt_passed: boolean | null
         }
         Insert: {
           id?: string
@@ -65,9 +65,9 @@ export interface Database {
           error_message?: string | null
           created_at?: string
           updated_at?: string
-          passing_score_percentage?: number | null // New
-          last_attempt_score_percentage?: number | null // New
-          last_attempt_passed?: boolean | null // New
+          passing_score_percentage?: number | null
+          last_attempt_score_percentage?: number | null
+          last_attempt_passed?: boolean | null
         }
         Update: {
           id?: string
@@ -80,9 +80,9 @@ export interface Database {
           error_message?: string | null
           created_at?: string
           updated_at?: string
-          passing_score_percentage?: number | null // New
-          last_attempt_score_percentage?: number | null // New
-          last_attempt_passed?: boolean | null // New
+          passing_score_percentage?: number | null
+          last_attempt_score_percentage?: number | null
+          last_attempt_passed?: boolean | null
         }
         Relationships: [
           {
@@ -93,6 +93,46 @@ export interface Database {
           },
           {
             foreignKeyName: "quizzes_workspace_id_fkey"
+            columns: ["workspace_id"]
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      knowledge_base_files: {
+        Row: {
+          id: string
+          created_at: string
+          file_name: string
+          file_path: string
+          workspace_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          file_name: string
+          file_path: string
+          workspace_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          workspace_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_user"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_workspace"
             columns: ["workspace_id"]
             referencedRelation: "workspaces"
             referencedColumns: ["id"]
@@ -120,6 +160,9 @@ export type Workspace = Database['public']['Tables']['workspaces']['Row'];
 export type NewWorkspace = Database['public']['Tables']['workspaces']['Insert'];
 export type Quiz = Database['public']['Tables']['quizzes']['Row'];
 export type NewQuiz = Database['public']['Tables']['quizzes']['Insert'];
+export type KnowledgeBaseFile = Database['public']['Tables']['knowledge_base_files']['Row'];
+export type NewKnowledgeBaseFile = Database['public']['Tables']['knowledge_base_files']['Insert'];
+
 
 export type GeneratedQuizQuestion = {
   question: string;
