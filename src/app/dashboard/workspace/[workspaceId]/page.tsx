@@ -58,7 +58,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { RenameQuizDialog } from "@/components/dashboard/rename-quiz-dialog";
-import { UploadToKnowledgeBaseDialog } from "@/components/dashboard/upload-to-knowledge-base-dialog";
 import { RenameKnowledgeFileDialog } from "@/components/dashboard/rename-knowledge-file-dialog";
 
 
@@ -240,7 +239,6 @@ interface WorkspaceSidebarInternalsProps {
   onDeleteQuizConfirmation: (quizId: string) => void;
   onRenameKnowledgeFile: (file: KnowledgeBaseFile) => void;
   onDeleteKnowledgeFile: (fileId: string) => void;
-  onOpenKnowledgeBaseUpload: () => void;
 }
 
 const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
@@ -257,7 +255,6 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
   onDeleteQuizConfirmation,
   onRenameKnowledgeFile,
   onDeleteKnowledgeFile,
-  onOpenKnowledgeBaseUpload,
 }) => {
   const { state: sidebarState } = useSidebar();
 
@@ -301,10 +298,6 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                             <Button variant="ghost" size="sm" className="w-full justify-start text-primary" onClick={() => handleOpenUploadDialog()}>
                                 <Wand2 className="mr-2 h-4 w-4"/>
                                 Generate New Quiz
-                            </Button>
-                             <Button variant="ghost" size="sm" className="w-full justify-start" onClick={onOpenKnowledgeBaseUpload}>
-                                <FileUp className="mr-2 h-4 w-4"/>
-                                Add to Knowledge Base
                             </Button>
                         </div>
                          <div className="my-2 border-b border-border/70 -mx-1"></div>
@@ -410,7 +403,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
 
   // Knowledge Base state
-  const [isUploadKBOpen, setIsUploadKBOpen] = useState(false);
   const [fileToRename, setFileToRename] = useState<KnowledgeBaseFile | null>(null);
   const [isRenameFileDialogOpen, setIsRenameFileDialogOpen] = useState(false);
   const [fileToDeleteId, setFileToDeleteId] = useState<string | null>(null);
@@ -483,7 +475,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         toast({ title: "Error", description: "Could not load the generated quiz data.", variant: "destructive" });
         setViewMode("empty_state");
       }
-      refreshSidebarData();
+      // Do not refresh sidebar here, wait for submission
 
     } catch (error) {
       toast({ title: "Error loading generated quiz", description: (error as Error).message, variant: "destructive" });
@@ -491,7 +483,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     } finally {
       setIsLoadingActiveQuiz(false);
     }
-  }, [workspaceId, toast, refreshSidebarData]);
+  }, [toast]);
   
   const handleUploadDialogClose = useCallback((refresh?: boolean) => {
     setIsUploadDialogOpen(false);
@@ -581,9 +573,11 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                 );
                 setActiveQuizDBEntry(updatedQuizEntry); 
                 
+                // This is the first submission, add to history
                 if (!isQuizFromHistory) {
                     refreshSidebarData(); 
                 } else {
+                    // Update the item in the existing history list to reflect new attempt status
                     setAllQuizzesForWorkspace(prevQuizzes => 
                         prevQuizzes.map(q => q.id === updatedQuizEntry.id ? updatedQuizEntry : q)
                     );
@@ -606,7 +600,8 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const handleQuizRenamed = useCallback(() => {
     refreshSidebarData(); 
     if (activeQuizDBEntry && quizToRename && activeQuizDBEntry.id === quizToRename.id) {
-       setActiveQuizDBEntry(prev => prev ? {...prev, pdf_name: name, updated_at: new Date().toISOString() } : null);
+       const newName = (document.getElementById('quiz-name') as HTMLInputElement)?.value || quizToRename.pdf_name;
+       setActiveQuizDBEntry(prev => prev ? {...prev, pdf_name: newName, updated_at: new Date().toISOString() } : null);
     }
     setQuizToRename(null);
   }, [activeQuizDBEntry, quizToRename, refreshSidebarData]);
@@ -783,7 +778,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
             onDeleteQuizConfirmation={handleDeleteQuizConfirmation}
             onRenameKnowledgeFile={handleOpenRenameFileDialog}
             onDeleteKnowledgeFile={handleDeleteFileConfirmation}
-            onOpenKnowledgeBaseUpload={() => setIsUploadKBOpen(true)}
           />
         </Sidebar>
 
@@ -857,12 +851,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         existingQuizIdToUpdate={activeQuizDBEntry?.id}
         initialPdfNameHint={activeQuizDBEntry?.pdf_name || undefined}
         knowledgeFiles={knowledgeFiles}
-      />
-      <UploadToKnowledgeBaseDialog 
-        workspaceId={workspaceId}
-        open={isUploadKBOpen}
-        onOpenChange={setIsUploadKBOpen}
-        onUploadComplete={refreshSidebarData}
       />
       <RenameQuizDialog
         quiz={quizToRename}
