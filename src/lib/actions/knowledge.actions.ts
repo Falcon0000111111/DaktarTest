@@ -69,7 +69,7 @@ export async function uploadKnowledgeBaseFile(formData: FormData): Promise<Knowl
   }
 
   revalidatePath("/admin/knowledge-base");
-  revalidatePath("/dashboard/workspace/.*", "layout");
+  revalidatePath("/dashboard", "layout");
   return newDocEntry;
 }
 
@@ -161,7 +161,7 @@ export async function deleteKnowledgeBaseDocument(documentId: string): Promise<v
     throw new Error(dbError.message || "Failed to delete document record from database.");
   }
   revalidatePath("/admin/knowledge-base");
-  revalidatePath("/dashboard/workspace/.*", "layout");
+  revalidatePath("/dashboard", "layout");
 }
 
 export async function renameKnowledgeBaseDocument(documentId: string, newName: string): Promise<void> {
@@ -182,5 +182,5 @@ export async function renameKnowledgeBaseDocument(documentId: string, newName: s
   }
 
   revalidatePath("/admin/knowledge-base");
-  revalidatePath("/dashboard/workspace/.*", "layout");
+  revalidatePath("/dashboard", "layout");
 }
