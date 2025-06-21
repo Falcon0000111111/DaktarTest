@@ -7,13 +7,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col" style={{ '--header-height': '4rem', '--footer-height': '3.5rem' } as React.CSSProperties}>
       <Header />
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col bg-muted/30">
         {children}
       </main>
-      <footer className="py-4 text-center text-xs text-muted-foreground border-t h-[var(--footer-height)] flex-shrink-0">
+      <footer className="py-4 text-center text-xs text-muted-foreground border-t bg-background h-[var(--footer-height)] flex-shrink-0">
         © <CurrentYear /> FinalQuiz. All rights reserved.
       </footer>
     </div>
   );
 }
-

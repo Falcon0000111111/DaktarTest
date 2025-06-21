@@ -3,17 +3,13 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { generateQuizFromPdfs, type GenerateQuizInput, type GenerateQuizOutput } from "@/ai/flows/generate-quiz-from-pdf";
-import type { Quiz, NewQuiz, StoredQuizData } from "@/types/supabase";
+import type { Quiz, NewQuiz } from "@/types/supabase";
 import { revalidatePath } from "next/cache";
-
-interface PdfDocumentInput {
-  name: string;
-  dataUri: string;
-}
+import { getKnowledgeBaseFileAsDataUri } from "./knowledge.actions";
 
 interface GenerateQuizFromPdfsParams {
   workspaceId: string;
-  pdfDocuments: PdfDocumentInput[];
+  knowledgeFilePaths: string[];
   totalNumberOfQuestions: number;
   passingScorePercentage?: number | null;
   quizTitle?: string;
@@ -34,7 +30,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
 
   const { 
     workspaceId, 
-    pdfDocuments, 
+    knowledgeFilePaths, 
     totalNumberOfQuestions, 
     passingScorePercentage,
     quizTitle, 
@@ -45,25 +41,29 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     topicsToDrop 
   } = params;
 
-  if (!pdfDocuments || pdfDocuments.length === 0) {
-    throw new Error("At least one PDF document is required.");
+  if (!knowledgeFilePaths || knowledgeFilePaths.length === 0) {
+    throw new Error("At least one PDF document from the Knowledge Base is required.");
   }
   if (passingScorePercentage !== undefined && passingScorePercentage !== null && (passingScorePercentage < 0 || passingScorePercentage > 100)) {
     throw new Error("Passing score percentage must be between 0 and 100.");
   }
 
-  let quizEntryId = existingQuizIdToUpdate;
+  const pdfDocuments = await Promise.all(
+    knowledgeFilePaths.map(path => getKnowledgeBaseFileAsDataUri(path))
+  );
 
   let dbQuizName = quizTitle;
   if (!dbQuizName) {
     if (pdfDocuments.length > 1) {
-      dbQuizName = `Quiz from ${pdfDocuments.length} documents`;
+      dbQuizName = `Quiz from ${pdfDocuments.length} files`;
     } else if (pdfDocuments.length === 1) {
       dbQuizName = pdfDocuments[0].name;
     } else {
       dbQuizName = "Untitled Quiz";
     }
   }
+
+  let quizEntryId = existingQuizIdToUpdate;
 
   if (!quizEntryId) {
     const initialQuizData: NewQuiz = {
@@ -76,13 +76,13 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
       last_attempt_passed: null,
       status: "processing",
       error_message: null,
-      generated_quiz_data: null, // Ensure this is null initially
+      generated_quiz_data: null,
     };
 
     const { data: newQuizEntry, error: createError } = await supabase
       .from("quizzes")
       .insert(initialQuizData)
-      .select("id") // Only select ID initially
+      .select("id")
       .single();
 
     if (createError || !newQuizEntry) {
@@ -96,7 +96,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
       .update({
         status: "processing",
         error_message: null,
-        generated_quiz_data: null, // Clear old data before regenerating
+        generated_quiz_data: null,
         num_questions: totalNumberOfQuestions,
         pdf_name: dbQuizName, 
         passing_score_percentage: passingScorePercentage,
@@ -117,7 +117,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
 
   try {
     const aiInput: GenerateQuizInput = {
-      pdfDocuments: pdfDocuments.map(doc => ({ name: doc.name, dataUri: doc.dataUri })),
+      pdfDocuments: pdfDocuments,
       totalNumberOfQuestions: totalNumberOfQuestions,
       preferredQuestionStyles: preferredQuestionStyles,
       hardMode: hardMode,
@@ -130,14 +130,14 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     const { data: updatedQuiz, error: updateError } = await supabase
       .from("quizzes")
       .update({
-        generated_quiz_data: generatedData as any, // Cast as StoredQuizData,
+        generated_quiz_data: generatedData as any,
         status: "completed",
         error_message: null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", quizEntryId)
       .eq("user_id", user.id)
-      .select() // Select all fields for the returned promise
+      .select()
       .single();
 
     if (updateError || !updatedQuiz) {
@@ -177,7 +177,6 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     }
 
     revalidatePath(`/dashboard/workspace/${workspaceId}`);
-    // Attempt to fetch the failed quiz entry to return to the client for UI update
     const { data: failedQuizEntry } = await supabase
         .from("quizzes")
         .select()
@@ -231,7 +230,6 @@ export async function getQuizzesForWorkspace(workspaceId: string): Promise<Quiz[
     return [];
   }
 
-  // Select only necessary fields for the list view, exclude generated_quiz_data
   const { data, error } = await supabase
     .from("quizzes")
     .select("id, workspace_id, user_id, pdf_name, num_questions, status, error_message, created_at, updated_at, passing_score_percentage, last_attempt_score_percentage, last_attempt_passed")
@@ -265,13 +263,13 @@ export async function getQuizById(quizId: string): Promise<Quiz | null> {
 
   const { data, error } = await supabase
     .from("quizzes")
-    .select("*") // Fetch all columns for a single quiz
+    .select("*") 
     .eq("id", quizId)
     .eq("user_id", user.id)
     .single();
 
   if (error) {
-    if (error.code === 'PGRST116') { // Code for "No rows found"
+    if (error.code === 'PGRST116') {
       return null;
     }
     console.error("Error fetching quiz by ID:", error);
@@ -394,5 +392,3 @@ export async function deleteQuizzesBySourcePdfAction(workspaceId: string, pdfNam
   revalidatePath(`/dashboard/workspace/${workspaceId}`);
   revalidatePath(`/dashboard`);
 }
-
-    

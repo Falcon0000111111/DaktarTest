@@ -9,12 +9,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useState, type FormEvent, useEffect, ChangeEvent, RefObject } from "react";
 import { generateQuizFromPdfsAction } from "@/lib/actions/quiz.actions";
-import { getKnowledgeBaseFileAsDataUri } from "@/lib/actions/knowledge.actions";
-import { FileUp, Info, FileText, BadgeAlert, X, Percent, FolderOpen } from "lucide-react";
-import type { Quiz, KnowledgeBaseFile } from "@/types/supabase";
+import { BadgeAlert, Percent, FolderOpen } from "lucide-react";
+import type { Quiz } from "@/types/supabase";
 import { cn } from "@/lib/utils";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+
+type KnowledgeFileFromStorage = { name: string; path: string; };
 
 interface UploadQuizFormProps {
   workspaceId: string;
@@ -28,11 +28,12 @@ interface UploadQuizFormProps {
   initialPdfNameHint?: string;
   className?: string; 
   formSubmitRef: RefObject<HTMLButtonElement>;
-  knowledgeFiles: KnowledgeBaseFile[];
+  knowledgeFiles: KnowledgeFileFromStorage[];
 }
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_QUESTIONS = 50;
+const MAX_SELECTED_FILES = 5;
 
 const questionStyleOptions = [
   { id: "multiple-choice", label: "Multiple choice questions" },
@@ -54,7 +55,7 @@ export function UploadQuizForm({
     formSubmitRef,
     knowledgeFiles
 }: UploadQuizFormProps) {
-  const [pdfFiles, setPdfFiles] = useState<File[]>([]);
+  const [selectedFilePaths, setSelectedFilePaths] = useState<string[]>([]);
   const [numQuestions, setNumQuestions] = useState(initialNumQuestions || 5);
   const [passingScore, setPassingScore] = useState<number | null>(initialPassingScore === undefined ? 70 : initialPassingScore);
   const [selectedQuestionStyles, setSelectedQuestionStyles] = useState<string[]>(["multiple-choice"]);
@@ -64,17 +65,15 @@ export function UploadQuizForm({
   const [loading, setLoading] = useState(false); 
   const { toast } = useToast();
 
-  const [selectedKnowledgeFileId, setSelectedKnowledgeFileId] = useState<string>("");
   const isRegenerationMode = !!existingQuizIdToUpdate;
 
   useEffect(() => {
-    const isDirectUploadValid = pdfFiles.length > 0;
-    const isKnowledgeSelectionValid = !!selectedKnowledgeFileId;
+    const isSelectionValid = selectedFilePaths.length > 0;
     const isConfigValid = numQuestions >= 1 && numQuestions <= MAX_QUESTIONS &&
                     (passingScore === null || (passingScore >=0 && passingScore <= 100));
 
-    onFormValidityChange((isDirectUploadValid || isKnowledgeSelectionValid) && isConfigValid);
-  }, [pdfFiles, selectedKnowledgeFileId, numQuestions, passingScore, onFormValidityChange]);
+    onFormValidityChange(isSelectionValid && isConfigValid);
+  }, [selectedFilePaths, numQuestions, passingScore, onFormValidityChange]);
 
 
   useEffect(() => {
@@ -92,44 +91,26 @@ export function UploadQuizForm({
         setHardMode(false);
         setTopicsToFocus("");
         setTopicsToDrop("");
-        setSelectedKnowledgeFileId("");
-        setPdfFiles([]);
+        setSelectedFilePaths([]);
     }
   }, [initialNumQuestions, initialPassingScore, isRegenerationMode]);
 
-  const handleKnowledgeFileChange = (fileId: string) => {
-    setSelectedKnowledgeFileId(fileId);
-    if (fileId) {
-        setPdfFiles([]);
-        const fileInput = document.getElementById('pdf-file-dialog') as HTMLInputElement;
-        if (fileInput) fileInput.value = "";
-    }
-  };
-
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      if (file.type !== "application/pdf") {
-        toast({ title: "Invalid File Type", description: `"${file.name}" is not a PDF.`, variant: "destructive" });
-        return;
+  const handleFileSelectionChange = (filePath: string, checked: boolean) => {
+    setSelectedFilePaths(prev => {
+      if (checked) {
+        if (prev.length >= MAX_SELECTED_FILES) {
+          toast({
+            title: "Selection Limit Reached",
+            description: `You can select up to ${MAX_SELECTED_FILES} files.`,
+            variant: "destructive"
+          });
+          return prev;
+        }
+        return [...prev, filePath];
+      } else {
+        return prev.filter(path => path !== filePath);
       }
-      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-        toast({ title: "File Too Large", description: `"${file.name}" exceeds ${MAX_FILE_SIZE_MB}MB.`, variant: "destructive" });
-        return;
-      }
-      setPdfFiles([file]);
-      setSelectedKnowledgeFileId(""); 
-    }
-  };
-
-  const handleRemoveFile = (indexToRemove: number) => {
-    setPdfFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
-    if (pdfFiles.length === 1 && indexToRemove === 0) {
-        const fileInput = document.getElementById('pdf-file-dialog') as HTMLInputElement;
-        if (fileInput) fileInput.value = "";
-    }
+    });
   };
 
   const handleNumQuestionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -167,11 +148,8 @@ export function UploadQuizForm({
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const isDirectUpload = pdfFiles.length > 0;
-    const isKnowledgeSelection = !!selectedKnowledgeFileId;
-
-    if (!isDirectUpload && !isKnowledgeSelection) {
-      toast({ title: "No Source Selected", description: "Please either upload a PDF or select a file from the Knowledge Base.", variant: "destructive" });
+    if (selectedFilePaths.length === 0) {
+      toast({ title: "No Source Selected", description: "Please select one or more files from the Knowledge Base.", variant: "destructive" });
       return;
     }
     if (numQuestions < 1 || numQuestions > MAX_QUESTIONS) {
@@ -187,35 +165,11 @@ export function UploadQuizForm({
     onUploadStarted(); 
 
     try {
-      let pdfDocumentsInput: { name: string; dataUri: string }[] = [];
-      let quizTitle: string | undefined = initialPdfNameHint;
-
-      if (isDirectUpload) {
-          const file = pdfFiles[0];
-          const reader = new FileReader();
-          const promise = new Promise<string>((resolve, reject) => {
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = () => reject(reader.error);
-          });
-          reader.readAsDataURL(file);
-          const dataUri = await promise;
-          pdfDocumentsInput = [{ name: file.name, dataUri }];
-          if (!isRegenerationMode) {
-              quizTitle = file.name;
-          }
-      } else if (isKnowledgeSelection) {
-          const selectedFile = knowledgeFiles.find(f => f.id === selectedKnowledgeFileId);
-          if (!selectedFile) throw new Error("Selected knowledge file not found.");
-          
-          toast({ title: "Processing File", description: `Retrieving "${selectedFile.file_name}" from Knowledge Base.`});
-          const { name, dataUri } = await getKnowledgeBaseFileAsDataUri(selectedFile.file_path);
-          pdfDocumentsInput = [{ name: name, dataUri }];
-          quizTitle = name;
-      }
-
+      const fileNames = selectedFilePaths.map(path => path.substring(path.lastIndexOf('/') + 1));
+      const quizTitle = fileNames.length > 1 ? `${fileNames.length} files` : fileNames[0];
 
       toast({
-        title: `Processing Document`,
+        title: `Processing Document(s)`,
         description: `Quiz generation has started for "${quizTitle}". This may take a moment.`
       });
 
@@ -223,10 +177,10 @@ export function UploadQuizForm({
 
       const generatedQuiz: Quiz = await generateQuizFromPdfsAction({
         workspaceId,
-        pdfDocuments: pdfDocumentsInput,
+        knowledgeFilePaths: selectedFilePaths,
         totalNumberOfQuestions: numQuestions,
         passingScorePercentage: passingScore,
-        quizTitle: quizTitle,
+        quizTitle: isRegenerationMode ? initialPdfNameHint : undefined,
         existingQuizIdToUpdate: isRegenerationMode ? existingQuizIdToUpdate : undefined,
         preferredQuestionStyles: preferredStylesString || undefined,
         hardMode: hardMode,
@@ -245,10 +199,9 @@ export function UploadQuizForm({
       
       toast({ title: `Error Generating Quiz`, description: errorMessage, variant: "destructive" });
     } finally {
-      setLoading(false); 
-      setPdfFiles([]);
-      setSelectedKnowledgeFileId("");
+      setLoading(false);
       if (!isRegenerationMode) {
+        setSelectedFilePaths([]);
         setSelectedQuestionStyles(["multiple-choice"]);
         setHardMode(false);
         setTopicsToFocus("");
@@ -257,8 +210,6 @@ export function UploadQuizForm({
       }
       const formElement = document.getElementById('pdf-upload-form-in-dialog') as HTMLFormElement;
       if (formElement) formElement.reset(); 
-      const fileInput = document.getElementById('pdf-file-dialog') as HTMLInputElement;
-      if (fileInput) fileInput.value = "";
     }
   };
 
@@ -274,77 +225,34 @@ export function UploadQuizForm({
         <div className="space-y-2">
             <Label htmlFor="kb-select" className="flex items-center">
               <FolderOpen className="mr-2 h-4 w-4" />
-              Knowledge Base (Select an existing file)
+              Knowledge Base (Select up to {MAX_SELECTED_FILES} files)
             </Label>
-            <Select
-              value={selectedKnowledgeFileId}
-              onValueChange={handleKnowledgeFileChange}
-              disabled={loading || pdfFiles.length > 0 || isRegenerationMode}
-            >
-              <SelectTrigger id="kb-select">
-                <SelectValue placeholder="Select a file..." />
-              </SelectTrigger>
-              <SelectContent>
+            <div className="max-h-48 overflow-y-auto w-full rounded-md border p-2 bg-muted/50 space-y-1.5">
                 {knowledgeFiles.length > 0 ? (
-                  knowledgeFiles.map(file => (
-                    <SelectItem key={file.id} value={file.id}>
-                      {file.file_name}
-                    </SelectItem>
-                  ))
+                    knowledgeFiles.map(file => (
+                        <div key={file.path} className="flex items-center space-x-3 p-1">
+                            <Checkbox
+                                id={file.path}
+                                checked={selectedFilePaths.includes(file.path)}
+                                onCheckedChange={(checked) => handleFileSelectionChange(file.path, !!checked)}
+                                disabled={loading || (isRegenerationMode && selectedFilePaths[0] !== file.path) || (selectedFilePaths.length >= MAX_SELECTED_FILES && !selectedFilePaths.includes(file.path))}
+                            />
+                            <Label htmlFor={file.path} className="font-normal truncate cursor-pointer flex-1" title={file.name}>
+                              {file.name}
+                            </Label>
+                        </div>
+                    ))
                 ) : (
-                  <SelectItem value="no-files" disabled>
-                    No files in knowledge base
-                  </SelectItem>
+                  <p className="text-sm text-muted-foreground p-2 text-center">No files in knowledge base.</p>
                 )}
-              </SelectContent>
-            </Select>
-            {isRegenerationMode && <p className="text-xs text-muted-foreground">Knowledge base selection is disabled in re-generation mode.</p>}
+            </div>
+            {isRegenerationMode && <p className="text-xs text-muted-foreground">Source file selection is disabled in re-generation mode.</p>}
         </div>
 
-        <div className="relative py-2">
-            <Separator />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-content1 px-2 text-xs uppercase text-muted-foreground bg-background">Or</span>
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="pdf-file-dialog" className="flex items-center">
-            <FileUp className="mr-2 h-4 w-4" />
-            Upload a New PDF
-          </Label>
-          <Input
-            id="pdf-file-dialog"
-            type="file"
-            accept="application/pdf"
-            onChange={handleFileChange}
-            className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-            disabled={loading || !!selectedKnowledgeFileId}
-          />
-        </div>
-
-        {pdfFiles.length > 0 && (
-          <div className="space-y-2">
-              <div className="max-h-24 overflow-y-auto w-full rounded-md border p-2 bg-muted/50">
-                  <ul className="space-y-1.5">
-                      {pdfFiles.map((file, index) => (
-                      <li key={index} className="text-xs flex items-center justify-between group p-1 hover:bg-background/50 rounded">
-                          <div className="flex items-center truncate">
-                              <FileText className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 text-muted-foreground" />
-                              <span className="truncate" title={file.name}>{file.name}</span>
-                          </div>
-                          <Button type="button" variant="ghost" size="icon" className="h-5 w-5 opacity-50 group-hover:opacity-100 focus:opacity-100 text-destructive hover:text-destructive" onClick={() => handleRemoveFile(index)} disabled={loading} title={`Remove ${file.name}`} >
-                              <X className="h-3.5 w-3.5" />
-                          </Button>
-                      </li>
-                      ))}
-                  </ul>
-              </div>
-          </div>
-        )}
-        
-        {!pdfFiles.length && !selectedKnowledgeFileId && !loading && (
+        {selectedFilePaths.length === 0 && !loading && (
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-700 flex items-start">
               <BadgeAlert className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-              <span>Please select a file from the Knowledge Base or upload a new PDF.</span>
+              <span>Please select one or more files from the Knowledge Base.</span>
           </div>
         )}
 

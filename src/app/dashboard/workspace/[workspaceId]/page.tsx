@@ -1,17 +1,16 @@
 
-
 "use client";
 
 import { getWorkspaceById } from "@/lib/actions/workspace.actions";
-import type { Workspace, Quiz, StoredQuizData, UserAnswers, KnowledgeBaseFile } from "@/types/supabase";
+import type { Workspace, Quiz, StoredQuizData, UserAnswers } from "@/types/supabase";
 import { useEffect, useState, type ReactNode, useRef, useCallback, memo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings, BookOpen,
-  RefreshCw, Send, Inbox, FolderOpen, PlusCircle, LayoutDashboard,
+  RefreshCw, Inbox, FolderOpen, PlusCircle, LayoutDashboard,
   Cpu, PanelLeftClose, PanelRightOpen, CheckCircle, MoreVertical, Trash2, Edit3,
-  Award, AlertTriangleIcon, FileUp
+  Award, AlertTriangleIcon
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UploadQuizDialog } from "@/components/dashboard/upload-quiz-dialog";
@@ -19,16 +18,13 @@ import { QuizReviewDisplay } from "@/components/dashboard/quiz-review-display";
 import { QuizTakerForm } from "@/components/dashboard/quiz-taker-form";
 import { QuizResultsDisplay } from "@/components/dashboard/quiz-results-display";
 import { getQuizzesForWorkspace, deleteQuizAction, renameQuizAction, updateQuizAttemptResultAction, getQuizById } from "@/lib/actions/quiz.actions";
-import { getKnowledgeBaseFiles, deleteKnowledgeBaseFile, renameKnowledgeBaseFile } from "@/lib/actions/knowledge.actions";
-import { useParams } from "next/navigation";
-import { KnowledgeFileList } from "@/components/dashboard/source-file-list";
+import { listKnowledgeBaseFilesFromStorage } from "@/lib/actions/knowledge.actions";
 import {
   SidebarProvider,
   Sidebar,
   SidebarHeader,
   SidebarContent,
   SidebarFooter,
-  SidebarInset,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -59,9 +55,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { RenameQuizDialog } from "@/components/dashboard/rename-quiz-dialog";
-import { RenameKnowledgeFileDialog } from "@/components/dashboard/rename-knowledge-file-dialog";
-import { UploadToKnowledgeBaseDialog } from "@/components/dashboard/upload-to-knowledge-base-dialog";
 
+type KnowledgeFileFromStorage = { name: string; path: string; };
 
 const CustomSidebarTrigger = () => {
   const { toggleSidebar, open, state } = useSidebar();
@@ -231,7 +226,6 @@ interface WorkspaceSidebarInternalsProps {
   workspaceId: string;
   handleOpenUploadDialog: (existingQuiz?: Quiz) => void;
   isLoadingSidebarData: boolean;
-  knowledgeFiles: KnowledgeBaseFile[];
   allQuizzesForWorkspace: Quiz[];
   handleQuizSelectionFromHistory: (quizId: string) => void;
   activeQuizDBEntryId?: string | null;
@@ -239,16 +233,12 @@ interface WorkspaceSidebarInternalsProps {
   headerBorderVisible: boolean;
   onRenameQuiz: (quiz: Quiz) => void;
   onDeleteQuizConfirmation: (quizId: string) => void;
-  onRenameKnowledgeFile: (file: KnowledgeBaseFile) => void;
-  onDeleteKnowledgeFile: (fileId: string) => void;
-  onOpenKnowledgeBaseUpload: () => void;
 }
 
 const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
   workspaceId,
   handleOpenUploadDialog,
   isLoadingSidebarData,
-  knowledgeFiles,
   allQuizzesForWorkspace,
   handleQuizSelectionFromHistory,
   activeQuizDBEntryId,
@@ -256,9 +246,6 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
   headerBorderVisible,
   onRenameQuiz,
   onDeleteQuizConfirmation,
-  onRenameKnowledgeFile,
-  onDeleteKnowledgeFile,
-  onOpenKnowledgeBaseUpload,
 }) => {
   const { state: sidebarState } = useSidebar();
 
@@ -272,7 +259,7 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
             : "p-2 justify-center flex-col items-center gap-1",
           headerBorderVisible && "border-b border-border"
         )}
-        style={{ height: 'var(--app-header-height)' }}
+        style={{ height: 'var(--header-height)' }}
       >
         <Cpu className={cn(
           "transition-all duration-200 text-sidebar-foreground",
@@ -303,19 +290,7 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                                 <Wand2 className="mr-2 h-4 w-4"/>
                                 Generate New Quiz
                             </Button>
-                            <Button variant="ghost" size="sm" className="w-full justify-start text-primary/90" onClick={onOpenKnowledgeBaseUpload}>
-                                <FileUp className="mr-2 h-4 w-4"/>
-                                Add File
-                            </Button>
                         </div>
-                         <div className="my-2 border-b border-border/70 -mx-1"></div>
-                        {isLoadingSidebarData ? <Loader2 className="mx-auto my-4 h-6 w-6 animate-spin text-muted-foreground" /> :
-                        <KnowledgeFileList 
-                            files={knowledgeFiles}
-                            onRenameFile={onRenameKnowledgeFile}
-                            onDeleteFile={onDeleteKnowledgeFile}
-                        />
-                        }
                     </AccordionContent>
                  )}
             </AccordionItem>
@@ -338,7 +313,7 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                             <MemoizedQuizList
                                 initialQuizzes={allQuizzesForWorkspace}
                                 onQuizSelect={handleQuizSelectionFromHistory}
-                                selectedQuizId={activeQuizDBEntry?.id}
+                                selectedQuizId={activeQuizDBEntryId}
                                 onRenameQuiz={onRenameQuiz}
                                 onDeleteQuiz={onDeleteQuizConfirmation}
                             />
@@ -381,7 +356,7 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
 interface WorkspacePageContentProps {
   initialWorkspace: Workspace;
   initialQuizzes: Quiz[];
-  initialKnowledgeFiles: KnowledgeBaseFile[];
+  initialKnowledgeFiles: KnowledgeFileFromStorage[];
 }
 
 const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWorkspace, initialQuizzes, initialKnowledgeFiles }) => {
@@ -396,7 +371,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const [userAnswers, setUserAnswers] = useState<UserAnswers | null>(null);
   const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false);
   const [allQuizzesForWorkspace, setAllQuizzesForWorkspace] = useState<Quiz[]>(initialQuizzes);
-  const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeBaseFile[]>(initialKnowledgeFiles);
+  const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeFileFromStorage[]>(initialKnowledgeFiles);
   const [isLoadingSidebarData, setIsLoadingSidebarData] = useState(false);
   const [isLoadingActiveQuiz, setIsLoadingActiveQuiz] = useState(false);
   const [showRegenerateButtonInMain, setShowRegenerateButtonInMain] = useState(false);
@@ -410,20 +385,13 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const rightPaneContentRef = useRef<HTMLDivElement>(null);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
 
-  // Knowledge Base state
-  const [isUploadKnowledgeFileDialogOpen, setIsUploadKnowledgeFileDialogOpen] = useState(false);
-  const [fileToRename, setFileToRename] = useState<KnowledgeBaseFile | null>(null);
-  const [isRenameFileDialogOpen, setIsRenameFileDialogOpen] = useState(false);
-  const [fileToDeleteId, setFileToDeleteId] = useState<string | null>(null);
-  const [isDeletingFile, setIsDeletingFile] = useState(false);
-
   const refreshSidebarData = useCallback(async () => {
     if (!workspaceId) return;
     setIsLoadingSidebarData(true);
     try {
       const [quizzes, files] = await Promise.all([
         getQuizzesForWorkspace(workspaceId),
-        getKnowledgeBaseFiles(workspaceId)
+        listKnowledgeBaseFilesFromStorage(workspaceId)
       ]);
       setAllQuizzesForWorkspace(quizzes);
       setKnowledgeFiles(files);
@@ -484,8 +452,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         toast({ title: "Error", description: "Could not load the generated quiz data.", variant: "destructive" });
         setViewMode("empty_state");
       }
-      // Do not refresh sidebar here, wait for submission
-
     } catch (error) {
       toast({ title: "Error loading generated quiz", description: (error as Error).message, variant: "destructive" });
       setViewMode("empty_state");
@@ -582,11 +548,9 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                 );
                 setActiveQuizDBEntry(updatedQuizEntry); 
                 
-                // This is the first submission, add to history
                 if (!isQuizFromHistory) {
                     refreshSidebarData(); 
                 } else {
-                    // Update the item in the existing history list to reflect new attempt status
                     setAllQuizzesForWorkspace(prevQuizzes => 
                         prevQuizzes.map(q => q.id === updatedQuizEntry.id ? updatedQuizEntry : q)
                     );
@@ -640,40 +604,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     }
   }, [quizToDeleteId, activeQuizDBEntry, refreshSidebarData, toast]);
 
-  // Knowledge Base Handlers
-  const handleOpenRenameFileDialog = useCallback((file: KnowledgeBaseFile) => {
-    setFileToRename(file);
-    setIsRenameFileDialogOpen(true);
-  }, []);
-  
-  const handleFileRenamed = useCallback(() => {
-    refreshSidebarData();
-    setFileToRename(null);
-  }, [refreshSidebarData]);
-
-  const handleDeleteFileConfirmation = useCallback((fileId: string) => {
-    setFileToDeleteId(fileId);
-  }, []);
-
-  const confirmDeleteFile = useCallback(async () => {
-    if (!fileToDeleteId) return;
-    setIsDeletingFile(true);
-    try {
-      await deleteKnowledgeBaseFile(fileToDeleteId);
-      toast({ title: "File Deleted", description: "The file has been deleted from your knowledge base." });
-      setFileToDeleteId(null);
-      refreshSidebarData();
-    } catch (error) {
-       toast({ title: "Error Deleting File", description: (error as Error).message, variant: "destructive" });
-    } finally {
-      setIsDeletingFile(false);
-    }
-  }, [fileToDeleteId, refreshSidebarData, toast]);
-  
-  const handleKnowledgeBaseUploadComplete = useCallback(() => {
-    toast({ title: "Upload Complete", description: "Your file is now available in the Knowledge Base." });
-    refreshSidebarData();
-  }, [refreshSidebarData, toast]);
 
   const renderRightPaneContent = () => {
     if (isLoadingActiveQuiz || (viewMode === "loading_quiz_data" && !activeQuizDBEntry)) {
@@ -762,27 +692,14 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     (viewMode === 'quiz_review' && activeQuizDBEntry && (activeQuizDBEntry.status === 'completed' || activeQuizDBEntry.status === 'failed')) ||
     (viewMode === 'quiz_results' && activeQuizDBEntry);
 
-  const dynamicHeaderLeftOffset = sidebarState === 'expanded' ? 'var(--sidebar-width-expanded)' : 'var(--sidebar-width-collapsed)';
-
   return (
-    <div className="flex flex-col h-screen bg-background">
-      <header
-        className="fixed top-0 z-40 flex items-center justify-end px-4 bg-background transition-all duration-200"
-        style={{
-          height: 'var(--app-header-height)',
-          left: dynamicHeaderLeftOffset,
-          right: 0,
-        }}
-      >
-      </header>
-
+    <div className="flex flex-col" style={{ height: 'calc(100vh - var(--footer-height))' }}>
       <div className="flex flex-1 overflow-hidden">
         <Sidebar className="fixed top-0 left-0 h-full z-50 border-r" collapsible="icon">
           <WorkspaceSidebarInternals
             workspaceId={workspaceId}
             handleOpenUploadDialog={handleOpenUploadDialog}
             isLoadingSidebarData={isLoadingSidebarData}
-            knowledgeFiles={knowledgeFiles}
             allQuizzesForWorkspace={allQuizzesForWorkspace}
             handleQuizSelectionFromHistory={handleQuizSelectionFromHistory}
             activeQuizDBEntryId={activeQuizDBEntry?.id}
@@ -790,68 +707,69 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
             headerBorderVisible={headerBorderVisible}
             onRenameQuiz={handleOpenRenameQuizDialog}
             onDeleteQuizConfirmation={handleDeleteQuizConfirmation}
-            onRenameKnowledgeFile={handleOpenRenameFileDialog}
-            onDeleteKnowledgeFile={handleDeleteFileConfirmation}
-            onOpenKnowledgeBaseUpload={() => setIsUploadKnowledgeFileDialogOpen(true)}
           />
         </Sidebar>
 
-        <SidebarInset
-          className="flex flex-col flex-1 bg-background overflow-hidden transition-all duration-200"
-          style={{
-            marginLeft: dynamicHeaderLeftOffset,
-            paddingTop: 'var(--app-header-height)'
-          }}
-        >
-          <ScrollArea 
-            ref={rightPaneContentRef} 
-            className="flex-1 min-h-0"
-            onScroll={(event) => {
-                setHeaderBorderVisible(event.currentTarget.scrollTop > 0);
+        <main 
+            className="flex-1 flex flex-col transition-all duration-200" 
+            style={{ 
+                paddingLeft: sidebarState === 'expanded' ? 'var(--sidebar-width-expanded)' : 'var(--sidebar-width-collapsed)',
             }}
-          >
-            <div className="p-4 md:p-6">
-              {viewMode !== 'empty_state' && (
-                <div className="mb-6 text-center">
-                  <h1 className="text-3xl font-bold font-headline">
-                    {workspace?.name} Quiz
-                  </h1>
+        >
+            <header 
+                className="flex items-center justify-between p-4 flex-shrink-0"
+                style={{ height: 'var(--header-height)' }}
+            >
+                {/* Header can be used for breadcrumbs or actions later */}
+            </header>
+            <ScrollArea 
+                ref={rightPaneContentRef} 
+                className="flex-1 min-h-0"
+                onScroll={(event) => {
+                    setHeaderBorderVisible(event.currentTarget.scrollTop > 0);
+                }}
+            >
+                <div className="p-4 md:p-6">
+                {viewMode !== 'empty_state' && (
+                    <div className="mb-6 text-center">
+                    <h1 className="text-3xl font-bold font-headline">
+                        {workspace?.name} Quiz
+                    </h1>
+                    </div>
+                )}
+                {renderRightPaneContent()}
                 </div>
-              )}
-              {renderRightPaneContent()}
-            </div>
-          </ScrollArea>
-
-          {showActionButtonsFooterRightPane && activeQuizDBEntry && (
-            <div className="p-4 flex justify-end space-x-3 flex-shrink-0">
-              {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed' && (
-                <>
-                  {showRegenerateButtonInMain && (
-                    <Button variant="outline" onClick={handleRegenerateActiveQuiz} disabled={isLoadingActiveQuiz}>
+            </ScrollArea>
+             {showActionButtonsFooterRightPane && activeQuizDBEntry && (
+                <div className="p-4 flex justify-end space-x-3 flex-shrink-0 border-t bg-background">
+                {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed' && (
+                    <>
+                    {showRegenerateButtonInMain && (
+                        <Button variant="outline" onClick={handleRegenerateActiveQuiz} disabled={isLoadingActiveQuiz}>
+                            <RefreshCw className="mr-2 h-4 w-4" /> Re-Generate
+                        </Button>
+                    )}
+                    <Button onClick={handleTakeQuiz} disabled={isLoadingActiveQuiz}>
+                            <BookOpen className="mr-2 h-4 w-4" /> 
+                            {isQuizFromHistory ? "Retake Quiz" : "Take Quiz"}
+                    </Button>
+                    </>
+                )}
+                {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'failed' && showRegenerateButtonInMain && (
+                    <Button onClick={handleRegenerateActiveQuiz} disabled={isLoadingActiveQuiz}>
                         <RefreshCw className="mr-2 h-4 w-4" /> Re-Generate
                     </Button>
-                  )}
-                  <Button onClick={handleTakeQuiz} disabled={isLoadingActiveQuiz}>
-                        <BookOpen className="mr-2 h-4 w-4" /> 
-                        {isQuizFromHistory ? "Retake Quiz" : "Take Quiz"}
-                  </Button>
-                </>
-              )}
-              {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'failed' && showRegenerateButtonInMain && (
-                  <Button onClick={handleRegenerateActiveQuiz} disabled={isLoadingActiveQuiz}>
-                    <RefreshCw className="mr-2 h-4 w-4" /> Re-Generate
-                  </Button>
-              )}
-              {viewMode === 'quiz_results' && (
-                <>
-                  <Button onClick={() => {setUserAnswers(null); setCanShowAnswers(false); setIsQuizFromHistory(true); setViewMode("quiz_taking"); }}>
-                      <RefreshCw className="mr-2 h-4 w-4" /> Retake Quiz
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
-        </SidebarInset>
+                )}
+                {viewMode === 'quiz_results' && (
+                    <>
+                    <Button onClick={() => {setUserAnswers(null); setCanShowAnswers(false); setIsQuizFromHistory(true); setViewMode("quiz_taking"); }}>
+                        <RefreshCw className="mr-2 h-4 w-4" /> Retake Quiz
+                    </Button>
+                    </>
+                )}
+                </div>
+            )}
+        </main>
       </div>
 
       <UploadQuizDialog
@@ -867,23 +785,11 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         initialPdfNameHint={activeQuizDBEntry?.pdf_name || undefined}
         knowledgeFiles={knowledgeFiles}
       />
-      <UploadToKnowledgeBaseDialog
-        workspaceId={workspaceId}
-        open={isUploadKnowledgeFileDialogOpen}
-        onOpenChange={setIsUploadKnowledgeFileDialogOpen}
-        onUploadComplete={handleKnowledgeBaseUploadComplete}
-      />
       <RenameQuizDialog
         quiz={quizToRename}
         open={isRenameQuizDialogOpen}
         onOpenChange={setIsRenameQuizDialogOpen}
         onQuizRenamed={handleQuizRenamed}
-      />
-       <RenameKnowledgeFileDialog
-        file={fileToRename}
-        open={isRenameFileDialogOpen}
-        onOpenChange={setIsRenameFileDialogOpen}
-        onFileRenamed={handleFileRenamed}
       />
       <AlertDialog open={!!quizToDeleteId} onOpenChange={(open) => !open && setQuizToDeleteId(null)}>
         <AlertDialogContent>
@@ -902,23 +808,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-       <AlertDialog open={!!fileToDeleteId} onOpenChange={(open) => !open && setFileToDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to delete this file?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. The file &quot;{knowledgeFiles.find(f => f.id === fileToDeleteId)?.file_name || 'Selected File'}&quot; will be permanently deleted from your knowledge base. This does not delete quizzes already generated from it.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setFileToDeleteId(null)} disabled={isDeletingFile}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteFile} disabled={isDeletingFile} className="bg-destructive hover:bg-destructive/90">
-              {isDeletingFile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {isDeletingFile ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
@@ -933,7 +822,7 @@ export default function WorkspacePageWrapper({
   const workspaceId = params.workspaceId;
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [initialQuizzes, setInitialQuizzes] = useState<Quiz[]>([]);
-  const [initialKnowledgeFiles, setInitialKnowledgeFiles] = useState<KnowledgeBaseFile[]>([]);
+  const [initialKnowledgeFiles, setInitialKnowledgeFiles] = useState<KnowledgeFileFromStorage[]>([]);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [errorPage, setErrorPage] = useState<string | null>(null);
 
@@ -950,7 +839,7 @@ export default function WorkspacePageWrapper({
         const [ws, quizzes, files] = await Promise.all([
             getWorkspaceById(workspaceId),
             getQuizzesForWorkspace(workspaceId),
-            getKnowledgeBaseFiles(workspaceId)
+            listKnowledgeBaseFilesFromStorage(workspaceId)
         ]);
         
         if (!ws) {
@@ -1012,5 +901,3 @@ export default function WorkspacePageWrapper({
     </SidebarProvider>
   );
 }
-
-    

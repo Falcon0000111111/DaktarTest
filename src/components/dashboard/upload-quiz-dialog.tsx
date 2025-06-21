@@ -13,9 +13,10 @@ import {
 } from "@/components/ui/dialog";
 import { UploadQuizForm } from "./upload-quiz-form";
 import type { ReactNode} from "react";
-import { FileUp, X, Wand2, Loader2 } from "lucide-react";
+import { X, Wand2, Loader2 } from "lucide-react";
 import React, { useRef, useState } from "react";
-import type { KnowledgeBaseFile } from "@/types/supabase";
+
+type KnowledgeFileFromStorage = { name: string; path: string; };
 
 interface UploadQuizDialogProps {
   children?: ReactNode; 
@@ -29,7 +30,7 @@ interface UploadQuizDialogProps {
   initialNumQuestions?: number;
   initialPassingScore?: number | null;
   existingQuizIdToUpdate?: string;
-  knowledgeFiles: KnowledgeBaseFile[];
+  knowledgeFiles: KnowledgeFileFromStorage[];
 }
 
 export function UploadQuizDialog({
@@ -80,8 +81,8 @@ export function UploadQuizDialog({
           </DialogTitle>
           <DialogDescription>
             {isRegenerationMode 
-              ? `Re-generating quiz for "${initialPdfNameHint || 'document'}". You will need to re-upload the PDF.` 
-              : "Upload a new PDF or select from your Knowledge Base. Configure options to generate a quiz."
+              ? `Re-generating quiz for "${initialPdfNameHint || 'document'}".` 
+              : "Select up to 5 files from your Knowledge Base and configure options to generate a quiz."
             }
           </DialogDescription>
         </DialogHeader>
