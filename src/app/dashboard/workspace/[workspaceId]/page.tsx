@@ -18,7 +18,7 @@ import { QuizReviewDisplay } from "@/components/dashboard/quiz-review-display";
 import { QuizTakerForm } from "@/components/dashboard/quiz-taker-form";
 import { QuizResultsDisplay } from "@/components/dashboard/quiz-results-display";
 import { getQuizzesForWorkspace, deleteQuizAction, renameQuizAction, updateQuizAttemptResultAction, getQuizById, deleteQuizzesBySourcePdfAction, renameSourcePdfInQuizzesAction } from "@/lib/actions/quiz.actions";
-import { listKnowledgeBaseFiles, deleteKnowledgeBaseFile } from "@/lib/actions/knowledge.actions";
+import { listKnowledgeBaseFiles, deleteKnowledgeBaseFile, renameKnowledgeBaseFile } from "@/lib/actions/knowledge.actions";
 import {
   SidebarProvider,
   Sidebar,
