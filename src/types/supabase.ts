@@ -13,15 +13,15 @@ export interface Database {
       profiles: {
         Row: {
           id: string
-          role: string
+          role: Database["public"]["Enums"]["user_role"]
         }
         Insert: {
           id: string
-          role?: string
+          role?: Database["public"]["Enums"]["user_role"]
         }
         Update: {
           id?: string
-          role?: string
+          role?: Database["public"]["Enums"]["user_role"]
         }
         Relationships: [
           {
@@ -38,18 +38,21 @@ export interface Database {
           user_id: string
           name: string
           created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
           user_id: string
           name: string
           created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
           user_id?: string
           name?: string
           created_at?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -121,27 +124,30 @@ export interface Database {
           }
         ]
       }
-      knowledge_base_files: {
+      knowledge_base_documents: {
         Row: {
           id: string;
           created_at: string;
           updated_at: string;
           file_name: string;
-          file_path: string;
+          description: string | null;
+          storage_path: string;
         };
         Insert: {
           id?: string;
           created_at?: string;
           updated_at?: string;
           file_name: string;
-          file_path: string;
+          description?: string | null;
+          storage_path: string;
         };
         Update: {
           id?: string;
           created_at?: string;
           updated_at?: string;
           file_name?: string;
-          file_path?: string;
+          description?: string | null;
+          storage_path?: string;
         };
         Relationships: [];
       };
@@ -156,7 +162,7 @@ export interface Database {
       }
     }
     Enums: {
-      [_ in never]: never
+      user_role: "user" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -170,8 +176,8 @@ export type Workspace = Database['public']['Tables']['workspaces']['Row'];
 export type NewWorkspace = Database['public']['Tables']['workspaces']['Insert'];
 export type Quiz = Database['public']['Tables']['quizzes']['Row'];
 export type NewQuiz = Database['public']['Tables']['quizzes']['Insert'];
-export type KnowledgeBaseFile = Database['public']['Tables']['knowledge_base_files']['Row'];
-export type NewKnowledgeBaseFile = Database['public']['Tables']['knowledge_base_files']['Insert'];
+export type KnowledgeBaseDocument = Database['public']['Tables']['knowledge_base_documents']['Row'];
+export type NewKnowledgeBaseDocument = Database['public']['Tables']['knowledge_base_documents']['Insert'];
 
 
 export type GeneratedQuizQuestion = {

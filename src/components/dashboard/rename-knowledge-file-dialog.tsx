@@ -12,40 +12,40 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { renameKnowledgeBaseFile } from "@/lib/actions/knowledge.actions";
+import { renameKnowledgeBaseDocument } from "@/lib/actions/knowledge.actions";
 import { useToast } from "@/hooks/use-toast";
-import type { KnowledgeBaseFile } from "@/types/supabase";
+import type { KnowledgeBaseDocument } from "@/types/supabase";
 import { useState, useEffect, type FormEvent } from "react";
 import { Edit3 } from "lucide-react";
 
 interface RenameKnowledgeFileDialogProps {
-  file: KnowledgeBaseFile | null;
+  doc: KnowledgeBaseDocument | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onFileRenamed: () => void;
 }
 
-export function RenameKnowledgeFileDialog({ file, open, onOpenChange, onFileRenamed }: RenameKnowledgeFileDialogProps) {
+export function RenameKnowledgeFileDialog({ doc, open, onOpenChange, onFileRenamed }: RenameKnowledgeFileDialogProps) {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    if (file) {
-      setName(file.file_name || "");
+    if (doc) {
+      setName(doc.file_name || "");
     }
-  }, [file]);
+  }, [doc]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!file) return;
+    if (!doc) return;
     if (!name.trim()) {
       toast({ title: "Error", description: "File name cannot be empty.", variant: "destructive" });
       return;
     }
     setLoading(true);
     try {
-      await renameKnowledgeBaseFile(file.id, name.trim());
+      await renameKnowledgeBaseDocument(doc.id, name.trim());
       toast({ title: "Success", description: "File renamed successfully." });
       onFileRenamed();
       onOpenChange(false);
@@ -56,7 +56,7 @@ export function RenameKnowledgeFileDialog({ file, open, onOpenChange, onFileRena
     }
   };
 
-  if (!file) return null;
+  if (!doc) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -66,7 +66,7 @@ export function RenameKnowledgeFileDialog({ file, open, onOpenChange, onFileRena
             <Edit3 className="mr-2 h-5 w-5" /> Rename File
           </DialogTitle>
           <DialogDescription>
-            Enter a new name for the file: &quot;{file.file_name}&quot;.
+            Enter a new name for the file: &quot;{doc.file_name}&quot;.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>

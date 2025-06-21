@@ -9,7 +9,7 @@ import { getKnowledgeBaseFileAsDataUri } from "./knowledge.actions";
 
 interface GenerateQuizFromPdfsParams {
   workspaceId: string;
-  knowledgeFilePaths: string[];
+  knowledgeFileStoragePaths: string[];
   totalNumberOfQuestions: number;
   passingScorePercentage?: number | null;
   quizTitle?: string;
@@ -30,7 +30,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
 
   const { 
     workspaceId, 
-    knowledgeFilePaths, 
+    knowledgeFileStoragePaths, 
     totalNumberOfQuestions, 
     passingScorePercentage,
     quizTitle, 
@@ -41,7 +41,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     topicsToDrop 
   } = params;
 
-  if (!knowledgeFilePaths || knowledgeFilePaths.length === 0) {
+  if (!knowledgeFileStoragePaths || knowledgeFileStoragePaths.length === 0) {
     throw new Error("At least one PDF document from the Knowledge Base is required.");
   }
   if (passingScorePercentage !== undefined && passingScorePercentage !== null && (passingScorePercentage < 0 || passingScorePercentage > 100)) {
@@ -49,7 +49,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
   }
 
   const pdfDocuments = await Promise.all(
-    knowledgeFilePaths.map(path => getKnowledgeBaseFileAsDataUri(path))
+    knowledgeFileStoragePaths.map(path => getKnowledgeBaseFileAsDataUri(path))
   );
 
   let dbQuizName = quizTitle;
@@ -102,7 +102,6 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
         passing_score_percentage: passingScorePercentage,
         last_attempt_score_percentage: null, 
         last_attempt_passed: null, 
-        updated_at: new Date().toISOString()
       })
       .eq("id", quizEntryId)
       .eq("user_id", user.id);
@@ -133,7 +132,6 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
         generated_quiz_data: generatedData as any,
         status: "completed",
         error_message: null,
-        updated_at: new Date().toISOString(),
       })
       .eq("id", quizEntryId)
       .eq("user_id", user.id)
@@ -145,7 +143,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
       if (quizEntryId) {
         await supabase
           .from("quizzes")
-          .update({ status: "failed", error_message: updateError?.message || "Failed to save generated quiz content.", updated_at: new Date().toISOString() })
+          .update({ status: "failed", error_message: updateError?.message || "Failed to save generated quiz content." })
           .eq("id", quizEntryId)
           .eq("user_id", user.id);
       }
@@ -171,7 +169,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     if (quizEntryId) {
       await supabase
         .from("quizzes")
-        .update({ status: "failed", error_message: detailedErrorMessage, updated_at: new Date().toISOString() })
+        .update({ status: "failed", error_message: detailedErrorMessage })
         .eq("id", quizEntryId)
         .eq("user_id", user.id);
     }
@@ -205,7 +203,6 @@ export async function updateQuizAttemptResultAction(
     .update({
       last_attempt_score_percentage: scorePercentage,
       last_attempt_passed: passed,
-      updated_at: new Date().toISOString(),
     })
     .eq("id", quizId)
     .eq("user_id", user.id)
@@ -326,7 +323,7 @@ export async function renameQuizAction(quizId: string, newName: string): Promise
 
   const { data: updatedQuiz, error } = await supabase
     .from("quizzes")
-    .update({ pdf_name: newName, updated_at: new Date().toISOString() })
+    .update({ pdf_name: newName })
     .eq("id", quizId)
     .eq("user_id", user.id)
     .select()

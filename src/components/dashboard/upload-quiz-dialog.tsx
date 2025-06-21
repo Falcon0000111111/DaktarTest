@@ -15,7 +15,7 @@ import { UploadQuizForm } from "./upload-quiz-form";
 import type { ReactNode} from "react";
 import { X, Wand2, Loader2 } from "lucide-react";
 import React, { useRef, useState } from "react";
-import type { KnowledgeBaseFile } from "@/types/supabase";
+import type { KnowledgeBaseDocument } from "@/types/supabase";
 
 interface UploadQuizDialogProps {
   children?: ReactNode; 
@@ -28,7 +28,7 @@ interface UploadQuizDialogProps {
   initialNumQuestions?: number;
   initialPassingScore?: number | null;
   existingQuizIdToUpdate?: string;
-  knowledgeFiles: KnowledgeBaseFile[];
+  knowledgeFiles: KnowledgeBaseDocument[];
 }
 
 export function UploadQuizDialog({

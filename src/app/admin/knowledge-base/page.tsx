@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { KnowledgeBaseManager } from "@/components/admin/knowledge-base-manager";
-import { listKnowledgeBaseFiles } from "@/lib/actions/knowledge.actions";
+import { listKnowledgeBaseDocuments } from "@/lib/actions/knowledge.actions";
 import { Header } from "@/components/layout/header";
 
 export default async function AdminKnowledgeBasePage() {
@@ -17,10 +17,10 @@ export default async function AdminKnowledgeBasePage() {
     redirect("/auth/login");
   }
 
-  // This is the simplest way to protect an admin route.
-  // Set ADMIN_USER_ID in your .env.local file.
-  if (user.id !== process.env.ADMIN_USER_ID) {
-    return (
+  const { data: isAdmin, error: rpcError } = await supabase.rpc('is_admin');
+  
+  if (rpcError || !isAdmin) {
+     return (
       <div className="flex min-h-screen flex-col">
         <Header />
         <main className="flex flex-1 items-center justify-center p-4">
@@ -29,6 +29,7 @@ export default async function AdminKnowledgeBasePage() {
             <AlertTitle>Access Denied</AlertTitle>
             <AlertDescription>
               You do not have permission to view this page.
+              {rpcError && ` (Error: ${rpcError.message})`}
             </AlertDescription>
           </Alert>
         </main>
@@ -36,13 +37,13 @@ export default async function AdminKnowledgeBasePage() {
     );
   }
 
-  const initialFiles = await listKnowledgeBaseFiles();
+  const initialDocuments = await listKnowledgeBaseDocuments();
 
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex-1 p-4 md:p-8">
-        <KnowledgeBaseManager initialFiles={initialFiles} />
+        <KnowledgeBaseManager initialDocuments={initialDocuments} />
       </main>
     </div>
   );

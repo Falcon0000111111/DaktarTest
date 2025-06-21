@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, type FormEvent, useEffect, ChangeEvent, RefObject } from "react";
 import { generateQuizFromPdfsAction } from "@/lib/actions/quiz.actions";
 import { BadgeAlert, Percent, FolderOpen } from "lucide-react";
-import type { Quiz, KnowledgeBaseFile } from "@/types/supabase";
+import type { Quiz, KnowledgeBaseDocument } from "@/types/supabase";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 
@@ -25,7 +25,7 @@ interface UploadQuizFormProps {
   existingQuizIdToUpdate?: string;
   className?: string; 
   formSubmitRef: RefObject<HTMLButtonElement>;
-  knowledgeFiles: KnowledgeBaseFile[];
+  knowledgeFiles: KnowledgeBaseDocument[];
 }
 
 const MAX_QUESTIONS = 50;
@@ -161,7 +161,7 @@ export function UploadQuizForm({
 
     try {
       const fileNames = selectedFilePaths.map(path => {
-        const file = knowledgeFiles.find(f => f.file_path === path);
+        const file = knowledgeFiles.find(f => f.storage_path === path);
         return file ? file.file_name : "Unknown File";
       });
       const quizTitle = fileNames.length > 1 ? `${fileNames.length} files` : fileNames[0];
@@ -175,7 +175,7 @@ export function UploadQuizForm({
 
       const generatedQuiz: Quiz = await generateQuizFromPdfsAction({
         workspaceId,
-        knowledgeFilePaths: selectedFilePaths,
+        knowledgeFileStoragePaths: selectedFilePaths,
         totalNumberOfQuestions: numQuestions,
         passingScorePercentage: passingScore,
         quizTitle: isRegenerationMode ? undefined : quizTitle,
@@ -227,16 +227,16 @@ export function UploadQuizForm({
             </Label>
             <div className="max-h-48 overflow-y-auto w-full rounded-md border p-2 bg-muted/50 space-y-1.5">
                 {knowledgeFiles.length > 0 ? (
-                    knowledgeFiles.map(file => (
-                        <div key={file.id} className="flex items-center space-x-3 p-1">
+                    knowledgeFiles.map(doc => (
+                        <div key={doc.id} className="flex items-center space-x-3 p-1">
                             <Checkbox
-                                id={file.file_path}
-                                checked={selectedFilePaths.includes(file.file_path)}
-                                onCheckedChange={(checked) => handleFileSelectionChange(file.file_path, !!checked)}
-                                disabled={loading || (selectedFilePaths.length >= MAX_SELECTED_FILES && !selectedFilePaths.includes(file.file_path))}
+                                id={doc.storage_path}
+                                checked={selectedFilePaths.includes(doc.storage_path)}
+                                onCheckedChange={(checked) => handleFileSelectionChange(doc.storage_path, !!checked)}
+                                disabled={loading || (selectedFilePaths.length >= MAX_SELECTED_FILES && !selectedFilePaths.includes(doc.storage_path))}
                             />
-                            <Label htmlFor={file.file_path} className="font-normal truncate cursor-pointer flex-1" title={file.file_name}>
-                              {file.file_name}
+                            <Label htmlFor={doc.storage_path} className="font-normal truncate cursor-pointer flex-1" title={doc.file_name}>
+                              {doc.file_name}
                             </Label>
                         </div>
                     ))

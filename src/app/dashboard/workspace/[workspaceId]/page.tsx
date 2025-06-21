@@ -2,7 +2,7 @@
 "use client";
 
 import { getWorkspaceById } from "@/lib/actions/workspace.actions";
-import type { Workspace, Quiz, StoredQuizData, UserAnswers, KnowledgeBaseFile } from "@/types/supabase";
+import type { Workspace, Quiz, StoredQuizData, UserAnswers, KnowledgeBaseDocument } from "@/types/supabase";
 import { useEffect, useState, type ReactNode, useRef, useCallback, memo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import { QuizReviewDisplay } from "@/components/dashboard/quiz-review-display";
 import { QuizTakerForm } from "@/components/dashboard/quiz-taker-form";
 import { QuizResultsDisplay } from "@/components/dashboard/quiz-results-display";
 import { getQuizzesForWorkspace, deleteQuizAction, renameQuizAction, updateQuizAttemptResultAction, getQuizById, deleteQuizzesBySourcePdfAction } from "@/lib/actions/quiz.actions";
-import { listKnowledgeBaseFiles } from "@/lib/actions/knowledge.actions";
+import { listKnowledgeBaseDocuments } from "@/lib/actions/knowledge.actions";
 import {
   SidebarProvider,
   Sidebar,
@@ -351,10 +351,10 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
 interface WorkspacePageContentProps {
   initialWorkspace: Workspace;
   initialQuizzes: Quiz[];
-  initialKnowledgeFiles: KnowledgeBaseFile[];
+  initialKnowledgeDocuments: KnowledgeBaseDocument[];
 }
 
-const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWorkspace, initialQuizzes, initialKnowledgeFiles }) => {
+const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWorkspace, initialQuizzes, initialKnowledgeDocuments }) => {
   const { state: sidebarState } = useSidebar();
   const workspaceId = initialWorkspace.id;
   const [workspace, setWorkspace] = useState<Workspace | null>(initialWorkspace);
@@ -766,7 +766,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         initialNumQuestions={activeQuizDBEntry?.num_questions}
         initialPassingScore={activeQuizDBEntry?.passing_score_percentage}
         existingQuizIdToUpdate={activeQuizDBEntry?.id}
-        knowledgeFiles={initialKnowledgeFiles}
+        knowledgeFiles={initialKnowledgeDocuments}
       />
       <RenameQuizDialog
         quiz={quizToRename}
@@ -805,7 +805,7 @@ export default function WorkspacePageWrapper({
   const workspaceId = params.workspaceId;
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [initialQuizzes, setInitialQuizzes] = useState<Quiz[]>([]);
-  const [initialKnowledgeFiles, setInitialKnowledgeFiles] = useState<KnowledgeBaseFile[]>([]);
+  const [initialKnowledgeDocuments, setInitialKnowledgeDocuments] = useState<KnowledgeBaseDocument[]>([]);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [errorPage, setErrorPage] = useState<string | null>(null);
 
@@ -819,10 +819,10 @@ export default function WorkspacePageWrapper({
       setIsLoadingPage(true);
       setErrorPage(null);
       try {
-        const [ws, quizzes, files] = await Promise.all([
+        const [ws, quizzes, docs] = await Promise.all([
             getWorkspaceById(workspaceId),
             getQuizzesForWorkspace(workspaceId),
-            listKnowledgeBaseFiles() // Now global
+            listKnowledgeBaseDocuments() // Now global
         ]);
         
         if (!ws) {
@@ -831,7 +831,7 @@ export default function WorkspacePageWrapper({
         } else {
           setWorkspace(ws);
           setInitialQuizzes(quizzes);
-          setInitialKnowledgeFiles(files);
+          setInitialKnowledgeDocuments(docs);
         }
       } catch (e) {
         setErrorPage((e as Error).message);
@@ -880,7 +880,7 @@ export default function WorkspacePageWrapper({
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <WorkspacePageContent initialWorkspace={workspace} initialQuizzes={initialQuizzes} initialKnowledgeFiles={initialKnowledgeFiles} />
+      <WorkspacePageContent initialWorkspace={workspace} initialQuizzes={initialQuizzes} initialKnowledgeDocuments={initialKnowledgeDocuments} />
     </SidebarProvider>
   );
 }
