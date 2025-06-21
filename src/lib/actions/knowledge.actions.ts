@@ -44,7 +44,7 @@ export async function uploadKnowledgeBaseFile(formData: FormData): Promise<Knowl
   const storagePath = `${Date.now()}-${fileName.replace(/\s+/g, "_")}.${fileExt}`;
 
   const { error: uploadError } = await supabase.storage
-    .from("knowledge_base_files")
+    .from("knowledge-base-files")
     .upload(storagePath, file);
 
   if (uploadError) {
@@ -64,7 +64,7 @@ export async function uploadKnowledgeBaseFile(formData: FormData): Promise<Knowl
 
   if (dbError || !newDocEntry) {
     console.error("Error creating knowledge base document record:", dbError);
-    await supabase.storage.from("knowledge_base_files").remove([storagePath]);
+    await supabase.storage.from("knowledge-base-files").remove([storagePath]);
     throw new Error(dbError?.message || "Failed to save file metadata.");
   }
 
@@ -102,7 +102,7 @@ export async function getKnowledgeBaseFileAsDataUri(storagePath: string): Promis
     }
 
     const { data: blob, error } = await supabase.storage
-        .from("knowledge_base_files")
+        .from("knowledge-base-files")
         .download(storagePath);
 
     if (error || !blob) {
@@ -110,13 +110,23 @@ export async function getKnowledgeBaseFileAsDataUri(storagePath: string): Promis
         throw new Error(error.message || "Could not download file from knowledge base.");
     }
     
-    const fileNameWithPrefix = storagePath.substring(storagePath.lastIndexOf('/') + 1);
-    const fileName = fileNameWithPrefix.substring(fileNameWithPrefix.indexOf('-') + 1).replace(/_/g, " ");
+    const { data: doc, error: docError } = await supabase.from('knowledge_base_documents').select('file_name').eq('storage_path', storagePath).single();
+
+    if (docError || !doc) {
+      console.error("Error fetching document name:", docError);
+      // Fallback to parsing from storage path if DB lookup fails
+      const fileNameWithPrefix = storagePath.substring(storagePath.lastIndexOf('/') + 1);
+      const fallbackFileName = fileNameWithPrefix.substring(fileNameWithPrefix.indexOf('-') + 1).replace(/_/g, " ");
+      
+      const buffer = Buffer.from(await blob.arrayBuffer());
+      const dataUri = `data:${blob.type || 'application/pdf'};base64,${buffer.toString('base64')}`;
+      return { name: fallbackFileName, dataUri };
+    }
 
     const buffer = Buffer.from(await blob.arrayBuffer());
     const dataUri = `data:${blob.type || 'application/pdf'};base64,${buffer.toString('base64')}`;
 
-    return { name: fileName, dataUri };
+    return { name: doc.file_name, dataUri };
 }
 
 
@@ -135,11 +145,11 @@ export async function deleteKnowledgeBaseDocument(documentId: string): Promise<v
   }
 
   const { error: storageError } = await supabase.storage
-    .from("knowledge_base_files")
+    .from("knowledge-base-files")
     .remove([doc.storage_path]);
   
   if (storageError) {
-    console.error("Error deleting file from storage, but proceeding to delete DB record:", storageError);
+    console.warn("Could not delete file from storage, but proceeding to delete DB record:", storageError);
   }
 
   const { error: dbError } = await supabase
