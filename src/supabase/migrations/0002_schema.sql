@@ -1,33 +1,40 @@
+-- This script is now idempotent and can be run multiple times safely.
+
+-- Clean up in reverse order of creation to avoid dependency errors
+DROP TRIGGER IF EXISTS on_kb_documents_update ON public.knowledge_base_documents;
+DROP TRIGGER IF EXISTS on_quizzes_update ON public.quizzes;
+DROP TRIGGER IF EXISTS on_workspaces_update ON public.workspaces;
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
+DROP TABLE IF EXISTS public.knowledge_base_documents CASCADE;
+DROP TABLE IF EXISTS public.quizzes CASCADE;
+DROP TABLE IF EXISTS public.workspaces CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
+
+DROP FUNCTION IF EXISTS public.is_admin();
+DROP FUNCTION IF EXISTS public.handle_new_user();
+DROP FUNCTION IF EXISTS public.handle_updated_at();
+
+DROP TYPE IF EXISTS public.user_role;
+
+
 -- 1. ROLES & PROFILES SETUP
 ----------------------------------------------------------------
 
--- Create a custom type for user roles for data integrity
 CREATE TYPE public.user_role AS ENUM ('user', 'admin');
 
--- Create a table for public user profiles
 CREATE TABLE public.profiles (
     id uuid PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
-    role public.user_role NOT NULL DEFAULT 'user' -- Use the ENUM type
+    role public.user_role NOT NULL DEFAULT 'user'
 );
-
--- Enable RLS for profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-
--- Add policies for profiles
 CREATE POLICY "Users can view their own profile."
     ON public.profiles FOR SELECT USING (auth.uid() = id);
 
--- Function to create a profile for a new user
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $$
-BEGIN
-  INSERT INTO public.profiles (id, role) VALUES (new.id, 'user');
-  RETURN new;
-END;
-$$;
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN INSERT INTO public.profiles (id, role) VALUES (new.id, 'user'); RETURN new; END; $$;
 
--- Trigger to call the function when a new user is created
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
@@ -35,16 +42,10 @@ CREATE TRIGGER on_auth_user_created
 -- 2. CORE APPLICATION TABLES
 ----------------------------------------------------------------
 
--- General function to automatically update 'updated_at' columns
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$;
+BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
 
--- Create workspaces table
 CREATE TABLE public.workspaces (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -58,8 +59,6 @@ CREATE POLICY "Users can manage their own workspaces."
 CREATE TRIGGER on_workspaces_update
   BEFORE UPDATE ON public.workspaces FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
-
--- Create quizzes table
 CREATE TABLE public.quizzes (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id uuid NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
@@ -81,12 +80,10 @@ CREATE POLICY "Users can manage their own quizzes."
 CREATE TRIGGER on_quizzes_update
   BEFORE UPDATE ON public.quizzes FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
-
 ----------------------------------------------------------------
 -- 3. KNOWLEDGE BASE SETUP
 ----------------------------------------------------------------
 
--- Create knowledge_base_documents table
 CREATE TABLE public.knowledge_base_documents (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     file_name text NOT NULL,
@@ -96,23 +93,11 @@ CREATE TABLE public.knowledge_base_documents (
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Helper function to check if the current user is an admin
 CREATE OR REPLACE FUNCTION public.is_admin()
-RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $$
-DECLARE
-  user_role public.user_role;
-BEGIN
-  -- Fallback to 'user' role if the profile doesn't exist for some reason
-  SELECT COALESCE(
-    (SELECT role FROM public.profiles WHERE id = auth.uid()),
-    'user'
-  ) INTO user_role;
-  RETURN user_role = 'admin';
-END;
-$$;
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE user_role public.user_role;
+BEGIN SELECT COALESCE((SELECT role FROM public.profiles WHERE id = auth.uid()),'user') INTO user_role; RETURN user_role = 'admin'; END; $$;
 
--- RLS and Triggers for knowledge_base_documents table
 ALTER TABLE public.knowledge_base_documents ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated users can read knowledge base documents."
     ON public.knowledge_base_documents FOR SELECT USING (auth.role() = 'authenticated');
@@ -122,28 +107,17 @@ CREATE TRIGGER on_kb_documents_update
   BEFORE UPDATE ON public.knowledge_base_documents FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
 ----------------------------------------------------------------
--- 4. STORAGE RLS POLICIES (CRITICAL)
+-- 4. STORAGE RLS POLICIES
 ----------------------------------------------------------------
--- These assume your storage bucket is named 'knowledge_base_files'
 
--- Drop existing policies if they exist to avoid errors on re-run
 DROP POLICY IF EXISTS "Admins can manage knowledge base files in Storage" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated users can read knowledge base files from Storage" ON storage.objects;
 
-
 CREATE POLICY "Admins can manage knowledge base files in Storage"
 ON storage.objects FOR ALL
-USING (
-    bucket_id = 'knowledge_base-files' AND
-    public.is_admin()
-) WITH CHECK (
-    bucket_id = 'knowledge_base-files' AND
-    public.is_admin()
-);
+USING (bucket_id = 'knowledge-base-files' AND public.is_admin())
+WITH CHECK (bucket_id = 'knowledge-base-files' AND public.is_admin());
 
 CREATE POLICY "Authenticated users can read knowledge base files from Storage"
 ON storage.objects FOR SELECT
-USING (
-    bucket_id = 'knowledge_base-files' AND
-    auth.role() = 'authenticated'
-);
+USING (bucket_id = 'knowledge-base-files' AND auth.role() = 'authenticated');
