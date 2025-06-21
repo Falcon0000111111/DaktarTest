@@ -4,9 +4,9 @@
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Lists all files for a given workspace directly from Supabase Storage.
- * @param workspaceId The ID of the workspace.
- * @returns An array of file objects, each with a name and full path.
+ * Lists all files directly from the root of the Supabase Storage bucket.
+ * @param workspaceId The ID of the workspace (kept for API consistency, but not used for pathing).
+ * @returns An array of file objects, each with a name and root path.
  */
 export async function listKnowledgeBaseFilesFromStorage(workspaceId: string): Promise<{ name: string; path: string }[]> {
   const supabase = createClient();
@@ -16,10 +16,11 @@ export async function listKnowledgeBaseFilesFromStorage(workspaceId: string): Pr
     throw new Error("User not authenticated.");
   }
 
-  const userWorkspacePath = `${user.id}/${workspaceId}`;
+  // NOTE: Listing from the root of the bucket to find manually uploaded files.
+  // This approach assumes all files in the bucket are available to the user.
   const { data: files, error } = await supabase.storage
     .from("knowledge-base-files")
-    .list(userWorkspacePath);
+    .list(); // List from the root directory
 
   if (error) {
     console.error("Error listing files from storage:", error);
@@ -35,14 +36,15 @@ export async function listKnowledgeBaseFilesFromStorage(workspaceId: string): Pr
     .filter(file => file.name !== '.emptyFolderPlaceholder')
     .map(file => ({
       name: file.name,
-      path: `${userWorkspacePath}/${file.name}`
+      // The path is now just the filename, since we are at the root.
+      path: file.name
     }));
 }
 
 
 /**
  * Downloads a file from Supabase Storage and returns it as a data URI.
- * @param filePath The full path to the file in storage.
+ * @param filePath The path to the file in storage (which is just the filename for root files).
  * @returns An object containing the file's name and its data URI representation.
  */
 export async function getKnowledgeBaseFileAsDataUri(filePath: string): Promise<{name: string; dataUri: string}> {
