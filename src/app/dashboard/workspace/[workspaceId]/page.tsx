@@ -17,7 +17,7 @@ import { UploadQuizDialog } from "@/components/dashboard/upload-quiz-dialog";
 import { QuizReviewDisplay } from "@/components/dashboard/quiz-review-display";
 import { QuizTakerForm } from "@/components/dashboard/quiz-taker-form";
 import { QuizResultsDisplay } from "@/components/dashboard/quiz-results-display";
-import { getQuizzesForWorkspace, deleteQuizAction, renameQuizAction, updateQuizAttemptResultAction, getQuizById } from "@/lib/actions/quiz.actions";
+import { getQuizzesForWorkspace, deleteQuizAction, renameQuizAction, updateQuizAttemptResultAction, getQuizById, renameQuizzesBySourcePdfAction } from "@/lib/actions/quiz.actions";
 import { listKnowledgeBaseDocuments } from "@/lib/actions/knowledge.actions";
 import {
   SidebarProvider,
@@ -166,7 +166,7 @@ const MemoizedQuizList: React.FC<QuizListProps> = memo(({
             key={quiz.id} 
             className={cn(
                 "group relative flex items-center justify-between p-2 rounded-md",
-                selectedQuizId === quiz.id ? "bg-muted text-foreground" : "hover:bg-muted/50"
+                selectedQuizId === quiz.id ? "bg-accent text-foreground" : "hover:bg-muted/50"
             )}
         >
             <button
@@ -535,6 +535,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   }, [refreshAllData]);
 
   const handleQuizSelectionFromHistory = useCallback(async (quizId: string) => {
+    if (activeQuizDBEntry?.id === quizId) return;
     setViewMode("loading_quiz_data");
     setIsLoadingActiveQuiz(true);
     setShowRegenerateButtonInMain(false); 
@@ -565,7 +566,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     } finally {
         setIsLoadingActiveQuiz(false);
     }
-  }, [toast]);
+  }, [toast, activeQuizDBEntry]);
 
   const handleTakeQuiz = useCallback(() => {
     if (activeQuizDisplayData && activeQuizDBEntry?.status === 'completed') {
@@ -802,25 +803,20 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                 className="flex items-center justify-between p-4 flex-shrink-0"
                 style={{ height: 'var(--header-height)' }}
             >
-                {/* Header can be used for breadcrumbs or actions later */}
+                <h1 className="text-2xl font-bold font-headline truncate">
+                    {workspace?.name}
+                </h1>
             </header>
             <ScrollArea 
                 ref={rightPaneContentRef} 
                 className="flex-1 min-h-0"
             >
                 <div className="p-4 md:p-6">
-                {viewMode !== 'empty_state' && (
-                    <div className="mb-6 text-center">
-                    <h1 className="text-3xl font-bold font-headline">
-                        {workspace?.name}
-                    </h1>
-                    </div>
-                )}
                 {renderRightPaneContent()}
                 </div>
             </ScrollArea>
              {showActionButtonsFooterRightPane && activeQuizDBEntry && (
-                <div className="p-4 flex justify-end space-x-3 flex-shrink-0 bg-transparent border-none">
+                <div className="p-4 flex justify-end space-x-3 flex-shrink-0 bg-transparent">
                 {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed' && (
                     <>
                     {showRegenerateButtonInMain && (
@@ -881,7 +877,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to delete this quiz?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. The quiz &quot;{allQuizzesForWorkspace.find(q => q.id === quizToDeleteId)?.pdf_name || 'Selected Quiz'}&quot; will be permanently deleted.
+              This action cannot be undone. This will permanently delete the quiz &quot;{allQuizzesForWorkspace.find(q => q.id === quizToDeleteId)?.pdf_name || 'Selected Quiz'}&quot;.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -53,7 +53,7 @@
   }
 
   .dark {
-    --background: 0 0% 10%; /* #191919 */
+    --background: 0 0% 10.2%; /* #1a1a1a */
     --foreground: 0 0% 83%; /* #d4d4d4 */
 
     --card: 0 0% 12%; /* #1f1f1f */
@@ -91,7 +91,7 @@
     --sidebar-foreground: 0 0% 84%; /* #d6d6d6 */
     --sidebar-primary: 197 71% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 17%; /* #2c2c2c */
+    --sidebar-accent: 0 0% 20%; /* #333333 */
     --sidebar-accent-foreground: 0 0% 84%; /* #d6d6d6 */
     --sidebar-border: 0 0% 20%; /* #333333 */
     --sidebar-ring: 197 71% 53%;
