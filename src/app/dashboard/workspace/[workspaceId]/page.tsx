@@ -56,6 +56,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { RenameQuizDialog } from "@/components/dashboard/rename-quiz-dialog";
 import { useParams } from "next/navigation";
+import { Separator } from "@/components/ui/separator";
 
 const CustomSidebarTrigger = () => {
   const { toggleSidebar, open, state } = useSidebar();
@@ -220,12 +221,33 @@ const MemoizedQuizList: React.FC<QuizListProps> = memo(({
 });
 MemoizedQuizList.displayName = 'QuizList';
 
+interface UsedKnowledgeDocumentsListProps {
+  documents: KnowledgeBaseDocument[];
+}
+
+const UsedKnowledgeDocumentsList: React.FC<UsedKnowledgeDocumentsListProps> = memo(({ documents }) => {
+  return (
+    <div className="space-y-1">
+      {documents.map(doc => (
+        <div key={doc.id} className="group flex items-center p-2 rounded-md">
+          <FileText className="h-4 w-4 mr-3 flex-shrink-0 text-muted-foreground" />
+          <div className="flex-1 overflow-hidden">
+            <p className="text-sm font-medium truncate" title={doc.file_name}>{doc.file_name}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+});
+UsedKnowledgeDocumentsList.displayName = 'UsedKnowledgeDocumentsList';
+
 
 interface WorkspaceSidebarInternalsProps {
   workspaceId: string;
   handleOpenUploadDialog: (existingQuiz?: Quiz) => void;
   isLoadingSidebarData: boolean;
   allQuizzesForWorkspace: Quiz[];
+  usedKnowledgeDocuments: KnowledgeBaseDocument[];
   handleQuizSelectionFromHistory: (quizId: string) => void;
   activeQuizDBEntryId?: string | null;
   toast: ReturnType<typeof useToast>['toast'];
@@ -238,6 +260,7 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
   handleOpenUploadDialog,
   isLoadingSidebarData,
   allQuizzesForWorkspace,
+  usedKnowledgeDocuments,
   handleQuizSelectionFromHistory,
   activeQuizDBEntryId,
   toast,
@@ -266,8 +289,8 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
 
       <SidebarContent className="p-0">
         <ScrollArea className="h-full">
-            <Accordion type="multiple" defaultValue={["generate", "history"]} className="w-full px-3 py-2">
-            <AccordionItem value="generate">
+            <Accordion type="multiple" defaultValue={["knowledge", "history"]} className="w-full px-3 py-2">
+            <AccordionItem value="knowledge">
                 <AccordionTrigger
                   className={cn(
                     "text-base hover:no-underline w-full",
@@ -275,8 +298,8 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                   )}
                 >
                     <div className={cn("flex items-center w-full", sidebarState === 'collapsed' && "justify-center")}>
-                        <FolderOpen className={cn("text-primary/80", sidebarState === 'collapsed' ? "h-5 w-5" : "mr-2 h-5 w-5")} />
-                        {sidebarState === 'expanded' && <span className="ml-2">Generate</span>}
+                        <BookOpen className={cn("text-primary/80", sidebarState === 'collapsed' ? "h-5 w-5" : "mr-2 h-5 w-5")} />
+                        {sidebarState === 'expanded' && <span className="ml-2">Knowledge Base</span>}
                     </div>
                 </AccordionTrigger>
                 {sidebarState === 'expanded' && (
@@ -286,6 +309,15 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                                 <Wand2 className="mr-2 h-4 w-4"/>
                                 Generate New Quiz
                             </Button>
+                            {usedKnowledgeDocuments.length > 0 && <Separator className="my-1" />}
+                            {usedKnowledgeDocuments.length > 0 ? (
+                              <>
+                                <p className="text-xs font-semibold text-muted-foreground px-2 pt-2">Workspace Sources</p>
+                                <UsedKnowledgeDocumentsList documents={usedKnowledgeDocuments} />
+                              </>
+                            ) : (
+                              <p className="text-xs text-muted-foreground px-2 py-1">No sources used yet.</p>
+                            )}
                         </div>
                     </AccordionContent>
                  )}
@@ -681,6 +713,16 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     (viewMode === 'quiz_review' && activeQuizDBEntry && (activeQuizDBEntry.status === 'completed' || activeQuizDBEntry.status === 'failed')) ||
     (viewMode === 'quiz_results' && activeQuizDBEntry);
 
+  const sourcePdfNames = new Set(
+    allQuizzesForWorkspace
+      .map(q => q.pdf_name)
+      .filter((name): name is string => !!name)
+  );
+  
+  const usedKnowledgeDocuments = initialKnowledgeDocuments.filter(doc =>
+    sourcePdfNames.has(doc.file_name)
+  );
+
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - var(--footer-height))' }}>
       <div className="flex flex-1 overflow-hidden">
@@ -690,6 +732,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
             handleOpenUploadDialog={handleOpenUploadDialog}
             isLoadingSidebarData={isLoadingSidebarData}
             allQuizzesForWorkspace={allQuizzesForWorkspace}
+            usedKnowledgeDocuments={usedKnowledgeDocuments}
             handleQuizSelectionFromHistory={handleQuizSelectionFromHistory}
             activeQuizDBEntryId={activeQuizDBEntry?.id}
             toast={toast}
