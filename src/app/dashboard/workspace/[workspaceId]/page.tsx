@@ -709,7 +709,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         }
         if (!activeQuizDisplayData) return <div className="p-8 text-center"><p>Quiz data not available. It might be processing or failed.</p></div>;
         return (
-            <div className="mx-auto w-[80%]">
+            <div className="mx-auto w-[75%]">
               <QuizReviewDisplay
                 quizData={activeQuizDisplayData.quiz}
                 quizName={activeQuizDBEntry.pdf_name || "Untitled Quiz"}
@@ -720,7 +720,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       case "quiz_taking":
         if (!activeQuizDisplayData || !activeQuizDBEntry) return <div className="p-8 text-center"><p>Quiz data not available for taking.</p></div>;
         return (
-          <div className="mx-auto w-[80%]">
+          <div className="mx-auto w-[75%]">
             <p className="text-sm text-muted-foreground mb-6 text-center">
                 Select the best answer for each question.
             </p>
@@ -735,7 +735,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       case "quiz_results":
         if (!activeQuizDisplayData || !userAnswers || !activeQuizDBEntry) return <div className="p-8 text-center"><p>Quiz results not available.</p></div>;
         return (
-            <div className="mx-auto w-[80%]">
+            <div className="mx-auto w-[75%]">
               <QuizResultsDisplay
                 quiz={activeQuizDBEntry}
                 quizData={activeQuizDisplayData.quiz}
