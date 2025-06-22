@@ -23,8 +23,8 @@
     --muted: 220 15% 92%; /* Light muted gray #e8edf0 */
     --muted-foreground: 220 10% 45%; /* Muted text color #646d79 */
 
-    --accent: 291 64% 42%; /* Purple #9C27B0 */
-    --accent-foreground: 0 0% 100%; /* White */
+    --accent: 220 15% 92%; /* Light muted gray #e8edf0 */
+    --accent-foreground: 220 10% 25%; /* Dark cool gray #333b44 */
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
@@ -72,8 +72,8 @@
     --muted: 220 10% 30%; /* #404752 */
     --muted-foreground: 220 20% 60%;
 
-    --accent: 291 64% 50%; 
-    --accent-foreground: 0 0% 100%;
+    --accent: 220 10% 30%; /* #404752 */
+    --accent-foreground: 220 20% 90%; /* Light gray #E0E3E6 */
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
