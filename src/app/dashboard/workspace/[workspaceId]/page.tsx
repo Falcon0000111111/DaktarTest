@@ -776,31 +776,26 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   )).map(name => ({ name }));
 
   return (
-    <div className="flex flex-col h-full">
-      <Header isSidebarOpen={sidebarState === 'expanded'} workspaceName={workspace?.name} />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar className="h-full border-r" collapsible="icon">
-          <WorkspaceSidebarInternals
-            workspaceId={workspaceId}
-            handleOpenUploadDialog={handleOpenUploadDialog}
-            isLoadingSidebarData={isLoadingSidebarData}
-            allQuizzesForWorkspace={allQuizzesForWorkspace}
-            usedWorkspaceSourceNames={usedWorkspaceSourceNames}
-            handleQuizSelectionFromHistory={handleQuizSelectionFromHistory}
-            activeQuizDBEntryId={activeQuizDBEntry?.id}
-            toast={toast}
-            onRenameQuiz={handleOpenRenameQuizDialog}
-            onDeleteQuizConfirmation={handleDeleteQuizConfirmation}
-            onRenameSourceFile={handleRenameSourceFile}
-          />
-        </Sidebar>
+    <div className="flex h-full">
+      <Sidebar className="h-full border-r" collapsible="icon">
+        <WorkspaceSidebarInternals
+          workspaceId={workspaceId}
+          handleOpenUploadDialog={handleOpenUploadDialog}
+          isLoadingSidebarData={isLoadingSidebarData}
+          allQuizzesForWorkspace={allQuizzesForWorkspace}
+          usedWorkspaceSourceNames={usedWorkspaceSourceNames}
+          handleQuizSelectionFromHistory={handleQuizSelectionFromHistory}
+          activeQuizDBEntryId={activeQuizDBEntry?.id}
+          toast={toast}
+          onRenameQuiz={handleOpenRenameQuizDialog}
+          onDeleteQuizConfirmation={handleDeleteQuizConfirmation}
+          onRenameSourceFile={handleRenameSourceFile}
+        />
+      </Sidebar>
 
-        <main 
-            className="flex-1 flex flex-col transition-all duration-200" 
-            style={{ 
-                paddingLeft: sidebarState === 'expanded' ? 'var(--sidebar-width-expanded)' : 'var(--sidebar-width-collapsed)',
-            }}
-        >
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header workspaceName={workspace?.name} />
+        <main className="flex-1 flex flex-col">
             <ScrollArea 
                 ref={rightPaneContentRef} 
                 className="flex-1 min-h-0"
