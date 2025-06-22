@@ -1,12 +1,10 @@
 
-import { Header } from "@/components/layout/header";
 import type { ReactNode } from "react";
 import { CurrentYear } from "@/components/layout/current-year";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col" style={{ '--header-height': '4rem', '--footer-height': '3.5rem' } as React.CSSProperties}>
-      <Header />
       <main className="flex-1 flex flex-col bg-muted/30">
         {children}
       </main>

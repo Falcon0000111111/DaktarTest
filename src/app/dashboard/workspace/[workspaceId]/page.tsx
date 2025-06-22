@@ -59,6 +59,7 @@ import { RenameSourceFileDialog } from "@/components/dashboard/rename-source-fil
 import { useParams } from "next/navigation";
 import { Separator } from "@/components/ui/separator";
 import { useAdminStatus } from "@/hooks/use-admin-status";
+import { Header } from "@/components/layout/header";
 
 const CustomSidebarTrigger = () => {
   const { toggleSidebar, open, state } = useSidebar();
@@ -775,9 +776,10 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   )).map(name => ({ name }));
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - var(--footer-height))' }}>
+    <div className="flex flex-col h-full">
+      <Header isSidebarOpen={sidebarState === 'expanded'} workspaceName={workspace?.name} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar className="fixed top-0 left-0 h-full z-50 border-r" collapsible="icon">
+        <Sidebar className="h-full border-r" collapsible="icon">
           <WorkspaceSidebarInternals
             workspaceId={workspaceId}
             handleOpenUploadDialog={handleOpenUploadDialog}
@@ -799,14 +801,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                 paddingLeft: sidebarState === 'expanded' ? 'var(--sidebar-width-expanded)' : 'var(--sidebar-width-collapsed)',
             }}
         >
-            <header 
-                className="flex items-center justify-between p-4 flex-shrink-0"
-                style={{ height: 'var(--header-height)' }}
-            >
-                <h1 className="text-2xl font-bold font-headline truncate">
-                    {workspace?.name}
-                </h1>
-            </header>
             <ScrollArea 
                 ref={rightPaneContentRef} 
                 className="flex-1 min-h-0"

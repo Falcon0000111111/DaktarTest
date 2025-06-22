@@ -40,9 +40,9 @@ export default async function AdminKnowledgeBasePage() {
   const initialDocuments = await listKnowledgeBaseDocuments();
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col h-screen">
       <Header />
-      <main className="flex-1 p-4 md:p-8">
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         <KnowledgeBaseManager initialDocuments={initialDocuments} />
       </main>
     </div>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -7,9 +6,14 @@ import { BookOpenCheck } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-export function Header() {
+interface HeaderProps {
+  isSidebarOpen?: boolean;
+  workspaceName?: string;
+}
+
+export function Header({ isSidebarOpen, workspaceName }: HeaderProps) {
   const pathname = usePathname();
-  const isWorkspacePage = pathname.startsWith('/dashboard/workspace/');
+  const isWorkspacePage = !!workspaceName && pathname.startsWith('/dashboard/workspace/');
 
   return (
     <header 
@@ -19,14 +23,24 @@ export function Header() {
       )}
       style={{ height: 'var(--header-height)' }}
     >
-      <div className="container flex h-full max-w-screen-2xl items-center">
-        {!isWorkspacePage && (
-            <Link href="/dashboard" className="flex items-center space-x-2">
-                <BookOpenCheck className="h-7 w-7 text-primary" />
-                <span className="font-bold text-xl font-headline">FinalQuiz</span>
-            </Link>
-        )}
-        <div className="flex flex-1 items-center justify-end space-x-4">
+      <div className={cn(
+        "flex h-full items-center justify-between pr-6 transition-[padding-left] duration-200 ease-in-out",
+        isWorkspacePage 
+          ? (isSidebarOpen ? "pl-[calc(var(--sidebar-width-expanded)_+_1.5rem)]" : "pl-[calc(var(--sidebar-width-collapsed)_+_1.5rem)]")
+          : "pl-6"
+      )}>
+        <div className="flex-1 truncate">
+          {isWorkspacePage ? (
+              <span className="font-bold text-xl font-headline truncate">{workspaceName}</span>
+          ) : (
+              <Link href="/dashboard" className="flex items-center space-x-2">
+                  <BookOpenCheck className="h-7 w-7 text-primary" />
+                  <span className="font-bold text-xl font-headline">FinalQuiz</span>
+              </Link>
+          )}
+        </div>
+        
+        <div className="flex flex-shrink-0 items-center justify-end space-x-4 pl-4">
           <UserNav />
         </div>
       </div>
