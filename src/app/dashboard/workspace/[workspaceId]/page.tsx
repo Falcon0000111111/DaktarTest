@@ -17,7 +17,7 @@ import { UploadQuizDialog } from "@/components/dashboard/upload-quiz-dialog";
 import { QuizReviewDisplay } from "@/components/dashboard/quiz-review-display";
 import { QuizTakerForm } from "@/components/dashboard/quiz-taker-form";
 import { QuizResultsDisplay } from "@/components/dashboard/quiz-results-display";
-import { getQuizzesForWorkspace, deleteQuizAction, renameQuizAction, updateQuizAttemptResultAction, getQuizById, deleteQuizzesBySourcePdfAction } from "@/lib/actions/quiz.actions";
+import { getQuizzesForWorkspace, deleteQuizAction, renameQuizAction, updateQuizAttemptResultAction, getQuizById } from "@/lib/actions/quiz.actions";
 import { listKnowledgeBaseDocuments } from "@/lib/actions/knowledge.actions";
 import {
   SidebarProvider,
@@ -72,7 +72,7 @@ const CustomSidebarTrigger = () => {
           variant="ghost"
           size="icon"
           className={cn(
-            "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            "text-sidebar-foreground hover:bg-accent hover:text-sidebar-accent-foreground",
             state === 'expanded' ? "h-8 w-8" : "h-7 w-7"
           )}
           onClick={toggleSidebar}
@@ -226,10 +226,9 @@ MemoizedQuizList.displayName = 'QuizList';
 interface UsedKnowledgeDocumentsListProps {
   documents: { name: string }[];
   onRename: (name: string) => void;
-  onDelete: (name: string) => void;
 }
 
-const UsedKnowledgeDocumentsList: React.FC<UsedKnowledgeDocumentsListProps> = memo(({ documents, onRename, onDelete }) => {
+const UsedKnowledgeDocumentsList: React.FC<UsedKnowledgeDocumentsListProps> = memo(({ documents, onRename }) => {
   const [dropdownOpenItemId, setDropdownOpenItemId] = useState<string | null>(null);
 
   return (
@@ -261,10 +260,6 @@ const UsedKnowledgeDocumentsList: React.FC<UsedKnowledgeDocumentsListProps> = me
               <DropdownMenuItem onClick={() => onRename(doc.name)}>
                 <Edit3 className="mr-2 h-4 w-4" /> Rename
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onDelete(doc.name)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -287,7 +282,6 @@ interface WorkspaceSidebarInternalsProps {
   onRenameQuiz: (quiz: Quiz) => void;
   onDeleteQuizConfirmation: (quizId: string) => void;
   onRenameSourceFile: (name: string) => void;
-  onDeleteSourceFile: (name: string) => void;
 }
 
 const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
@@ -302,7 +296,6 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
   onRenameQuiz,
   onDeleteQuizConfirmation,
   onRenameSourceFile,
-  onDeleteSourceFile,
 }) => {
   const { state: sidebarState } = useSidebar();
 
@@ -353,7 +346,6 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                                 <UsedKnowledgeDocumentsList 
                                   documents={usedWorkspaceSourceNames} 
                                   onRename={onRenameSourceFile}
-                                  onDelete={onDeleteSourceFile}
                                 />
                               </>
                             ) : (
@@ -456,8 +448,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   
   const [sourceToRename, setSourceToRename] = useState<string | null>(null);
   const [isRenameSourceDialogOpen, setIsRenameSourceDialogOpen] = useState(false);
-  const [sourceToDelete, setSourceToDelete] = useState<string | null>(null);
-  const [isDeletingSource, setIsDeletingSource] = useState(false);
 
 
   const refreshAllData = useCallback(async () => {
@@ -691,26 +681,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     setSourceToRename(null);
   }, [refreshAllData]);
 
-  const handleDeleteSourceFile = useCallback((name: string) => {
-    setSourceToDelete(name);
-  }, []);
-
-  const confirmDeleteSourceFile = useCallback(async () => {
-    if (!sourceToDelete) return;
-    setIsDeletingSource(true);
-    try {
-      await deleteQuizzesBySourcePdfAction(workspaceId, sourceToDelete);
-      toast({ title: "Source Quizzes Deleted", description: `All quizzes generated from "${sourceToDelete}" have been removed from this workspace.` });
-      setSourceToDelete(null);
-      refreshAllData();
-    } catch (error) {
-      toast({ title: "Error Deleting Quizzes", description: (error as Error).message, variant: "destructive" });
-    } finally {
-      setIsDeletingSource(false);
-    }
-  }, [sourceToDelete, workspaceId, refreshAllData, toast]);
-
-
   const renderRightPaneContent = () => {
     if (isLoadingActiveQuiz || (viewMode === "loading_quiz_data" && !activeQuizDBEntry)) {
         return (
@@ -819,7 +789,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
             onRenameQuiz={handleOpenRenameQuizDialog}
             onDeleteQuizConfirmation={handleDeleteQuizConfirmation}
             onRenameSourceFile={handleRenameSourceFile}
-            onDeleteSourceFile={handleDeleteSourceFile}
           />
         </Sidebar>
 
@@ -924,25 +893,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <AlertDialog open={!!sourceToDelete} onOpenChange={(open) => !open && setSourceToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center">
-              <AlertTriangle className="mr-2 h-5 w-5 text-destructive" /> Are you sure?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This will delete all quizzes in this workspace generated from &quot;{sourceToDelete}&quot;. This action will not affect the global Knowledge Base and cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setSourceToDelete(null)} disabled={isDeletingSource}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteSourceFile} disabled={isDeletingSource} className="bg-destructive hover:bg-destructive/90">
-              {isDeletingSource ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {isDeletingSource ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
@@ -1033,5 +983,3 @@ export default function WorkspacePageWrapper() {
     </SidebarProvider>
   );
 }
-
-    

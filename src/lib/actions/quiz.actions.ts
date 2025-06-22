@@ -338,29 +338,6 @@ export async function renameQuizAction(quizId: string, newName: string): Promise
   return updatedQuiz;
 }
 
-export async function deleteQuizzesBySourcePdfAction(workspaceId: string, pdfName: string): Promise<void> {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("User not authenticated.");
-  }
-
-  const { error } = await supabase
-    .from("quizzes")
-    .delete()
-    .eq("workspace_id", workspaceId)
-    .eq("user_id", user.id)
-    .eq("pdf_name", pdfName);
-
-  if (error) {
-    console.error("Error deleting quizzes by source PDF name:", error);
-    throw new Error(error.message || "Failed to delete quizzes by source PDF name.");
-  }
-  revalidatePath(`/dashboard/workspace/${workspaceId}`);
-  revalidatePath(`/dashboard`);
-}
-
 export async function renameQuizzesBySourcePdfAction(workspaceId: string, oldName: string, newName: string): Promise<void> {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -385,5 +362,3 @@ export async function renameQuizzesBySourcePdfAction(workspaceId: string, oldNam
   }
   revalidatePath(`/dashboard/workspace/${workspaceId}`);
 }
-
-    
