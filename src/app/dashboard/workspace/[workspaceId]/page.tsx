@@ -18,7 +18,7 @@ import { QuizReviewDisplay } from "@/components/dashboard/quiz-review-display";
 import { QuizTakerForm } from "@/components/dashboard/quiz-taker-form";
 import { QuizResultsDisplay } from "@/components/dashboard/quiz-results-display";
 import { getQuizzesForWorkspace, deleteQuizAction, renameQuizAction, updateQuizAttemptResultAction, getQuizById, deleteQuizzesBySourcePdfAction } from "@/lib/actions/quiz.actions";
-import { listKnowledgeBaseDocuments, renameKnowledgeBaseDocument, deleteKnowledgeBaseDocument } from "@/lib/actions/knowledge.actions";
+import { listKnowledgeBaseDocuments } from "@/lib/actions/knowledge.actions";
 import {
   SidebarProvider,
   Sidebar,
@@ -55,7 +55,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { RenameQuizDialog } from "@/components/dashboard/rename-quiz-dialog";
-import { RenameKnowledgeFileDialog } from "@/components/dashboard/rename-knowledge-file-dialog";
+import { RenameSourceFileDialog } from "@/components/dashboard/rename-source-file-dialog";
 import { useParams } from "next/navigation";
 import { Separator } from "@/components/ui/separator";
 import { useAdminStatus } from "@/hooks/use-admin-status";
@@ -224,52 +224,49 @@ const MemoizedQuizList: React.FC<QuizListProps> = memo(({
 MemoizedQuizList.displayName = 'QuizList';
 
 interface UsedKnowledgeDocumentsListProps {
-  documents: KnowledgeBaseDocument[];
-  isAdmin: boolean;
-  onRename: (doc: KnowledgeBaseDocument) => void;
-  onDelete: (doc: KnowledgeBaseDocument) => void;
+  documents: { name: string }[];
+  onRename: (name: string) => void;
+  onDelete: (name: string) => void;
 }
 
-const UsedKnowledgeDocumentsList: React.FC<UsedKnowledgeDocumentsListProps> = memo(({ documents, isAdmin, onRename, onDelete }) => {
+const UsedKnowledgeDocumentsList: React.FC<UsedKnowledgeDocumentsListProps> = memo(({ documents, onRename, onDelete }) => {
   const [dropdownOpenItemId, setDropdownOpenItemId] = useState<string | null>(null);
 
   return (
     <div className="space-y-1">
       {documents.map(doc => (
-        <div key={doc.id} className="group flex items-center p-2 rounded-md justify-between">
+        <div key={doc.name} className="group flex items-center p-2 rounded-md justify-between">
           <div className="flex items-center flex-1 overflow-hidden pr-2">
             <FileText className="h-4 w-4 mr-3 flex-shrink-0 text-muted-foreground" />
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium truncate" title={doc.file_name}>{doc.file_name}</p>
+              <p className="text-sm font-medium truncate" title={doc.name}>{doc.name}</p>
             </div>
           </div>
-          {isAdmin && (
-            <DropdownMenu onOpenChange={(open) => setDropdownOpenItemId(open ? doc.id : null)}>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className={cn(
-                    "h-7 w-7 flex-shrink-0",
-                    dropdownOpenItemId === doc.id ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100"
-                  )}
-                  onClick={(e) => e.stopPropagation()} 
-                >
-                  <MoreVertical className="h-4 w-4" />
-                  <span className="sr-only">Source file options</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                <DropdownMenuItem onClick={() => onRename(doc)}>
-                  <Edit3 className="mr-2 h-4 w-4" /> Rename
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onDelete(doc)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <DropdownMenu onOpenChange={(open) => setDropdownOpenItemId(open ? doc.name : null)}>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className={cn(
+                  "h-7 w-7 flex-shrink-0",
+                  dropdownOpenItemId === doc.name ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100"
+                )}
+                onClick={(e) => e.stopPropagation()} 
+              >
+                <MoreVertical className="h-4 w-4" />
+                <span className="sr-only">Source file options</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              <DropdownMenuItem onClick={() => onRename(doc.name)}>
+                <Edit3 className="mr-2 h-4 w-4" /> Rename
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onDelete(doc.name)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ))}
     </div>
@@ -283,15 +280,14 @@ interface WorkspaceSidebarInternalsProps {
   handleOpenUploadDialog: (existingQuiz?: Quiz) => void;
   isLoadingSidebarData: boolean;
   allQuizzesForWorkspace: Quiz[];
-  usedKnowledgeDocuments: KnowledgeBaseDocument[];
+  usedWorkspaceSourceNames: { name: string }[];
   handleQuizSelectionFromHistory: (quizId: string) => void;
   activeQuizDBEntryId?: string | null;
   toast: ReturnType<typeof useToast>['toast'];
   onRenameQuiz: (quiz: Quiz) => void;
   onDeleteQuizConfirmation: (quizId: string) => void;
-  isAdmin: boolean;
-  onRenameSourceFile: (doc: KnowledgeBaseDocument) => void;
-  onDeleteSourceFile: (doc: KnowledgeBaseDocument) => void;
+  onRenameSourceFile: (name: string) => void;
+  onDeleteSourceFile: (name: string) => void;
 }
 
 const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
@@ -299,13 +295,12 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
   handleOpenUploadDialog,
   isLoadingSidebarData,
   allQuizzesForWorkspace,
-  usedKnowledgeDocuments,
+  usedWorkspaceSourceNames,
   handleQuizSelectionFromHistory,
   activeQuizDBEntryId,
   toast,
   onRenameQuiz,
   onDeleteQuizConfirmation,
-  isAdmin,
   onRenameSourceFile,
   onDeleteSourceFile,
 }) => {
@@ -351,13 +346,12 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                                 <Wand2 className="mr-2 h-4 w-4"/>
                                 Generate New Quiz
                             </Button>
-                            {usedKnowledgeDocuments.length > 0 && <Separator className="my-1" />}
-                            {usedKnowledgeDocuments.length > 0 ? (
+                            {usedWorkspaceSourceNames.length > 0 && <Separator className="my-1" />}
+                            {usedWorkspaceSourceNames.length > 0 ? (
                               <>
                                 <p className="text-xs font-semibold text-muted-foreground px-2 pt-2">Workspace Sources</p>
                                 <UsedKnowledgeDocumentsList 
-                                  documents={usedKnowledgeDocuments} 
-                                  isAdmin={isAdmin}
+                                  documents={usedWorkspaceSourceNames} 
                                   onRename={onRenameSourceFile}
                                   onDelete={onDeleteSourceFile}
                                 />
@@ -459,11 +453,12 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const [isDeletingQuiz, setIsDeletingQuiz] = useState(false);
   const rightPaneContentRef = useRef<HTMLDivElement>(null);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  
+  const [sourceToRename, setSourceToRename] = useState<string | null>(null);
+  const [isRenameSourceDialogOpen, setIsRenameSourceDialogOpen] = useState(false);
+  const [sourceToDelete, setSourceToDelete] = useState<string | null>(null);
+  const [isDeletingSource, setIsDeletingSource] = useState(false);
 
-  const [docToRename, setDocToRename] = useState<KnowledgeBaseDocument | null>(null);
-  const [isRenameDocDialogOpen, setIsRenameDocDialogOpen] = useState(false);
-  const [docToDelete, setDocToDelete] = useState<KnowledgeBaseDocument | null>(null);
-  const [isDeletingDoc, setIsDeletingDoc] = useState(false);
 
   const refreshAllData = useCallback(async () => {
     if (!workspaceId) return;
@@ -685,39 +680,36 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     }
   }, [quizToDeleteId, activeQuizDBEntry, refreshAllData, toast]);
 
-  const handleRenameSourceFile = useCallback((doc: KnowledgeBaseDocument) => {
-    setDocToRename(doc);
-    setIsRenameDocDialogOpen(true);
+  const handleRenameSourceFile = useCallback((name: string) => {
+    setSourceToRename(name);
+    setIsRenameSourceDialogOpen(true);
   }, []);
 
-  const handleFileRenamed = useCallback(() => {
+  const handleSourceFileRenamed = useCallback(() => {
     refreshAllData();
-    setIsRenameDocDialogOpen(false);
-    setDocToRename(null);
+    setIsRenameSourceDialogOpen(false);
+    setSourceToRename(null);
   }, [refreshAllData]);
 
-  const handleDeleteSourceFile = useCallback((doc: KnowledgeBaseDocument) => {
-    setDocToDelete(doc);
+  const handleDeleteSourceFile = useCallback((name: string) => {
+    setSourceToDelete(name);
   }, []);
 
   const confirmDeleteSourceFile = useCallback(async () => {
-    if (!docToDelete) return;
-    setIsDeletingDoc(true);
+    if (!sourceToDelete) return;
+    setIsDeletingSource(true);
     try {
-      // Note: This deletes the global KB document. Quizzes generated from it in
-      // other workspaces will be orphaned. A more robust solution could cascade
-      // delete quizzes across all workspaces, but that's a more significant change.
-      await deleteQuizzesBySourcePdfAction(workspaceId, docToDelete.file_name);
-      await deleteKnowledgeBaseDocument(docToDelete.id);
-      toast({ title: "Source File Deleted", description: `"${docToDelete.file_name}" deleted from Knowledge Base.` });
-      setDocToDelete(null);
+      await deleteQuizzesBySourcePdfAction(workspaceId, sourceToDelete);
+      toast({ title: "Source Quizzes Deleted", description: `All quizzes generated from "${sourceToDelete}" have been removed from this workspace.` });
+      setSourceToDelete(null);
       refreshAllData();
     } catch (error) {
-      toast({ title: "Error Deleting Source File", description: (error as Error).message, variant: "destructive" });
+      toast({ title: "Error Deleting Quizzes", description: (error as Error).message, variant: "destructive" });
     } finally {
-      setIsDeletingDoc(false);
+      setIsDeletingSource(false);
     }
-  }, [docToDelete, workspaceId, refreshAllData, toast]);
+  }, [sourceToDelete, workspaceId, refreshAllData, toast]);
+
 
   const renderRightPaneContent = () => {
     if (isLoadingActiveQuiz || (viewMode === "loading_quiz_data" && !activeQuizDBEntry)) {
@@ -806,15 +798,10 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     (viewMode === 'quiz_review' && activeQuizDBEntry && (activeQuizDBEntry.status === 'completed' || activeQuizDBEntry.status === 'failed')) ||
     (viewMode === 'quiz_results' && activeQuizDBEntry);
 
-  const sourcePdfNames = new Set(
-    allQuizzesForWorkspace
+  const usedWorkspaceSourceNames = Array.from(new Set(allQuizzesForWorkspace
       .map(q => q.pdf_name)
       .filter((name): name is string => !!name)
-  );
-  
-  const usedKnowledgeDocuments = allKnowledgeDocuments.filter(doc =>
-    sourcePdfNames.has(doc.file_name)
-  );
+  )).map(name => ({ name }));
 
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - var(--footer-height))' }}>
@@ -825,13 +812,12 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
             handleOpenUploadDialog={handleOpenUploadDialog}
             isLoadingSidebarData={isLoadingSidebarData}
             allQuizzesForWorkspace={allQuizzesForWorkspace}
-            usedKnowledgeDocuments={usedKnowledgeDocuments}
+            usedWorkspaceSourceNames={usedWorkspaceSourceNames}
             handleQuizSelectionFromHistory={handleQuizSelectionFromHistory}
             activeQuizDBEntryId={activeQuizDBEntry?.id}
             toast={toast}
             onRenameQuiz={handleOpenRenameQuizDialog}
             onDeleteQuizConfirmation={handleDeleteQuizConfirmation}
-            isAdmin={isAdmin}
             onRenameSourceFile={handleRenameSourceFile}
             onDeleteSourceFile={handleDeleteSourceFile}
           />
@@ -865,7 +851,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                 </div>
             </ScrollArea>
              {showActionButtonsFooterRightPane && activeQuizDBEntry && (
-                <div className="p-4 flex justify-end space-x-3 flex-shrink-0">
+                <div className="p-4 flex justify-end space-x-3 flex-shrink-0 bg-transparent border-none">
                 {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed' && (
                     <>
                     {showRegenerateButtonInMain && (
@@ -914,11 +900,12 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         onOpenChange={setIsRenameQuizDialogOpen}
         onQuizRenamed={handleQuizRenamed}
       />
-       <RenameKnowledgeFileDialog
-        doc={docToRename}
-        open={isRenameDocDialogOpen}
-        onOpenChange={setIsRenameDocDialogOpen}
-        onFileRenamed={handleFileRenamed}
+       <RenameSourceFileDialog
+        workspaceId={workspaceId}
+        oldName={sourceToRename}
+        open={isRenameSourceDialogOpen}
+        onOpenChange={setIsRenameSourceDialogOpen}
+        onSourceFileRenamed={handleSourceFileRenamed}
       />
       <AlertDialog open={!!quizToDeleteId} onOpenChange={(open) => !open && setQuizToDeleteId(null)}>
         <AlertDialogContent>
@@ -937,21 +924,21 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <AlertDialog open={!!docToDelete} onOpenChange={(open) => !open && setDocToDelete(null)}>
+      <AlertDialog open={!!sourceToDelete} onOpenChange={(open) => !open && setSourceToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center">
               <AlertTriangle className="mr-2 h-5 w-5 text-destructive" /> Are you sure?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the file &quot;{docToDelete?.file_name}&quot; from the global Knowledge Base and any quizzes in this workspace generated from it. This action cannot be undone.
+              This will delete all quizzes in this workspace generated from &quot;{sourceToDelete}&quot;. This action will not affect the global Knowledge Base and cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDocToDelete(null)} disabled={isDeletingDoc}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteSourceFile} disabled={isDeletingDoc} className="bg-destructive hover:bg-destructive/90">
-              {isDeletingDoc ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {isDeletingDoc ? "Deleting..." : "Delete"}
+            <AlertDialogCancel onClick={() => setSourceToDelete(null)} disabled={isDeletingSource}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteSourceFile} disabled={isDeletingSource} className="bg-destructive hover:bg-destructive/90">
+              {isDeletingSource ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isDeletingSource ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1046,3 +1033,5 @@ export default function WorkspacePageWrapper() {
     </SidebarProvider>
   );
 }
+
+    

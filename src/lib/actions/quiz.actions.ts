@@ -360,3 +360,30 @@ export async function deleteQuizzesBySourcePdfAction(workspaceId: string, pdfNam
   revalidatePath(`/dashboard/workspace/${workspaceId}`);
   revalidatePath(`/dashboard`);
 }
+
+export async function renameQuizzesBySourcePdfAction(workspaceId: string, oldName: string, newName: string): Promise<void> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User not authenticated.");
+  }
+  if (!newName.trim()) {
+    throw new Error("New name cannot be empty.");
+  }
+
+  const { error } = await supabase
+    .from("quizzes")
+    .update({ pdf_name: newName, updated_at: new Date().toISOString() })
+    .eq("workspace_id", workspaceId)
+    .eq("user_id", user.id)
+    .eq("pdf_name", oldName);
+
+  if (error) {
+    console.error("Error renaming quizzes by source PDF name:", error);
+    throw new Error(error.message || "Failed to rename quizzes by source PDF name.");
+  }
+  revalidatePath(`/dashboard/workspace/${workspaceId}`);
+}
+
+    
