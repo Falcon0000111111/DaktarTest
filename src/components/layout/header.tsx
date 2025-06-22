@@ -13,34 +13,40 @@ interface HeaderProps {
 
 export function Header({ isSidebarOpen, workspaceName }: HeaderProps) {
   const pathname = usePathname();
-  const isWorkspacePage = !!workspaceName && pathname.startsWith('/dashboard/workspace/');
+  const isWorkspacePage = pathname.startsWith('/dashboard/workspace/');
+
+  const headerStyle = isWorkspacePage
+    ? {
+        left: isSidebarOpen ? 'var(--sidebar-width-expanded)' : 'var(--sidebar-width-collapsed)',
+        width: isSidebarOpen ? 'calc(100% - var(--sidebar-width-expanded))' : 'calc(100% - var(--sidebar-width-collapsed))',
+        transition: 'left 0.2s ease-in-out, width 0.2s ease-in-out',
+      }
+    : {
+        width: '100%',
+      };
 
   return (
     <header 
       className={cn(
-        "sticky top-0 z-40 w-full bg-background",
+        "sticky top-0 z-40 bg-background",
         !isWorkspacePage && "border-b"
       )}
-      style={{ height: 'var(--header-height)' }}
+      style={{ 
+        height: 'var(--header-height)', 
+        ...headerStyle
+      }}
     >
-      <div className={cn(
-        "flex h-full items-center justify-between pr-6 transition-[padding-left] duration-200 ease-in-out",
-        isWorkspacePage 
-          ? (isSidebarOpen ? "pl-[calc(var(--sidebar-width-expanded)_+_1.5rem)]" : "pl-[calc(var(--sidebar-width-collapsed)_+_1.5rem)]")
-          : "pl-6"
-      )}>
-        <div className="flex-1 truncate">
-          {isWorkspacePage ? (
-              <span className="font-bold text-xl font-headline truncate">{workspaceName}</span>
-          ) : (
-              <Link href="/dashboard" className="flex items-center space-x-2">
-                  <BookOpenCheck className="h-7 w-7 text-primary" />
-                  <span className="font-bold text-xl font-headline">FinalQuiz</span>
-              </Link>
-          )}
-        </div>
+      <div className="flex h-full items-center justify-between px-6">
+        {isWorkspacePage ? (
+            <span className="font-bold text-xl font-headline truncate">{workspaceName}</span>
+        ) : (
+            <Link href="/dashboard" className="flex items-center space-x-2">
+                <BookOpenCheck className="h-7 w-7 text-primary" />
+                <span className="font-bold text-xl font-headline">FinalQuiz</span>
+            </Link>
+        )}
         
-        <div className="flex flex-shrink-0 items-center justify-end space-x-4 pl-4">
+        <div className="flex items-center space-x-4">
           <UserNav />
         </div>
       </div>
