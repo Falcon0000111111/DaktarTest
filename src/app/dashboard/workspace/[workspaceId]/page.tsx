@@ -755,7 +755,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
 
   return (
     <div className="flex flex-col h-full">
-       <Header />
+       <Header workspaceName={workspace?.name} />
        <div className="flex flex-1 overflow-hidden">
         <Sidebar className="h-full border-r" collapsible="icon">
           <WorkspaceSidebarInternals
@@ -774,11 +774,6 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         </Sidebar>
 
         <main className="flex-1 flex flex-col overflow-hidden bg-background">
-            <div className="flex-shrink-0 border-b">
-                <div className="flex h-full items-center justify-between px-6" style={{ height: 'var(--header-height)' }}>
-                   <span className="font-bold text-xl font-headline truncate">{workspace?.name}</span>
-                </div>
-            </div>
             <ScrollArea 
                 ref={rightPaneContentRef} 
                 className="flex-1 min-h-0"

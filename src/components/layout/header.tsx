@@ -6,7 +6,6 @@ import { BookOpenCheck } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-// The header is now simple and accepts an optional workspaceName.
 interface HeaderProps {
   workspaceName?: string;
 }
@@ -19,12 +18,11 @@ export function Header({ workspaceName }: HeaderProps) {
     <header 
       className={cn(
         "sticky top-0 z-40 w-full bg-background flex-shrink-0",
-        !isWorkspacePage && "border-b"
+        isWorkspacePage ? "border-b" : ""
       )}
       style={{ height: 'var(--header-height)' }}
     >
       <div className="flex h-full items-center justify-between px-6">
-        {/* Left side: Logo or Workspace Title */}
         <div>
           {isWorkspacePage && workspaceName ? (
               <span className="font-bold text-xl font-headline truncate">{workspaceName}</span>
@@ -36,7 +34,6 @@ export function Header({ workspaceName }: HeaderProps) {
           )}
         </div>
         
-        {/* Right side: User Nav */}
         <div className="flex items-center space-x-4">
           <UserNav />
         </div>
