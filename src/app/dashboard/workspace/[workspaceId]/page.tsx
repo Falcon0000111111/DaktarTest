@@ -754,7 +754,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   )).map(name => ({ name }));
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-screen bg-background">
       <Sidebar className="h-full border-r" collapsible="icon">
         <WorkspaceSidebarInternals
           workspaceId={workspaceId}
@@ -773,15 +773,13 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header workspaceName={workspace?.name} />
-        <main className="flex-1 flex flex-col overflow-hidden bg-background">
+        <main className="flex-1 flex flex-col overflow-y-auto">
           <ScrollArea 
               ref={rightPaneContentRef} 
               className="flex-1 min-h-0"
           >
-              <div className="p-4 md:p-6 flex justify-center">
-                <div className="w-full">
-                  {renderRightPaneContent()}
-                </div>
+              <div className="p-4 md:p-6">
+                {renderRightPaneContent()}
               </div>
           </ScrollArea>
             {showActionButtonsFooterRightPane && activeQuizDBEntry && (
@@ -948,3 +946,5 @@ export default function WorkspacePageWrapper() {
     </SidebarProvider>
   );
 }
+
+    
