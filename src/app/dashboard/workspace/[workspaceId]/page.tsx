@@ -375,7 +375,7 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                             <MemoizedQuizList
                                 initialQuizzes={allQuizzesForWorkspace}
                                 onQuizSelect={handleQuizSelectionFromHistory}
-                                selectedQuizId={activeQuizDBEntryId}
+                                selectedQuizId={activeQuizDBEntry?.id}
                                 onRenameQuiz={onRenameQuiz}
                                 onDeleteQuiz={onDeleteQuizConfirmation}
                             />
@@ -686,16 +686,18 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         }
         if (!activeQuizDisplayData) return <div className="p-8 text-center"><p>Quiz data not available. It might be processing or failed.</p></div>;
         return (
-            <QuizReviewDisplay
-              quizData={activeQuizDisplayData.quiz}
-              quizName={activeQuizDBEntry.pdf_name || "Untitled Quiz"}
-              showAnswers={canShowAnswers} 
-            />
+            <div className="max-w-4xl mx-auto">
+              <QuizReviewDisplay
+                quizData={activeQuizDisplayData.quiz}
+                quizName={activeQuizDBEntry.pdf_name || "Untitled Quiz"}
+                showAnswers={canShowAnswers} 
+              />
+            </div>
         );
       case "quiz_taking":
         if (!activeQuizDisplayData || !activeQuizDBEntry) return <div className="p-8 text-center"><p>Quiz data not available for taking.</p></div>;
         return (
-          <>
+          <div className="max-w-4xl mx-auto">
             <p className="text-sm text-muted-foreground mb-6 text-center">
                 Select the best answer for each question.
             </p>
@@ -705,11 +707,12 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
               onSubmit={handleSubmitQuiz}
               isSubmitting={isSubmittingQuiz}
             />
-          </>
+          </div>
         );
       case "quiz_results":
         if (!activeQuizDisplayData || !userAnswers || !activeQuizDBEntry) return <div className="p-8 text-center"><p>Quiz results not available.</p></div>;
         return (
+            <div className="max-w-4xl mx-auto">
               <QuizResultsDisplay
                 quiz={activeQuizDBEntry}
                 quizData={activeQuizDisplayData.quiz}
@@ -721,6 +724,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                   setViewMode("quiz_taking");
                 }}
               />
+            </div>
         );
       case "empty_state":
       default:
@@ -750,26 +754,26 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   )).map(name => ({ name }));
 
   return (
-    <div className="flex h-full bg-background">
-      <Sidebar className="h-full border-r" collapsible="icon">
-        <WorkspaceSidebarInternals
-          workspaceId={workspaceId}
-          handleOpenUploadDialog={handleOpenUploadDialog}
-          isLoadingSidebarData={isLoadingSidebarData}
-          allQuizzesForWorkspace={allQuizzesForWorkspace}
-          usedWorkspaceSourceNames={usedWorkspaceSourceNames}
-          handleQuizSelectionFromHistory={handleQuizSelectionFromHistory}
-          activeQuizDBEntryId={activeQuizDBEntry?.id}
-          toast={toast}
-          onRenameQuiz={handleOpenRenameQuizDialog}
-          onDeleteQuizConfirmation={handleDeleteQuizConfirmation}
-          onRenameSourceFile={handleRenameSourceFile}
-        />
-      </Sidebar>
+    <div className="flex flex-col h-full">
+      <Header workspaceName={workspace?.name} />
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar className="h-full border-r" collapsible="icon">
+          <WorkspaceSidebarInternals
+            workspaceId={workspaceId}
+            handleOpenUploadDialog={handleOpenUploadDialog}
+            isLoadingSidebarData={isLoadingSidebarData}
+            allQuizzesForWorkspace={allQuizzesForWorkspace}
+            usedWorkspaceSourceNames={usedWorkspaceSourceNames}
+            handleQuizSelectionFromHistory={handleQuizSelectionFromHistory}
+            activeQuizDBEntryId={activeQuizDBEntry?.id}
+            toast={toast}
+            onRenameQuiz={handleOpenRenameQuizDialog}
+            onDeleteQuizConfirmation={handleDeleteQuizConfirmation}
+            onRenameSourceFile={handleRenameSourceFile}
+          />
+        </Sidebar>
 
-      <div className="flex-1 flex flex-col overflow-hidden bg-background">
-        <Header workspaceName={workspace?.name} isSidebarOpen={isSidebarOpen} />
-        <main className="flex-1 flex flex-col">
+        <main className="flex-1 flex flex-col overflow-hidden bg-background">
             <ScrollArea 
                 ref={rightPaneContentRef} 
                 className="flex-1 min-h-0"
@@ -779,7 +783,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                 </div>
             </ScrollArea>
              {showActionButtonsFooterRightPane && activeQuizDBEntry && (
-                <div className="p-4 flex justify-end space-x-3 flex-shrink-0 bg-transparent">
+                <div className="p-4 flex justify-end space-x-3 flex-shrink-0 bg-transparent max-w-4xl mx-auto w-full">
                 {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed' && (
                     <>
                     {showRegenerateButtonInMain && (
