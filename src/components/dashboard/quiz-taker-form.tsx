@@ -1,8 +1,8 @@
 
 "use client";
 
-import type { Quiz, GeneratedQuizQuestion, UserAnswers, StoredQuizData } from "@/types/supabase";
-import { useState, type FormEvent } from "react";
+import type { Quiz, GeneratedQuizQuestion, UserAnswers } from "@/types/supabase";
+import type { FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -13,21 +13,21 @@ interface QuizTakerFormProps {
   quizData: GeneratedQuizQuestion[];
   onSubmit: (answers: UserAnswers) => void;
   isSubmitting: boolean;
+  answers: UserAnswers;
+  onAnswerChange: (answers: UserAnswers) => void;
 }
 
-export function QuizTakerForm({ quiz, quizData, onSubmit, isSubmitting }: QuizTakerFormProps) {
-  const [currentAnswers, setCurrentAnswers] = useState<UserAnswers>({});
-
+export function QuizTakerForm({ quiz, quizData, onSubmit, isSubmitting, answers, onAnswerChange }: QuizTakerFormProps) {
   const handleOptionChange = (questionIndex: number, optionValue: string) => {
-    setCurrentAnswers(prev => ({
-      ...prev,
+    onAnswerChange({
+      ...answers,
       [questionIndex]: optionValue,
-    }));
+    });
   };
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    onSubmit(currentAnswers);
+    onSubmit(answers);
   };
 
   if (!quizData || quizData.length === 0) {
@@ -42,7 +42,7 @@ export function QuizTakerForm({ quiz, quizData, onSubmit, isSubmitting }: QuizTa
           <p className="text-base mb-4">{q.question}</p>
           <RadioGroup
             onValueChange={(value) => handleOptionChange(index, value)}
-            value={currentAnswers[index]}
+            value={answers[index]}
             className="space-y-2"
           >
             {q.options.map((option, optIndex) => (
@@ -57,7 +57,7 @@ export function QuizTakerForm({ quiz, quizData, onSubmit, isSubmitting }: QuizTa
         </div>
       ))}
       <div className="mt-8 flex justify-end">
-        <Button type="submit" disabled={isSubmitting || Object.keys(currentAnswers).length === 0} size="lg">
+        <Button type="submit" disabled={isSubmitting || Object.keys(answers).length === 0} size="lg">
           {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
           {isSubmitting ? "Submitting..." : "Submit Quiz"}
         </Button>

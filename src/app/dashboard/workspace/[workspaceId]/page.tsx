@@ -60,6 +60,7 @@ import { useParams } from "next/navigation";
 import { Separator } from "@/components/ui/separator";
 import { useAdminStatus } from "@/hooks/use-admin-status";
 import { Header } from "@/components/layout/header";
+import { QuizProgressBar } from "@/components/dashboard/quiz-progress-bar";
 
 const CustomSidebarTrigger = () => {
   const { toggleSidebar, open, state } = useSidebar();
@@ -409,6 +410,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   const [activeQuizDBEntry, setActiveQuizDBEntry] = useState<Quiz | null>(null);
   const [activeQuizDisplayData, setActiveQuizDisplayData] = useState<StoredQuizData | null>(null);
   const [userAnswers, setUserAnswers] = useState<UserAnswers | null>(null);
+  const [liveAnswers, setLiveAnswers] = useState<UserAnswers>({});
   const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false);
   const [allQuizzesForWorkspace, setAllQuizzesForWorkspace] = useState<Quiz[]>(initialQuizzes);
   const [allKnowledgeDocuments, setAllKnowledgeDocuments] = useState<KnowledgeBaseDocument[]>(initialKnowledgeDocuments);
@@ -456,6 +458,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     setUserAnswers(null);
     setCanShowAnswers(false);
     setIsQuizFromHistory(false);
+    setLiveAnswers({});
   }, [initialWorkspace, initialQuizzes, initialKnowledgeDocuments]);
 
 
@@ -548,7 +551,8 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
 
   const handleTakeQuiz = useCallback(() => {
     if (activeQuizDisplayData && activeQuizDBEntry?.status === 'completed') {
-      setUserAnswers({}); 
+      setUserAnswers(null); 
+      setLiveAnswers({});
       setCanShowAnswers(false); 
       setViewMode("quiz_taking");
     } else {
@@ -706,6 +710,8 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
               quizData={activeQuizDisplayData.quiz}
               onSubmit={handleSubmitQuiz}
               isSubmitting={isSubmittingQuiz}
+              answers={liveAnswers}
+              onAnswerChange={setLiveAnswers}
             />
           </div>
         );
@@ -718,7 +724,8 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                 quizData={activeQuizDisplayData.quiz}
                 userAnswers={userAnswers}
                 onRetake={() => {
-                  setUserAnswers(null); 
+                  setUserAnswers(null);
+                  setLiveAnswers({});
                   setCanShowAnswers(false);
                   setIsQuizFromHistory(true); 
                   setViewMode("quiz_taking");
@@ -770,18 +777,17 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
           onRenameSourceFile={handleRenameSourceFile}
         />
       </Sidebar>
-
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header workspaceName={workspace?.name} />
         <main className="flex-1 flex flex-col overflow-y-auto">
-          <ScrollArea 
-              ref={rightPaneContentRef} 
-              className="flex-1 min-h-0"
-          >
-              <div className="p-4 md:p-6">
-                {renderRightPaneContent()}
-              </div>
-          </ScrollArea>
+            <ScrollArea 
+                ref={rightPaneContentRef} 
+                className="flex-1 min-h-0"
+            >
+                <div className="p-4 md:p-8">
+                    {renderRightPaneContent()}
+                </div>
+            </ScrollArea>
             {showActionButtonsFooterRightPane && activeQuizDBEntry && (
               <div className="p-4 flex justify-end space-x-3 flex-shrink-0 bg-transparent w-full">
               {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed' && (
@@ -804,7 +810,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
               )}
               {viewMode === 'quiz_results' && (
                   <>
-                  <Button onClick={() => {setUserAnswers(null); setCanShowAnswers(false); setIsQuizFromHistory(true); setViewMode("quiz_taking"); }}>
+                  <Button onClick={() => {setUserAnswers(null); setLiveAnswers({}); setCanShowAnswers(false); setIsQuizFromHistory(true); setViewMode("quiz_taking"); }}>
                       <RefreshCw className="mr-2 h-4 w-4" /> Retake Quiz
                   </Button>
                   </>
@@ -813,6 +819,13 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
           )}
         </main>
       </div>
+
+       {viewMode === 'quiz_taking' && activeQuizDisplayData && (
+        <QuizProgressBar
+          totalQuestions={activeQuizDisplayData.quiz.length}
+          answeredQuestions={Object.keys(liveAnswers).length}
+        />
+      )}
 
       <UploadQuizDialog
         workspaceId={workspaceId}
