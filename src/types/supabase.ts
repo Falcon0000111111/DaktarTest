@@ -78,6 +78,7 @@ export interface Database {
           passing_score_percentage: number | null
           last_attempt_score_percentage: number | null
           last_attempt_passed: boolean | null
+          duration_minutes: number | null
         }
         Insert: {
           id?: string
@@ -93,6 +94,7 @@ export interface Database {
           passing_score_percentage?: number | null
           last_attempt_score_percentage?: number | null
           last_attempt_passed?: boolean | null
+          duration_minutes?: number | null
         }
         Update: {
           id?: string
@@ -108,6 +110,7 @@ export interface Database {
           passing_score_percentage?: number | null
           last_attempt_score_percentage?: number | null
           last_attempt_passed?: boolean | null
+          duration_minutes?: number | null
         }
         Relationships: [
           {

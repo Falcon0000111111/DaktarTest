@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useState, type FormEvent, useEffect, ChangeEvent, RefObject } from "react";
 import { generateQuizFromPdfsAction } from "@/lib/actions/quiz.actions";
-import { BadgeAlert, Percent, FolderOpen } from "lucide-react";
+import { BadgeAlert, Percent, FolderOpen, Clock } from "lucide-react";
 import type { Quiz, KnowledgeBaseDocument } from "@/types/supabase";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -22,6 +22,7 @@ interface UploadQuizFormProps {
   onFormValidityChange: (isValid: boolean) => void;
   initialNumQuestions?: number;
   initialPassingScore?: number | null;
+  initialDurationMinutes?: number | null;
   existingQuizIdToUpdate?: string;
   className?: string; 
   formSubmitRef: RefObject<HTMLButtonElement>;
@@ -45,6 +46,7 @@ export function UploadQuizForm({
     onFormValidityChange,
     initialNumQuestions,
     initialPassingScore,
+    initialDurationMinutes,
     existingQuizIdToUpdate,
     className,
     formSubmitRef,
@@ -53,6 +55,7 @@ export function UploadQuizForm({
   const [selectedFilePaths, setSelectedFilePaths] = useState<string[]>([]);
   const [numQuestions, setNumQuestions] = useState(initialNumQuestions || 5);
   const [passingScore, setPassingScore] = useState<number | null>(initialPassingScore === undefined ? 70 : initialPassingScore);
+  const [durationMinutes, setDurationMinutes] = useState<number | null>(initialDurationMinutes === undefined ? null : initialDurationMinutes);
   const [selectedQuestionStyles, setSelectedQuestionStyles] = useState<string[]>(["multiple-choice"]);
   const [hardMode, setHardMode] = useState(false);
   const [topicsToFocus, setTopicsToFocus] = useState("");
@@ -80,6 +83,11 @@ export function UploadQuizForm({
     } else {
       setPassingScore(70);
     }
+     if (initialDurationMinutes !== undefined) {
+      setDurationMinutes(initialDurationMinutes);
+    } else {
+      setDurationMinutes(null);
+    }
 
     if (!isRegenerationMode) {
         setSelectedQuestionStyles(["multiple-choice"]); 
@@ -88,7 +96,7 @@ export function UploadQuizForm({
         setTopicsToDrop("");
         setSelectedFilePaths([]);
     }
-  }, [initialNumQuestions, initialPassingScore, isRegenerationMode]);
+  }, [initialNumQuestions, initialPassingScore, initialDurationMinutes, isRegenerationMode]);
 
   const handleFileSelectionChange = (filePath: string, checked: boolean) => {
     setSelectedFilePaths(prev => {
@@ -130,6 +138,18 @@ export function UploadQuizForm({
         setPassingScore(parsedValue);
       } else if (!isNaN(parsedValue)) {
         setPassingScore(parsedValue); 
+      }
+    }
+  };
+
+   const handleDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === "") {
+      setDurationMinutes(null);
+    } else {
+      const parsedValue = parseInt(value, 10);
+      if (!isNaN(parsedValue) && parsedValue > 0) {
+        setDurationMinutes(parsedValue);
       }
     }
   };
@@ -178,6 +198,7 @@ export function UploadQuizForm({
         knowledgeFileStoragePaths: selectedFilePaths,
         totalNumberOfQuestions: numQuestions,
         passingScorePercentage: passingScore,
+        durationMinutes: durationMinutes,
         quizTitle: isRegenerationMode ? undefined : quizTitle,
         existingQuizIdToUpdate: isRegenerationMode ? existingQuizIdToUpdate : undefined,
         preferredQuestionStyles: preferredStylesString || undefined,
@@ -205,6 +226,7 @@ export function UploadQuizForm({
         setTopicsToFocus("");
         setTopicsToDrop("");
         setPassingScore(70);
+        setDurationMinutes(null);
       }
       const formElement = document.getElementById('pdf-upload-form-in-dialog') as HTMLFormElement;
       if (formElement) formElement.reset(); 
@@ -257,19 +279,28 @@ export function UploadQuizForm({
         
         <h3 className="text-md font-semibold">Quiz Configuration</h3>
 
-        <div className="space-y-2">
-          <Label htmlFor="num-questions-dialog">Total Number of Questions (1-{MAX_QUESTIONS})</Label>
-          <Input id="num-questions-dialog" type="number" value={numQuestions > 0 ? numQuestions.toString() : ""} onChange={handleNumQuestionsChange} min="1" max={MAX_QUESTIONS.toString()} placeholder="e.g., 10" required disabled={loading} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="num-questions-dialog">Total Questions (1-{MAX_QUESTIONS})</Label>
+            <Input id="num-questions-dialog" type="number" value={numQuestions > 0 ? numQuestions.toString() : ""} onChange={handleNumQuestionsChange} min="1" max={MAX_QUESTIONS.toString()} placeholder="e.g., 10" required disabled={loading} />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="passing-score-dialog" className="flex items-center">
+              <Percent className="mr-2 h-4 w-4 text-muted-foreground" /> Passing Score %
+            </Label>
+            <Input id="passing-score-dialog" type="number" value={passingScore === null ? "" : passingScore.toString()} onChange={handlePassingScoreChange} min="0" max="100" placeholder="e.g., 70" disabled={loading} />
+            {passingScore !== null && (passingScore < 0 || passingScore > 100) && (
+              <p className="text-xs text-destructive">Score must be between 0 and 100.</p>
+            )}
+          </div>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="passing-score-dialog" className="flex items-center">
-             <Percent className="mr-2 h-4 w-4 text-muted-foreground" /> Passing Score (Optional, 0-100%)
+          <Label htmlFor="duration-minutes-dialog" className="flex items-center">
+             <Clock className="mr-2 h-4 w-4 text-muted-foreground" /> Timer in Minutes (Optional)
           </Label>
-          <Input id="passing-score-dialog" type="number" value={passingScore === null ? "" : passingScore.toString()} onChange={handlePassingScoreChange} min="0" max="100" placeholder="e.g., 70 (for 70%)" disabled={loading} />
-           {passingScore !== null && (passingScore < 0 || passingScore > 100) && (
-            <p className="text-xs text-destructive">Passing score must be between 0 and 100.</p>
-          )}
+          <Input id="duration-minutes-dialog" type="number" value={durationMinutes === null ? "" : durationMinutes.toString()} onChange={handleDurationChange} min="1" placeholder="e.g., 30" disabled={loading} />
         </div>
 
         <div className="space-y-2">

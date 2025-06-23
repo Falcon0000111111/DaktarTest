@@ -12,6 +12,7 @@ interface GenerateQuizFromPdfsParams {
   knowledgeFileStoragePaths: string[];
   totalNumberOfQuestions: number;
   passingScorePercentage?: number | null;
+  durationMinutes?: number | null;
   quizTitle?: string;
   existingQuizIdToUpdate?: string;
   preferredQuestionStyles?: string;
@@ -33,6 +34,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     knowledgeFileStoragePaths, 
     totalNumberOfQuestions, 
     passingScorePercentage,
+    durationMinutes,
     quizTitle, 
     existingQuizIdToUpdate,
     preferredQuestionStyles,
@@ -72,6 +74,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
       pdf_name: dbQuizName,
       num_questions: totalNumberOfQuestions,
       passing_score_percentage: passingScorePercentage,
+      duration_minutes: durationMinutes,
       last_attempt_score_percentage: null,
       last_attempt_passed: null,
       status: "processing",
@@ -100,6 +103,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
         num_questions: totalNumberOfQuestions,
         pdf_name: dbQuizName, 
         passing_score_percentage: passingScorePercentage,
+        duration_minutes: durationMinutes,
         last_attempt_score_percentage: null, 
         last_attempt_passed: null, 
       })
@@ -229,7 +233,7 @@ export async function getQuizzesForWorkspace(workspaceId: string): Promise<Quiz[
 
   const { data, error } = await supabase
     .from("quizzes")
-    .select("id, workspace_id, user_id, pdf_name, num_questions, status, error_message, created_at, updated_at, passing_score_percentage, last_attempt_score_percentage, last_attempt_passed")
+    .select("id, workspace_id, user_id, pdf_name, num_questions, status, error_message, created_at, updated_at, passing_score_percentage, last_attempt_score_percentage, last_attempt_passed, duration_minutes")
     .eq("workspace_id", workspaceId)
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });

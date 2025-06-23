@@ -27,6 +27,7 @@ interface UploadQuizDialogProps {
   onQuizGenerated: (quizId: string) => void; 
   initialNumQuestions?: number;
   initialPassingScore?: number | null;
+  initialDurationMinutes?: number | null;
   existingQuizIdToUpdate?: string;
   knowledgeFiles: KnowledgeBaseDocument[];
 }
@@ -41,6 +42,7 @@ export function UploadQuizDialog({
   onQuizGenerated,
   initialNumQuestions,
   initialPassingScore,
+  initialDurationMinutes,
   existingQuizIdToUpdate,
   knowledgeFiles,
 }: UploadQuizDialogProps) {
@@ -97,6 +99,7 @@ export function UploadQuizDialog({
           onFormValidityChange={setIsFormValidForSubmission}
           initialNumQuestions={initialNumQuestions}
           initialPassingScore={initialPassingScore}
+          initialDurationMinutes={initialDurationMinutes}
           existingQuizIdToUpdate={existingQuizIdToUpdate}
           formSubmitRef={formSubmitButtonRef}
           onActualCancel={() => { 

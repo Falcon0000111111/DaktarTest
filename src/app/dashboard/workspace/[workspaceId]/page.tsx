@@ -61,6 +61,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAdminStatus } from "@/hooks/use-admin-status";
 import { Header } from "@/components/layout/header";
 import { QuizProgressBar } from "@/components/dashboard/quiz-progress-bar";
+import { QuizTimer } from "@/components/dashboard/quiz-timer";
 
 const CustomSidebarTrigger = () => {
   const { toggleSidebar, open, state } = useSidebar();
@@ -614,6 +615,17 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     setIsSubmittingQuiz(false);
   }, [activeQuizDBEntry, isQuizFromHistory, refreshAllData, toast]);
 
+  const handleTimeUp = useCallback(() => {
+    if (viewMode !== 'quiz_taking' || isSubmittingQuiz) return;
+    
+    toast({
+        title: "Time's Up!",
+        description: "Submitting your quiz automatically.",
+        variant: "destructive"
+    });
+    handleSubmitQuiz(liveAnswers);
+  }, [viewMode, isSubmittingQuiz, toast, handleSubmitQuiz, liveAnswers]);
+
   const handleOpenRenameQuizDialog = useCallback((quiz: Quiz) => {
     setQuizToRename(quiz);
     setIsRenameQuizDialogOpen(true);
@@ -820,6 +832,13 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         </main>
       </div>
 
+       {viewMode === 'quiz_taking' && activeQuizDBEntry?.duration_minutes && (
+        <QuizTimer
+          durationMinutes={activeQuizDBEntry.duration_minutes}
+          onTimeUp={handleTimeUp}
+          isSubmitting={isSubmittingQuiz}
+        />
+      )}
        {viewMode === 'quiz_taking' && activeQuizDisplayData && (
         <QuizProgressBar
           totalQuestions={activeQuizDisplayData.quiz.length}
@@ -836,6 +855,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         onQuizGenerated={handleQuizGenerationComplete}
         initialNumQuestions={activeQuizDBEntry?.num_questions}
         initialPassingScore={activeQuizDBEntry?.passing_score_percentage}
+        initialDurationMinutes={activeQuizDBEntry?.duration_minutes}
         existingQuizIdToUpdate={activeQuizDBEntry?.id}
         knowledgeFiles={allKnowledgeDocuments}
       />
