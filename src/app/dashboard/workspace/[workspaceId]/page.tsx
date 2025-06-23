@@ -375,7 +375,7 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                             <MemoizedQuizList
                                 initialQuizzes={allQuizzesForWorkspace}
                                 onQuizSelect={handleQuizSelectionFromHistory}
-                                selectedQuizId={activeQuizDBEntry?.id}
+                                selectedQuizId={activeQuizDBEntryId}
                                 onRenameQuiz={onRenameQuiz}
                                 onDeleteQuiz={onDeleteQuizConfirmation}
                             />
@@ -686,7 +686,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         }
         if (!activeQuizDisplayData) return <div className="p-8 text-center"><p>Quiz data not available. It might be processing or failed.</p></div>;
         return (
-            <div className="max-w-4xl mx-auto">
+            <div className="w-full">
               <QuizReviewDisplay
                 quizData={activeQuizDisplayData.quiz}
                 quizName={activeQuizDBEntry.pdf_name || "Untitled Quiz"}
@@ -697,7 +697,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       case "quiz_taking":
         if (!activeQuizDisplayData || !activeQuizDBEntry) return <div className="p-8 text-center"><p>Quiz data not available for taking.</p></div>;
         return (
-          <div className="max-w-4xl mx-auto">
+          <div className="w-full">
             <p className="text-sm text-muted-foreground mb-6 text-center">
                 Select the best answer for each question.
             </p>
@@ -712,7 +712,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       case "quiz_results":
         if (!activeQuizDisplayData || !userAnswers || !activeQuizDBEntry) return <div className="p-8 text-center"><p>Quiz results not available.</p></div>;
         return (
-            <div className="max-w-4xl mx-auto">
+            <div className="w-full">
               <QuizResultsDisplay
                 quiz={activeQuizDBEntry}
                 quizData={activeQuizDisplayData.quiz}
@@ -755,8 +755,8 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
 
   return (
     <div className="flex flex-col h-full">
-      <Header workspaceName={workspace?.name} />
-      <div className="flex flex-1 overflow-hidden">
+       <Header />
+       <div className="flex flex-1 overflow-hidden">
         <Sidebar className="h-full border-r" collapsible="icon">
           <WorkspaceSidebarInternals
             workspaceId={workspaceId}
@@ -774,16 +774,23 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         </Sidebar>
 
         <main className="flex-1 flex flex-col overflow-hidden bg-background">
+            <div className="flex-shrink-0 border-b">
+                <div className="flex h-full items-center justify-between px-6" style={{ height: 'var(--header-height)' }}>
+                   <span className="font-bold text-xl font-headline truncate">{workspace?.name}</span>
+                </div>
+            </div>
             <ScrollArea 
                 ref={rightPaneContentRef} 
                 className="flex-1 min-h-0"
             >
-                <div className="p-4 md:p-6">
-                {renderRightPaneContent()}
+                <div className="p-4 md:p-6 flex justify-center">
+                  <div className="w-full">
+                    {renderRightPaneContent()}
+                  </div>
                 </div>
             </ScrollArea>
              {showActionButtonsFooterRightPane && activeQuizDBEntry && (
-                <div className="p-4 flex justify-end space-x-3 flex-shrink-0 bg-transparent max-w-4xl mx-auto w-full">
+                <div className="p-4 flex justify-end space-x-3 flex-shrink-0 bg-transparent w-full">
                 {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed' && (
                     <>
                     {showRegenerateButtonInMain && (
