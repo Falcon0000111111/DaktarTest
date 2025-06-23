@@ -26,3 +26,5 @@ export function QuizProgressBar({ totalQuestions, answeredQuestions }: QuizProgr
     </div>
   );
 }
+
+    

@@ -65,3 +65,5 @@ export function QuizTakerForm({ quiz, quizData, onSubmit, isSubmitting, answers,
     </form>
   );
 }
+
+    
