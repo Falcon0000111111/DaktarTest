@@ -7,7 +7,7 @@ import { useEffect, useState, type ReactNode, useRef, useCallback, memo } from "
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
-  Loader2, AlertCircle, FileText, Wand2, ListChecks, Settings, BookOpen,
+  Loader2, AlertCircle, FileText, Wand2, ListChecks, BookOpen,
   RefreshCw, Inbox, FolderOpen, PlusCircle, LayoutDashboard,
   Cpu, PanelLeftClose, PanelRightOpen, CheckCircle, MoreVertical, Trash2, Edit3,
   Award, AlertTriangleIcon, AlertTriangle
@@ -387,29 +387,6 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
             </Accordion>
         </ScrollArea>
       </SidebarContent>
-      <SidebarFooter className="p-3 border-t">
-        <Button
-            variant="ghost"
-            asChild
-            className={cn("w-full", sidebarState === 'collapsed' ? "justify-center p-1.5 h-auto" : "justify-start")}
-        >
-          <TooltipProvider delayDuration={100}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link href={`/dashboard/workspace/${workspaceId}/settings`} onClick={(e) => { e.preventDefault(); toast({title: "Coming Soon", description: "Workspace settings are not yet implemented."})}}>
-                    <Settings className={cn(sidebarState === 'collapsed' ? "h-5 w-5" : "mr-2 h-4 w-4")} />
-                    {sidebarState === 'expanded' && <span>Settings</span>}
-                </Link>
-              </TooltipTrigger>
-              {sidebarState === 'collapsed' && (
-                <TooltipContent side="right" align="center">
-                  <p>Settings</p>
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
-        </Button>
-      </SidebarFooter>
     </>
   );
 };
@@ -790,7 +767,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         />
       </Sidebar>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden bg-background">
         <Header workspaceName={workspace?.name} isSidebarOpen={isSidebarOpen} />
         <main className="flex-1 flex flex-col">
             <ScrollArea 
