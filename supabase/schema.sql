@@ -1,44 +1,99 @@
--- This script is idempotent and can be run multiple times safely.
+-- Create user_role type if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
+        CREATE TYPE public.user_role AS ENUM ('user', 'admin');
+    END IF;
+END$$;
 
--- Clean up in the correct order
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users; -- Must be dropped as we don't own the table
-DROP TRIGGER IF EXISTS before_user_insert_check_gmail ON auth.users; -- Must be dropped as we don't own the table
-
--- Drop all tables. CASCADE handles their triggers and dependencies automatically.
-DROP TABLE IF EXISTS public.knowledge_base_documents CASCADE;
-DROP TABLE IF EXISTS public.quizzes CASCADE;
-DROP TABLE IF EXISTS public.workspaces CASCADE;
-DROP TABLE IF EXISTS public.profiles CASCADE;
-
--- Drop functions and types last
-DROP FUNCTION IF EXISTS public.is_admin();
-DROP FUNCTION IF EXISTS public.handle_new_user();
-DROP FUNCTION IF EXISTS public.check_gmail_email();
-DROP FUNCTION IF EXISTS public.handle_updated_at();
-DROP TYPE IF EXISTS public.user_role;
-
-
--- 1. ROLES & PROFILES SETUP
-----------------------------------------------------------------
-
-CREATE TYPE public.user_role AS ENUM ('user', 'admin');
-
-CREATE TABLE public.profiles (
-    id uuid PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
-    role public.user_role NOT NULL DEFAULT 'user'
+-- Create profiles table
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    role public.user_role NOT NULL DEFAULT 'user'::public.user_role
 );
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view their own profile."
-    ON public.profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Allow authenticated users to read their own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Allow admins to manage profiles" ON public.profiles FOR ALL USING (public.is_admin());
 
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-BEGIN INSERT INTO public.profiles (id, role) VALUES (new.id, 'user'); RETURN new; END; $$;
 
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+-- Create workspaces table
+CREATE TABLE IF NOT EXISTS public.workspaces (
+    id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    name text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.workspaces ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow authenticated users to manage their own workspaces" ON public.workspaces FOR ALL USING (auth.uid() = user_id);
 
--- Trigger to enforce @gmail.com email addresses
+-- Create knowledge_base_documents table
+CREATE TABLE IF NOT EXISTS public.knowledge_base_documents (
+    id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    file_name text NOT NULL,
+    description text,
+    storage_path text NOT NULL UNIQUE
+);
+ALTER TABLE public.knowledge_base_documents ENABLE ROW LEVEL SECURITY;
+-- Admin-only policies for modification
+CREATE POLICY "Allow admins to manage knowledge base documents" ON public.knowledge_base_documents FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+-- Policy for all authenticated users to read
+CREATE POLICY "Allow authenticated users to read knowledge base documents" ON public.knowledge_base_documents FOR SELECT USING (auth.role() = 'authenticated');
+
+-- Create quizzes table
+CREATE TABLE IF NOT EXISTS public.quizzes (
+    id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    workspace_id uuid NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    pdf_name text,
+    num_questions integer NOT NULL,
+    generated_quiz_data jsonb,
+    status text NOT NULL DEFAULT 'pending'::text,
+    error_message text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    passing_score_percentage integer,
+    last_attempt_score_percentage integer,
+    last_attempt_passed boolean,
+    duration_minutes integer
+);
+ALTER TABLE public.quizzes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow authenticated users to manage their own quizzes" ON public.quizzes FOR ALL USING (auth.uid() = user_id);
+
+-- Create is_admin function
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT EXISTS (
+        SELECT 1
+        FROM public.profiles
+        WHERE id = auth.uid() AND role = 'admin'
+    );
+$$;
+
+-- Enable RLS for Storage buckets
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+-- Policies for knowledge-base-files storage
+-- Admins can do everything
+CREATE POLICY "Allow admins to manage knowledge base files" ON storage.objects FOR ALL
+USING (bucket_id = 'knowledge-base-files' AND public.is_admin())
+WITH CHECK (bucket_id = 'knowledge-base-files' AND public.is_admin());
+
+-- Any authenticated user can view/download
+CREATE POLICY "Allow authenticated users to view knowledge base files" ON storage.objects FOR SELECT
+USING (bucket_id = 'knowledge-base-files' AND auth.role() = 'authenticated');
+
+
+-- Migration: Creates a function and trigger to ensure new users sign up with a @gmail.com address.
+
+-- Create the function that contains the checking logic.
+-- Using CREATE OR REPLACE makes this part safe to re-run.
 CREATE OR REPLACE FUNCTION public.check_gmail_email()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
@@ -49,91 +104,10 @@ BEGIN
 END;
 $$;
 
+-- Drop the trigger IF IT EXISTS to prevent an error on re-run.
+DROP TRIGGER IF EXISTS before_user_insert_check_gmail ON auth.users;
+
+-- Create the trigger to attach the function to the auth.users table.
 CREATE TRIGGER before_user_insert_check_gmail
   BEFORE INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.check_gmail_email();
-
-----------------------------------------------------------------
--- 2. CORE APPLICATION TABLES
-----------------------------------------------------------------
-
-CREATE OR REPLACE FUNCTION public.handle_updated_at()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
-
-CREATE TABLE public.workspaces (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    name text NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
-ALTER TABLE public.workspaces ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage their own workspaces."
-    ON public.workspaces FOR ALL USING (auth.uid() = user_id);
-CREATE TRIGGER on_workspaces_update
-  BEFORE UPDATE ON public.workspaces FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
-
-CREATE TABLE public.quizzes (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id uuid NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    pdf_name text,
-    num_questions integer NOT NULL,
-    generated_quiz_data jsonb,
-    status text NOT NULL DEFAULT 'pending',
-    error_message text,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now(),
-    passing_score_percentage integer,
-    last_attempt_score_percentage integer,
-    last_attempt_passed boolean,
-    duration_minutes integer
-);
-ALTER TABLE public.quizzes ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage their own quizzes."
-    ON public.quizzes FOR ALL USING (auth.uid() = user_id);
-CREATE TRIGGER on_quizzes_update
-  BEFORE UPDATE ON public.quizzes FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
-
-----------------------------------------------------------------
--- 3. KNOWLEDGE BASE SETUP
-----------------------------------------------------------------
-
-CREATE TABLE public.knowledge_base_documents (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    file_name text NOT NULL,
-    description text,
-    storage_path text NOT NULL UNIQUE,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE OR REPLACE FUNCTION public.is_admin()
-RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE user_role public.user_role;
-BEGIN SELECT COALESCE((SELECT role FROM public.profiles WHERE id = auth.uid()),'user') INTO user_role; RETURN user_role = 'admin'; END; $$;
-
-ALTER TABLE public.knowledge_base_documents ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Authenticated users can read knowledge base documents."
-    ON public.knowledge_base_documents FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Admins can manage knowledge base documents."
-    ON public.knowledge_base_documents FOR ALL USING (public.is_admin());
-CREATE TRIGGER on_kb_documents_update
-  BEFORE UPDATE ON public.knowledge_base_documents FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
-
-----------------------------------------------------------------
--- 4. STORAGE RLS POLICIES
-----------------------------------------------------------------
-
-DROP POLICY IF EXISTS "Admins can manage knowledge base files in Storage" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can read knowledge base files from Storage" ON storage.objects;
-
-CREATE POLICY "Admins can manage knowledge base files in Storage"
-ON storage.objects FOR ALL
-USING (bucket_id = 'knowledge-base-files' AND public.is_admin())
-WITH CHECK (bucket_id = 'knowledge-base-files' AND public.is_admin());
-
-CREATE POLICY "Authenticated users can read knowledge base files from Storage"
-ON storage.objects FOR SELECT
-USING (bucket_id = 'knowledge-base-files' AND auth.role() = 'authenticated');
