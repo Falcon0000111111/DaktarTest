@@ -2,7 +2,7 @@
 
 -- Clean up in the correct order
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users; -- Must be dropped as we don't own the table
-DROP TRIGGER IF EXISTS before_user_insert_check_gmail ON auth.users;
+DROP TRIGGER IF EXISTS check_user_domain_trigger ON auth.users; -- Must be dropped as we don't own the table
 
 -- Drop all tables. CASCADE handles their triggers and dependencies automatically.
 DROP TABLE IF EXISTS public.knowledge_base_documents CASCADE;
@@ -14,7 +14,7 @@ DROP TABLE IF EXISTS public.profiles CASCADE;
 DROP FUNCTION IF EXISTS public.is_admin();
 DROP FUNCTION IF EXISTS public.handle_new_user();
 DROP FUNCTION IF EXISTS public.handle_updated_at();
-DROP FUNCTION IF EXISTS public.check_gmail_email();
+DROP FUNCTION IF EXISTS public.check_user_domain();
 DROP TYPE IF EXISTS public.user_role;
 
 
@@ -31,31 +31,28 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view their own profile."
     ON public.profiles FOR SELECT USING (auth.uid() = id);
 
--- Function to handle new user creation
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN INSERT INTO public.profiles (id, role) VALUES (new.id, 'user'); RETURN new; END; $$;
 
--- Trigger to call handle_new_user on new user sign-up
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Function to enforce Gmail-only signups
-CREATE OR REPLACE FUNCTION public.check_gmail_email()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+-- Function and trigger to enforce Gmail-only signups
+CREATE OR REPLACE FUNCTION public.check_user_domain()
+RETURNS TRIGGER AS $$
 BEGIN
-    IF NEW.email NOT LIKE '%@gmail.com' THEN
-        RAISE EXCEPTION 'Only @gmail.com email addresses are allowed.';
-    END IF;
-    RETURN NEW;
+  IF NEW.email NOT LIKE '%@gmail.com' THEN
+    RAISE EXCEPTION 'Only @gmail.com emails are allowed.';
+  END IF;
+  RETURN NEW;
 END;
-$$;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Trigger to call check_gmail_email before user insertion
-CREATE TRIGGER before_user_insert_check_gmail
-  BEFORE INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.check_gmail_email();
-
+CREATE TRIGGER check_user_domain_trigger
+  BEFORE INSERT OR UPDATE ON auth.users
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.check_user_domain();
 
 ----------------------------------------------------------------
 -- 2. CORE APPLICATION TABLES
@@ -91,7 +88,8 @@ CREATE TABLE public.quizzes (
     updated_at timestamptz NOT NULL DEFAULT now(),
     passing_score_percentage integer,
     last_attempt_score_percentage integer,
-    last_attempt_passed boolean
+    last_attempt_passed boolean,
+    duration_minutes integer
 );
 ALTER TABLE public.quizzes ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can manage their own quizzes."
