@@ -2,7 +2,7 @@
 
 -- Clean up in the correct order
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users; -- Must be dropped as we don't own the table
-DROP TRIGGER IF EXISTS check_user_domain_trigger ON auth.users; -- Must be dropped as we don't own the table
+DROP TRIGGER IF EXISTS before_user_insert_check_gmail ON auth.users; -- Must be dropped as we don't own the table
 
 -- Drop all tables. CASCADE handles their triggers and dependencies automatically.
 DROP TABLE IF EXISTS public.knowledge_base_documents CASCADE;
@@ -13,8 +13,8 @@ DROP TABLE IF EXISTS public.profiles CASCADE;
 -- Drop functions and types last
 DROP FUNCTION IF EXISTS public.is_admin();
 DROP FUNCTION IF EXISTS public.handle_new_user();
+DROP FUNCTION IF EXISTS public.check_gmail_email();
 DROP FUNCTION IF EXISTS public.handle_updated_at();
-DROP FUNCTION IF EXISTS public.check_user_domain();
 DROP TYPE IF EXISTS public.user_role;
 
 
@@ -38,21 +38,20 @@ BEGIN INSERT INTO public.profiles (id, role) VALUES (new.id, 'user'); RETURN new
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Function and trigger to enforce Gmail-only signups
-CREATE OR REPLACE FUNCTION public.check_user_domain()
-RETURNS TRIGGER AS $$
+-- Trigger to enforce @gmail.com email addresses
+CREATE OR REPLACE FUNCTION public.check_gmail_email()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
-  IF NEW.email NOT LIKE '%@gmail.com' THEN
-    RAISE EXCEPTION 'Only @gmail.com emails are allowed.';
-  END IF;
-  RETURN NEW;
+    IF NEW.email NOT LIKE '%@gmail.com' THEN
+        RAISE EXCEPTION 'Only @gmail.com email addresses are allowed.';
+    END IF;
+    RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
-CREATE TRIGGER check_user_domain_trigger
-  BEFORE INSERT OR UPDATE ON auth.users
-  FOR EACH ROW
-  EXECUTE PROCEDURE public.check_user_domain();
+CREATE TRIGGER before_user_insert_check_gmail
+  BEFORE INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.check_gmail_email();
 
 ----------------------------------------------------------------
 -- 2. CORE APPLICATION TABLES
