@@ -14,20 +14,17 @@ export interface Database {
         Row: {
           id: string
           role: Database["public"]["Enums"]["user_role"]
-          quiz_generations_count: number
-          generation_limit: number
+          llm_requests_count: number
         }
         Insert: {
           id: string
           role?: Database["public"]["Enums"]["user_role"]
-          quiz_generations_count?: number
-          generation_limit?: number
+          llm_requests_count?: number
         }
         Update: {
           id?: string
           role?: Database["public"]["Enums"]["user_role"]
-          quiz_generations_count?: number
-          generation_limit?: number
+          llm_requests_count?: number
         }
         Relationships: [
           {
@@ -174,6 +171,18 @@ export interface Database {
           user_id_param: string
         }
         Returns: undefined
+      }
+      check_llm_request_limit: {
+        Args: Record<PropertyKey, never>
+        Returns: unknown
+      }
+      increment_llm_request_count: {
+        Args: Record<PropertyKey, never>
+        Returns: unknown
+      }
+      check_gmail_email: {
+        Args: Record<PropertyKey, never>
+        Returns: unknown
       }
     }
     Enums: {
