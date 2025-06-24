@@ -25,7 +25,7 @@ export default function SignupPage() {
     if (!email.endsWith("@gmail.com")) {
       toast({
         title: "Invalid Email",
-        description: "Only @gmail.com accounts are allowed.",
+        description: "use valid email address e.g. @gmail.com",
         variant: "destructive",
       });
       return;
