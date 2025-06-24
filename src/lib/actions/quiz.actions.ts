@@ -67,9 +67,9 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
 
   let quizEntryId = existingQuizIdToUpdate;
 
-  // The new database triggers will automatically check the user's generation limit
-  // before this insert, and will automatically increment it after.
-  // The logic has been removed from this action and is now handled by the database.
+  // The database triggers 'before_quiz_insert_check_limit' and 'after_quiz_insert_increment_count'
+  // now handle the generation limit logic. The code here can proceed with the insert/update,
+  // and the database will enforce the rules.
 
   if (!quizEntryId) {
     const initialQuizData: NewQuiz = {
