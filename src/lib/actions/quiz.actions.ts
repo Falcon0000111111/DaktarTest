@@ -29,6 +29,23 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     throw new Error("User not authenticated.");
   }
 
+  // Check user's generation quota before proceeding
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('quiz_generations_count, generation_limit, role')
+    .eq('id', user.id)
+    .single();
+
+  if (profileError) {
+    console.error("Error fetching user profile for quota check:", profileError);
+    throw new Error("Could not verify your generation quota. Please try again.");
+  }
+
+  // Admins have unlimited generations
+  if (profile.role !== 'admin' && profile.quiz_generations_count >= profile.generation_limit) {
+    throw new Error(`You have reached your limit of ${profile.generation_limit} quiz generations. Please contact support to upgrade your account.`);
+  }
+
   const { 
     workspaceId, 
     knowledgeFileStoragePaths, 
@@ -129,6 +146,15 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     };
 
     const generatedData: GenerateQuizOutput = await generateQuizFromPdfs(aiInput);
+
+    // Increment user's generation count if they are not an admin
+    if (profile.role !== 'admin') {
+        const { error: rpcError } = await supabase.rpc('increment_quiz_generations', { user_id_param: user.id });
+        if (rpcError) {
+            // Log the error but don't fail the entire request for the user. They get a "free" generation.
+            console.error(`CRITICAL: Failed to increment quiz generation count for user ${user.id} after successful generation. Error:`, rpcError.message);
+        }
+    }
 
     const { data: updatedQuiz, error: updateError } = await supabase
       .from("quizzes")

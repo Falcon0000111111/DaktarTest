@@ -14,14 +14,20 @@ export interface Database {
         Row: {
           id: string
           role: Database["public"]["Enums"]["user_role"]
+          quiz_generations_count: number
+          generation_limit: number
         }
         Insert: {
           id: string
           role?: Database["public"]["Enums"]["user_role"]
+          quiz_generations_count?: number
+          generation_limit?: number
         }
         Update: {
           id?: string
           role?: Database["public"]["Enums"]["user_role"]
+          quiz_generations_count?: number
+          generation_limit?: number
         }
         Relationships: [
           {
@@ -162,6 +168,12 @@ export interface Database {
       is_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      increment_quiz_generations: {
+        Args: {
+          user_id_param: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
