@@ -15,7 +15,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LogOut, Moon, Sun, ShieldCheck } from "lucide-react";
+import { LogOut, Moon, Sun, ShieldCheck, BarChartHorizontal } from "lucide-react";
 import { useTheme } from "@/components/providers/theme-provider";
 import { useAdminStatus } from "@/hooks/use-admin-status";
 import Link from "next/link";
@@ -84,6 +84,12 @@ export function UserNav() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className="cursor-pointer">
+            <Link href="/dashboard/performance">
+                <BarChartHorizontal className="mr-2 h-4 w-4" />
+                <span>Performance</span>
+            </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="cursor-pointer">
           {theme === 'dark' ? (
             <Sun className="mr-2 h-4 w-4" />
