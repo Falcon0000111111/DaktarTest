@@ -49,6 +49,11 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
   if (passingScorePercentage !== undefined && passingScorePercentage !== null && (passingScorePercentage < 0 || passingScorePercentage > 100)) {
     throw new Error("Passing score percentage must be between 0 and 100.");
   }
+  
+  // The database triggers `before_quiz_insert_check_limit` and `after_quiz_insert_increment_count`
+  // will now handle the LLM request limits automatically.
+  // The initial insert below will fail if the user is over their limit,
+  // and the error will be caught and displayed to the user.
 
   const pdfDocuments = await Promise.all(
     knowledgeFileStoragePaths.map(path => getKnowledgeBaseFileAsDataUri(path))
@@ -67,6 +72,9 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
 
   let quizEntryId = existingQuizIdToUpdate;
 
+  // This block will attempt the initial insert. If the user is over their limit,
+  // the `before_quiz_insert_check_limit` trigger will raise an exception,
+  // which will be caught by the `catch` block at the end of this function.
   if (!quizEntryId) {
     const initialQuizData: NewQuiz = {
       workspace_id: workspaceId,
@@ -75,11 +83,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
       num_questions: totalNumberOfQuestions,
       passing_score_percentage: passingScorePercentage,
       duration_minutes: durationMinutes,
-      last_attempt_score_percentage: null,
-      last_attempt_passed: null,
       status: "processing",
-      error_message: null,
-      generated_quiz_data: null,
     };
 
     const { data: newQuizEntry, error: createError } = await supabase
@@ -170,22 +174,22 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
       detailedErrorMessage = error.message;
     }
     
+    // If the error was from the AI flow (not the initial insert), mark the quiz as failed.
+    // If it was from the initial insert, the quizEntryId would not exist yet (unless it was a regeneration).
     if (quizEntryId) {
-      await supabase
-        .from("quizzes")
-        .update({ status: "failed", error_message: detailedErrorMessage })
-        .eq("id", quizEntryId)
-        .eq("user_id", user.id);
+      const { data: quizExists } = await supabase.from('quizzes').select('id').eq('id', quizEntryId).single();
+      if (quizExists) {
+        await supabase
+          .from("quizzes")
+          .update({ status: "failed", error_message: detailedErrorMessage })
+          .eq("id", quizEntryId)
+          .eq("user_id", user.id);
+      }
     }
 
     revalidatePath(`/dashboard/workspace/${workspaceId}`);
-    const { data: failedQuizEntry } = await supabase
-        .from("quizzes")
-        .select()
-        .eq("id", quizEntryId)
-        .single();
-    if (failedQuizEntry) return failedQuizEntry;
-
+    
+    // Re-throw the original error to be displayed in the UI toast.
     throw new Error(detailedErrorMessage);
   }
 }

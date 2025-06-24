@@ -14,14 +14,17 @@ export interface Database {
         Row: {
           id: string
           role: Database["public"]["Enums"]["user_role"]
+          llm_requests_count: number
         }
         Insert: {
           id: string
           role?: Database["public"]["Enums"]["user_role"]
+          llm_requests_count?: number
         }
         Update: {
           id?: string
           role?: Database["public"]["Enums"]["user_role"]
+          llm_requests_count?: number
         }
         Relationships: [
           {
@@ -172,6 +175,14 @@ export interface Database {
         Returns: unknown
       }
       check_gmail_email: {
+        Args: Record<PropertyKey, never>
+        Returns: unknown
+      }
+      check_llm_request_limit: {
+        Args: Record<PropertyKey, never>
+        Returns: unknown
+      }
+      increment_llm_request_count: {
         Args: Record<PropertyKey, never>
         Returns: unknown
       }
