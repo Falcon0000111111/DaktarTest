@@ -22,6 +22,14 @@ export default function SignupPage() {
 
   const handleSignup = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!email.endsWith("@gmail.com")) {
+      toast({
+        title: "Invalid Email",
+        description: "Only @gmail.com accounts are allowed.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (password !== confirmPassword) {
       toast({
         title: "Signup Failed",

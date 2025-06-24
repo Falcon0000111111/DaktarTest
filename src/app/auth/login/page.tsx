@@ -21,6 +21,14 @@ export default function LoginPage() {
 
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!email.endsWith("@gmail.com")) {
+      toast({
+        title: "Invalid Email",
+        description: "Only @gmail.com accounts are allowed.",
+        variant: "destructive",
+      });
+      return;
+    }
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
