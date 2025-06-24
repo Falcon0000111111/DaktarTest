@@ -14,17 +14,14 @@ export interface Database {
         Row: {
           id: string
           role: Database["public"]["Enums"]["user_role"]
-          llm_requests_count: number
         }
         Insert: {
           id: string
           role?: Database["public"]["Enums"]["user_role"]
-          llm_requests_count?: number
         }
         Update: {
           id?: string
           role?: Database["public"]["Enums"]["user_role"]
-          llm_requests_count?: number
         }
         Relationships: [
           {
@@ -166,17 +163,11 @@ export interface Database {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
-      increment_quiz_generations: {
-        Args: {
-          user_id_param: string
-        }
-        Returns: undefined
-      }
-      check_llm_request_limit: {
+      handle_new_user: {
         Args: Record<PropertyKey, never>
         Returns: unknown
       }
-      increment_llm_request_count: {
+      handle_updated_at: {
         Args: Record<PropertyKey, never>
         Returns: unknown
       }

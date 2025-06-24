@@ -67,10 +67,6 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
 
   let quizEntryId = existingQuizIdToUpdate;
 
-  // The database triggers 'before_quiz_insert_check_limit' and 'after_quiz_insert_increment_count'
-  // now handle the generation limit logic. The code here can proceed with the insert/update,
-  // and the database will enforce the rules.
-
   if (!quizEntryId) {
     const initialQuizData: NewQuiz = {
       workspace_id: workspaceId,
