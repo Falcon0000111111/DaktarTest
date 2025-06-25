@@ -14,18 +14,30 @@ export async function middleware(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return req.cookies.getAll();
+        get(name: string) {
+          return req.cookies.get(name)?.value;
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => req.cookies.set(name, value, options));
-          // Re-assign response to apply cookies to it
+        set(name: string, value: string, options: CookieOptions) {
+          // If the cookie is set, update the request cookies as well. This is crucial
+          // for Server Components deciding whether to render page content or redirects.
+          req.cookies.set({ name, value, ...options });
           response = NextResponse.next({
             request: {
               headers: req.headers,
             },
           });
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+          response.cookies.set({ name, value, ...options });
+        },
+        remove(name: string, options: CookieOptions) {
+          // If the cookie is removed, update the request cookies as well. This is crucial
+          // for Server Components deciding whether to render page content or redirects.
+          req.cookies.set({ name, value: '', ...options });
+          response = NextResponse.next({
+            request: {
+              headers: req.headers,
+            },
+          });
+          response.cookies.set({ name, value: '', ...options });
         },
       },
     }
@@ -45,7 +57,8 @@ export async function middleware(req: NextRequest) {
   }
 
   // Protected routes
-  if (pathname.startsWith('/dashboard')) {
+  const protectedPaths = ['/dashboard', '/admin'];
+  if (protectedPaths.some(p => pathname.startsWith(p))) {
     if (!refreshedSession) {
       return NextResponse.redirect(new URL('/auth/login', req.url));
     }

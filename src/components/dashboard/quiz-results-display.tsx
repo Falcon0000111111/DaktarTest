@@ -7,6 +7,7 @@ import { CheckCircle, XCircle, HelpCircle, InfoIcon, RefreshCcw, ListChecks, Che
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import Image from 'next/image';
 
 interface QuizResultsDisplayProps {
   quiz: Quiz;
@@ -45,28 +46,47 @@ export function QuizResultsDisplay({ quiz, quizData, userAnswers, onRetake }: Qu
 
   return (
     <div className="space-y-8">
-      <div className="p-6 rounded-lg border bg-card shadow-sm">
-        <h3 className="text-xl font-semibold mb-1">Quiz Results: {quiz.pdf_name || "Untitled Quiz"}</h3>
-        <p className="text-muted-foreground mb-2">
-          You scored {score} out of {quizData.length} ({percentage}%)
-        </p>
-        {passed !== null && (
-          <div className={cn(
-            "flex items-center text-lg font-semibold p-3 rounded-md",
-            passed ? "bg-green-100 text-green-700 dark:bg-green-800/30 dark:text-green-300" 
-                   : "bg-red-100 text-red-700 dark:bg-red-800/30 dark:text-red-300"
-          )}>
-            {passed ? <Award className="mr-2 h-5 w-5" /> : <AlertTriangleIcon className="mr-2 h-5 w-5" />}
-            Status: {passed ? "Passed" : "Failed"}
-            {passingScore !== null && <span className="text-sm font-normal ml-1">(Passing score: {passingScore}%)</span>}
-          </div>
-        )}
-        <div className="mt-4 flex space-x-3">
-            <Button onClick={onRetake}>
-                <RefreshCcw className="mr-2 h-4 w-4" /> Retake Quiz
-            </Button>
+      <div className="flex items-center gap-6 p-6 rounded-lg border bg-card shadow-sm">
+        <div className="flex-shrink-0">
+          {passed ? (
+            <Image 
+                src="https://placehold.co/100x100.png" 
+                alt="Celebration" 
+                width={100} 
+                height={100} 
+                className="rounded-lg"
+                data-ai-hint="celebration trophy" 
+            />
+          ) : (
+            <Image 
+                src="https://placehold.co/100x100.png" 
+                alt="Sad bear" 
+                width={100} 
+                height={100} 
+                className="rounded-lg"
+                data-ai-hint="sad bear"
+            />
+          )}
+        </div>
+        <div className="flex-1">
+          <h3 className="text-xl font-semibold mb-1">Quiz Results: {quiz.pdf_name || "Untitled Quiz"}</h3>
+          <p className="text-muted-foreground mb-2">
+            You scored {score} out of {quizData.length} ({percentage}%)
+          </p>
+          {passed !== null && (
+            <div className={cn(
+              "flex items-center text-lg font-semibold p-3 rounded-md",
+              passed ? "bg-green-100 text-green-700 dark:bg-green-800/30 dark:text-green-300" 
+                     : "bg-red-100 text-red-700 dark:bg-red-800/30 dark:text-red-300"
+            )}>
+              {passed ? <Award className="mr-2 h-5 w-5" /> : <AlertTriangleIcon className="mr-2 h-5 w-5" />}
+              Status: {passed ? "Passed" : "Failed"}
+              {passingScore !== null && <span className="text-sm font-normal ml-1">(Passing score: {passingScore}%)</span>}
+            </div>
+          )}
         </div>
       </div>
+
 
       <div className="space-y-6">
         {quizData.map((q, index) => {

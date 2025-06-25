@@ -12,18 +12,17 @@ interface QuizTimerProps {
 }
 
 export function QuizTimer({ durationMinutes, onTimeUp, isSubmitting }: QuizTimerProps) {
-  const [timeLeft, setTimeLeft] = useState(durationMinutes * 60);
+  const totalDurationSeconds = durationMinutes * 60;
+  const [timeLeft, setTimeLeft] = useState(totalDurationSeconds);
 
-  // This effect manages the countdown interval
   useEffect(() => {
-    if (isSubmitting) {
-      return; // Stop timer if submitting
-    }
+    if (isSubmitting) return;
 
     const timerId = setInterval(() => {
       setTimeLeft(prevTime => {
         if (prevTime <= 1) {
           clearInterval(timerId);
+          onTimeUp();
           return 0;
         }
         return prevTime - 1;
@@ -31,27 +30,17 @@ export function QuizTimer({ durationMinutes, onTimeUp, isSubmitting }: QuizTimer
     }, 1000);
 
     return () => clearInterval(timerId);
-  }, [isSubmitting]);
+  }, [isSubmitting, onTimeUp]);
 
-  // This effect handles the "time is up" logic, separated from the interval to prevent render errors.
-  useEffect(() => {
-    if (timeLeft === 0) {
-      onTimeUp();
-    }
-  }, [timeLeft, onTimeUp]);
-
-  // --- Draggability Logic ---
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const timerRef = useRef<HTMLDivElement>(null);
   const offsetRef = useRef({ x: 0, y: 0 });
-  const [isInitialized, setIsInitialized] = useState(false); // To prevent flash of timer at 0,0
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialize position on mount
   useEffect(() => {
     if (timerRef.current) {
-        // Position on the right side, vertically centered
-        const initialX = window.innerWidth - timerRef.current.offsetWidth - 32; // 32px for md:right-8
+        const initialX = window.innerWidth - timerRef.current.offsetWidth - 32;
         const initialY = (window.innerHeight - timerRef.current.offsetHeight) / 2;
         setPosition({ x: initialX, y: initialY });
         setIsInitialized(true);
@@ -66,10 +55,9 @@ export function QuizTimer({ durationMinutes, onTimeUp, isSubmitting }: QuizTimer
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     };
-    e.preventDefault(); // prevent text selection
+    e.preventDefault();
   };
   
-  // Effect to add and remove global event listeners for dragging
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
@@ -85,20 +73,25 @@ export function QuizTimer({ durationMinutes, onTimeUp, isSubmitting }: QuizTimer
     };
 
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
     }
     
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDragging]);
 
-
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
-  const isLowTime = timeLeft <= 60;
+  
+  const isLowTime = timeLeft <= 10;
+  const shouldBeVisible = (timeLeft > totalDurationSeconds - 10) || (timeLeft <= 59);
+
+  if (!shouldBeVisible) {
+    return null;
+  }
 
   return (
     <div
@@ -106,7 +99,7 @@ export function QuizTimer({ durationMinutes, onTimeUp, isSubmitting }: QuizTimer
       onMouseDown={handleMouseDown}
       className={cn(
         "fixed z-50 animate-fade-in",
-        isInitialized ? 'opacity-100' : 'opacity-0' // Hide until positioned
+        isInitialized ? 'opacity-100' : 'opacity-0'
       )}
       style={{
         left: `${position.x}px`,
@@ -117,12 +110,14 @@ export function QuizTimer({ durationMinutes, onTimeUp, isSubmitting }: QuizTimer
     >
       <div 
         className={cn(
-          "flex flex-col items-center gap-1 bg-card/60 backdrop-blur-sm p-3 rounded-full border shadow-lg transition-colors",
-          isLowTime && "border-destructive/50 text-destructive animate-pulse"
+          "flex flex-col items-center gap-1 bg-card/70 backdrop-blur-sm p-4 rounded-full border-2 shadow-lg transition-colors",
+          isLowTime 
+            ? "border-destructive/80 text-destructive animate-pulse"
+            : "border-primary/50 text-primary"
         )}
       >
-        <Timer className="h-5 w-5" />
-        <span className="font-mono font-bold text-lg tracking-wider">
+        <Timer className="h-6 w-6" />
+        <span className="font-mono font-bold text-xl tracking-wider">
           {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
         </span>
       </div>

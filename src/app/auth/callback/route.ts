@@ -1,11 +1,11 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server'; // Keep NextRequest for compatibility if needed, but Request is standard
+import type { NextRequest } from 'next/server';
 import type { Database } from '@/types/supabase';
 
 
-export async function GET(request: NextRequest) { // Use NextRequest here
+export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
   const origin = requestUrl.origin;
@@ -17,20 +17,20 @@ export async function GET(request: NextRequest) { // Use NextRequest here
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          getAll() {
-            return cookieStore.getAll();
+          get(name: string) {
+            return cookieStore.get(name)?.value
           },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
+          set(name: string, value: string, options: CookieOptions) {
+            cookieStore.set({ name, value, ...options })
+          },
+          remove(name: string, options: CookieOptions) {
+            cookieStore.set({ name, value: '', ...options })
           },
         },
       }
     );
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      // URL to redirect to after sign in process completes
       return NextResponse.redirect(new URL('/dashboard', requestUrl));
     }
     console.error('Error exchanging code for session:', error);
