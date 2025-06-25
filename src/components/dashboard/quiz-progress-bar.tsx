@@ -18,8 +18,8 @@ export function QuizProgressBar({ totalQuestions, answeredQuestions }: QuizProgr
 
   useEffect(() => {
     if (progressBarRef.current) {
-        // Position on the left side to avoid timer
-        const initialX = 32; 
+        // Default position on the right side of the screen
+        const initialX = window.innerWidth - progressBarRef.current.offsetWidth - 32;
         const initialY = (window.innerHeight - progressBarRef.current.offsetHeight) / 2;
         setPosition({ x: initialX, y: initialY });
         setIsInitialized(true);
