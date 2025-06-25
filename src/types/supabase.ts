@@ -207,10 +207,17 @@ export type NewKnowledgeBaseDocument = Database['public']['Tables']['knowledge_b
 
 
 export type GeneratedQuizQuestion = {
-  question: string;
-  options: string[]; 
-  answer: string;
-  explanation: string; 
+  question_text: string;
+  options: {
+    A: string;
+    B: string;
+    C: string;
+    D: string;
+  };
+  correct_answer_key: 'A' | 'B' | 'C' | 'D';
+  explanation: string;
+  topic: string;
+  difficulty: 'standard' | 'hard';
 };
 
 export type StoredQuizData = {

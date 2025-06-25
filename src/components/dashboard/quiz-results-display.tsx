@@ -24,7 +24,7 @@ export function QuizResultsDisplay({ quiz, quizData, userAnswers, onRetake }: Qu
 
   let score = 0;
   quizData.forEach((q, index) => {
-    if (userAnswers[index] === q.answer) {
+    if (userAnswers[index] === q.options[q.correct_answer_key]) {
       score++;
     }
   });
@@ -71,14 +71,15 @@ export function QuizResultsDisplay({ quiz, quizData, userAnswers, onRetake }: Qu
       <div className="space-y-6">
         {quizData.map((q, index) => {
           const userAnswer = userAnswers[index];
-          const isCorrect = userAnswer === q.answer;
+          const correctAnswerText = q.options[q.correct_answer_key];
+          const isCorrect = userAnswer === correctAnswerText;
           const wasAttempted = userAnswer !== undefined && userAnswer !== null && userAnswer !== "";
           const isExplanationVisible = expandedExplanations[index];
 
           return (
             <div key={index} className="p-4 rounded-lg border bg-card shadow-sm">
               <div className="flex items-start justify-between mb-3">
-                <p className="text-base font-semibold flex-1 pr-2">Q{index + 1}: {q.question}</p>
+                <p className="text-base font-semibold flex-1 pr-2">Q{index + 1}: {q.question_text}</p>
                 {wasAttempted ? (
                   isCorrect ? (
                     <CheckCircle className="h-6 w-6 text-green-500 flex-shrink-0" />
@@ -92,29 +93,26 @@ export function QuizResultsDisplay({ quiz, quizData, userAnswers, onRetake }: Qu
               
               <div className="space-y-3">
                 <ul className="space-y-2">
-                  {q.options.map((option, optIndex) => (
+                  {Object.entries(q.options).map(([key, optionText]) => (
                     <li
-                      key={optIndex}
+                      key={key}
                       className={cn(
-                        "text-sm p-3 rounded-md border",
-                        option === q.answer ? 'bg-green-100 dark:bg-green-900/30 border-green-400 dark:border-green-700 text-green-700 dark:text-green-300 font-medium' : '',
-                        option === userAnswer && option !== q.answer ? 'bg-red-100 dark:bg-red-900/30 border-red-400 dark:border-red-700 text-red-700 dark:text-red-300' : '',
-                        option !== q.answer && option !== userAnswer ? 'bg-muted/30 border-border' : ''
+                        "text-sm p-3 rounded-md border flex items-start",
+                        optionText === correctAnswerText ? 'bg-green-100 dark:bg-green-900/30 border-green-400 dark:border-green-700 text-green-700 dark:text-green-300 font-medium' : '',
+                        optionText === userAnswer && !isCorrect ? 'bg-red-100 dark:bg-red-900/30 border-red-400 dark:border-red-700 text-red-700 dark:text-red-300' : '',
+                        optionText !== correctAnswerText && optionText !== userAnswer ? 'bg-muted/30 border-border' : ''
                       )}
                     >
-                      {option}
-                      {option === q.answer && <span className="ml-2 font-semibold">(Correct Answer)</span>}
-                      {option === userAnswer && option !== q.answer && <span className="ml-2 font-semibold">(Your Answer)</span>}
-                       {!wasAttempted && option === q.answer && <span className="ml-2 font-semibold">(Correct Answer)</span>}
+                      <span className="font-semibold mr-2">{key}.</span>
+                      <span className="flex-1">{optionText}</span>
+                      {optionText === correctAnswerText && <span className="ml-2 font-semibold text-xs py-1">(Correct)</span>}
+                      {optionText === userAnswer && !isCorrect && <span className="ml-2 font-semibold text-xs py-1">(Your Answer)</span>}
                     </li>
                   ))}
                 </ul>
                 
                 {!wasAttempted && (
                     <p className="text-sm text-yellow-600 dark:text-yellow-400">You did not attempt this question.</p>
-                )}
-                {wasAttempted && !isCorrect && userAnswer && (
-                    <p className="text-sm text-red-600 dark:text-red-400"><strong>Your Answer:</strong> {userAnswer}</p>
                 )}
                 
                 <div className="mt-3 pt-3 border-t border-border">

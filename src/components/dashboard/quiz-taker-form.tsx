@@ -39,17 +39,17 @@ export function QuizTakerForm({ quiz, quizData, onSubmit, isSubmitting, answers,
       {quizData.map((q, index) => (
         <div key={index} className="p-4 rounded-lg border bg-card shadow-sm">
           <p className="text-lg font-semibold mb-1">Question {index + 1}</p>
-          <p className="text-base mb-4">{q.question}</p>
+          <p className="text-base mb-4">{q.question_text}</p>
           <RadioGroup
             onValueChange={(value) => handleOptionChange(index, value)}
             value={answers[index]}
             className="space-y-2"
           >
-            {q.options.map((option, optIndex) => (
-              <div key={optIndex} className="flex items-center space-x-3 p-3 rounded-md hover:bg-muted/50 transition-colors border border-input has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
-                <RadioGroupItem value={option} id={`q${index}-opt${optIndex}`} />
-                <Label htmlFor={`q${index}-opt${optIndex}`} className="flex-1 cursor-pointer text-sm font-normal">
-                  {option}
+            {Object.entries(q.options).map(([key, optionText]) => (
+              <div key={key} className="flex items-center space-x-3 p-3 rounded-md hover:bg-muted/50 transition-colors border border-input has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+                <RadioGroupItem value={optionText} id={`q${index}-opt${key}`} />
+                <Label htmlFor={`q${index}-opt${key}`} className="flex-1 cursor-pointer text-sm font-normal">
+                  <span className="font-semibold mr-2">{key}.</span>{optionText}
                 </Label>
               </div>
             ))}
@@ -65,5 +65,3 @@ export function QuizTakerForm({ quiz, quizData, onSubmit, isSubmitting, answers,
     </form>
   );
 }
-
-    

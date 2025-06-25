@@ -46,15 +46,23 @@ const GenerateQuizInputSchema = z.object({
 });
 export type GenerateQuizInput = z.infer<typeof GenerateQuizInputSchema>;
 
+const GeneratedQuestionSchema = z.object({
+    question_text: z.string().describe("The full text of the question."),
+    options: z.object({
+        A: z.string(),
+        B: z.string(),
+        C: z.string(),
+        D: z.string(),
+    }).describe("An object containing four possible answers, with keys 'A', 'B', 'C', 'D'."),
+    correct_answer_key: z.enum(['A', 'B', 'C', 'D']).describe("The key ('A', 'B', 'C', or 'D') corresponding to the correct answer in the 'options' object."),
+    explanation: z.string().describe("A brief explanation of why this is the correct answer, referencing the source content."),
+    topic: z.string().describe("The primary topic/keyword this question relates to."),
+    difficulty: z.enum(['standard', 'hard']).describe("The difficulty of the question, either 'standard' or 'hard'."),
+});
+
 const GenerateQuizOutputSchema = z.object({
-  quiz: z.array(
-    z.object({
-      question: z.string().describe('The quiz question.'),
-      options: z.array(z.string()).length(4).describe('Exactly four possible answers to the question.'),
-      answer: z.string().describe('The correct answer to the question. CRITICAL: This MUST be an exact, verbatim, character-for-character copy of one of the strings from the "options" array for THIS question. No extra text, no summaries, no modifications.'),
-      explanation: z.string().describe('A brief explanation for why the answer is correct. This field can elaborate on the concept.'),
-    })
-  ).describe('The generated quiz questions, options, answers, and explanations.'),
+  quiz: z.array(GeneratedQuestionSchema)
+    .describe('An array of generated quiz question objects.'),
 });
 export type GenerateQuizOutput = z.infer<typeof GenerateQuizOutputSchema>;
 
@@ -66,52 +74,72 @@ const prompt = ai.definePrompt({
   name: 'generateQuizFromMultiplePdfsPrompt',
   input: {schema: GenerateQuizInputSchema},
   output: {schema: GenerateQuizOutputSchema},
-  prompt: `**QUIZ GENERATION TASK**
+  prompt: `### ROLE & GOAL ###
+You are an expert AI Quiz Generator. Your mission is to create a high-quality quiz based on the provided raw text content and a strict set of user-defined rules. You must meticulously follow all configuration parameters.
 
-**YOUR ROLE:**
-You are an expert quiz generation assistant. Your primary task is to create a single high-quality, unique quiz based on the content of ALL the PDF documents provided and adhering strictly to the user's Quiz Configuration.
+### STEP 1: ANALYZE THE PROVIDED CONTENT ###
+The user has uploaded raw text content below under \`[User-Uploaded Content]\`. This content is your **single source of truth**. It might be a clean textbook chapter, or it could contain both a knowledge base and some example questions.
 
-**INPUTS:**
-There are {{pdfDocuments.length}} PDF document(s) provided. Each document may contain "Knowledge Base Content" and possibly "Example Quiz Questions" for style reference. Your quiz MUST be based ONLY on the "Knowledge Base Content". Do not copy from any example questions.
+Your first task is to intelligently parse this content.
+1.  **Identify the Knowledge Base:** This is the primary factual information (definitions, explanations, processes, data). All questions and answers MUST be derived directly from this.
+2.  **Identify any Example Questions (if present):** If you find what looks like a pre-existing quiz or list of questions, **DO NOT COPY THEM**. Instead, analyze them to understand the desired *style* (e.g., scenario-based, direct recall), *tone* (formal, informal), and *cognitive complexity*. Your new, unique questions should be "principally similar" to these examples. If no examples are present, infer the style from the knowledge base text itself.
 
-{{#each pdfDocuments}}
---- START OF DOCUMENT: {{{this.name}}} ---
-**CONTENT FROM THIS DOCUMENT (Includes Knowledge Base and potentially Example Questions):**
-{{media url=this.dataUri}}
+### STEP 2: GENERATE QUIZ ACCORDING TO STRICT CONFIGURATION ###
+Now, generate a brand new quiz. Adherence to the following rules, provided in the \`[User-Defined Configuration]\` block, is mandatory.
 
-**INSTRUCTION FOR THIS DOCUMENT ({{{this.name}}}):**
-1.  **Identify Knowledge Base Content:** This is the primary instructional text. This is the SOLE source of truth for quiz generation from this document.
-2.  **Identify Example Quiz Questions (if present):** These are for style reference ONLY. They might appear at the end or be formatted as questions. If no clear example section is found, proceed using only the identified Knowledge Base Content.
---- END OF DOCUMENT: {{{this.name}}} ---
-{{/each}}
+**A. Core Configuration:**
+*   **Total Questions to Generate:** You must generate exactly this number of questions.
 
+**B. Question Style and Format:**
+*   **Selected Styles:** The user wants questions that reflect the following styles: \`{{{preferredQuestionStyles}}}\`.
+*   **Mandatory MCQ Format:** Regardless of the style, **all output questions must be formatted as Multiple Choice Questions (MCQs)**.
+    *   If "Short Descriptions" is selected, create questions like: "Which of the following best describes [concept]?"
+    *   If "Fill in the blanks" is selected, create questions like: "Complete the following sentence: 'The process of photosynthesis uses sunlight to synthesize foods from ___ and water.'" providing the missing word/phrase as the correct option.
+    *   Generate a balanced mix of the selected styles.
 
-**QUIZ CONFIGURATION (Strictly Adhere to these settings for the ENTIRE quiz):**
-*   **Total Questions to Generate:** {{{totalNumberOfQuestions}}}
-*   **Question Distribution:** You MUST strive to distribute the {{{totalNumberOfQuestions}}} questions as evenly as possible among the {{pdfDocuments.length}} document(s).
-*   **Preferred Question Styles:** {{#if preferredQuestionStyles}}{{{preferredQuestionStyles}}}{{else}}Multiple choice questions{{/if}}.
-    *   If "Short Descriptions (as MCQs)" or "Fill in the blanks (as MCQs)" are selected, you MUST adapt these conceptual question types into a well-formed multiple-choice question format. Each MCQ must have one clearly correct answer and three plausible but incorrect distractors.
-*   **Hard Mode:** {{#if hardMode}}Enabled{{else}}Disabled{{/if}}
-    *   If Hard Mode is **Enabled**:
-        *   Approximately 60% of the {{{totalNumberOfQuestions}}} generated should be 'hard.'
-        *   'Hard' questions are defined as tricky but solvable, requiring deeper understanding, synthesis, or distinguishing plausible distractors, based *only* on the "Knowledge Base Content."
-*   **Topics/Keywords to Focus On (Optional):** {{#if topicsToFocus}}{{{topicsToFocus}}}{{else}}None{{/if}}
-    *   If topics are provided and not "None":
-        *   Approximately 60% of the {{{totalNumberOfQuestions}}} should directly relate to these topics/keywords.
-*   **Topics/Keywords to Drop (Optional):** {{#if topicsToDrop}}{{{topicsToDrop}}}{{else}}None{{/if}}
-    *   If topics are provided and not "None":
-        *   Absolutely NO questions should be generated from these topics/keywords. This is a strict exclusion.
+**C. Difficulty and Complexity:**
+*   **Hard Mode:** If this is set to \`true\`, approximately 60% of the questions must be "hard". A "hard" question is tricky but fair and solvable using ONLY the provided content. It should test deeper understanding by requiring:
+    *   Synthesizing information from multiple parts of the text.
+    *   Making logical inferences or deductions.
+    *   Applying a concept to a new, hypothetical scenario.
+*   **Numerical Calculation Rule:** For any question involving math, you MUST design it so that the entire solving process can be done mentally. The numbers used in the question, intermediate steps, and the final answer MUST NOT involve decimals or complex fractions. Use clean, whole numbers.
 
-**CRITICAL INSTRUCTIONS & CONSTRAINTS:**
-1.  **Source Material:** All questions and answers MUST be derived *exclusively* from the provided "Knowledge Base Content" sections of the documents. Do not use external knowledge.
-2.  **Uniqueness:** Generate *new and unique* questions.
-3.  **Numerical Questions:** If any questions involve numericals or calculations, ensure that all necessary math can be performed mentally or with simple arithmetic, without the need for a calculator. Problem-solving steps required by the user should not involve complex decimal calculations. Whole numbers or simple fractions are preferred.
-4.  **Clarity and Accuracy:** Questions should be clear, unambiguous, and grammatically correct. Correct answers must be unequivocally supported by the Knowledge Base Content. Distractors should be plausible but clearly incorrect.
-5.  **Distribution Logic:**
-    *   If both "Hard Mode" and "Topics to Focus On" are active, strive to meet both percentage requirements. For example, if 10 questions are requested, 6 should be hard, and 6 should be on focus topics. This means some hard questions might also be focus topic questions. Prioritize the "Topics to Drop" constraint above all others.
-6.  **Output Format:** Your output MUST be a JSON object that strictly conforms to the provided output schema. It must have a single key "quiz" which is an array of question objects. Each object must contain: "question", "options" (an array of exactly 4 strings), "answer" (which MUST be an exact, verbatim, character-for-character copy of one of the strings from the "options" array for that question), and "explanation".
+**D. Topic Control:**
+*   **Topics/Keywords to Focus On:** If a list is provided, approximately 60% of the total questions MUST be directly related to these specific topics. The remaining 40% should cover other relevant topics from the content (but not from the "dropped" topics).
+*   **Topics/Keywords to Drop:** You MUST NOT generate any questions, answers, or distractors related to these topics. They are to be completely ignored and excluded.
 
-**BEGIN QUIZ GENERATION.**
+### STEP 3: PROVIDE OUTPUT IN SPECIFIED JSON FORMAT ###
+You must provide the output as a single, well-formed JSON object. This object must contain a single key, "quiz", which holds an array of question objects. Each object in the array represents a single quiz question and must have the following exact structure:
+{
+  "quiz": [
+    {
+      "question_text": "The full text of the question.",
+      "options": {
+        "A": "Option A",
+        "B": "Option B",
+        "C": "Correct Option C",
+        "D": "Option D"
+      },
+      "correct_answer_key": "C",
+      "explanation": "A brief explanation of why this is the correct answer, referencing the source content.",
+      "topic": "The primary topic/keyword this question relates to.",
+      "difficulty": "standard" or "hard"
+    }
+  ]
+}
+
+---
+### PROVIDED MATERIALS ###
+
+**[User-Defined Configuration]**
+*   **Total Questions:** {{{totalNumberOfQuestions}}}
+*   **Preferred Question Styles:** {{#if preferredQuestionStyles}}{{{preferredQuestionStyles}}}{{else}}Multiple choice questions{{/if}}
+*   **Hard Mode:** {{#if hardMode}}true{{else}}false{{/if}}
+*   **Topics to Focus On:** {{#if topicsToFocus}}{{{topicsToFocus}}}{{else}}None{{/if}}
+*   **Topics to Drop:** {{#if topicsToDrop}}{{{topicsToDrop}}}{{else}}None{{/if}}
+
+**[User-Uploaded Content]**
+{{#each pdfDocuments}}{{media url=this.dataUri}}\n\n{{/each}}
 `,
     config: {
     safetySettings: [
@@ -143,22 +171,13 @@ const generateQuizFromPdfFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    if (!output) {
+    if (!output || !output.quiz || output.quiz.length === 0) {
       throw new Error("AI failed to generate quiz data in the expected format.");
     }
-    // Validate that each question has 4 options and the answer is one of them
-    output.quiz.forEach(q => {
-      if (q.options.length !== 4) {
-        console.error(`Validation Error: Question "${q.question}" does not have 4 options. Options: [${q.options.join(', ')}]`);
-        throw new Error(`Question "${q.question}" does not have 4 options.`);
-      }
-      if (!q.options.includes(q.answer)) {
-        console.error(`Validation Error: Answer "${q.answer}" not found in options: [${q.options.join(', ')}] for question: "${q.question}"`);
-        throw new Error(`Answer for question "${q.question}" is not one of the provided options. The AI returned "${q.answer}" as the answer, but the options were [${q.options.join(', ')}].`);
-      }
-    });
+    // Zod schema validation is now more comprehensive.
+    // It ensures 'options' is an object with keys A,B,C,D and
+    // 'correct_answer_key' is one of 'A', 'B', 'C', 'D'.
+    // No further manual validation is needed here.
     return output;
   }
 );
-
-
