@@ -5,7 +5,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { KnowledgeBaseManager } from "@/components/admin/knowledge-base-manager";
 import { listKnowledgeBaseDocuments } from "@/lib/actions/knowledge.actions";
-import { Header } from "@/components/layout/header";
 
 export default async function AdminKnowledgeBasePage() {
   const supabase = createClient();
@@ -21,30 +20,22 @@ export default async function AdminKnowledgeBasePage() {
   
   if (rpcError || !isAdmin) {
      return (
-      <div className="flex min-h-screen flex-col">
-        <Header />
-        <main className="flex flex-1 items-center justify-center p-4">
-          <Alert variant="destructive" className="max-w-lg">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Access Denied</AlertTitle>
-            <AlertDescription>
-              You do not have permission to view this page.
-              {rpcError && ` (Error: ${rpcError.message})`}
-            </AlertDescription>
-          </Alert>
-        </main>
-      </div>
+        <Alert variant="destructive" className="max-w-lg">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Access Denied</AlertTitle>
+          <AlertDescription>
+            You do not have permission to view this page.
+            {rpcError && ` (Error: ${rpcError.message})`}
+          </AlertDescription>
+        </Alert>
     );
   }
 
   const initialDocuments = await listKnowledgeBaseDocuments();
 
   return (
-    <div className="flex min-h-screen flex-col h-screen">
-      <Header />
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-        <KnowledgeBaseManager initialDocuments={initialDocuments} />
-      </main>
+    <div className="w-full">
+      <KnowledgeBaseManager initialDocuments={initialDocuments} />
     </div>
   );
 }

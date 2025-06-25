@@ -15,16 +15,19 @@ export interface Database {
           id: string
           role: Database["public"]["Enums"]["user_role"]
           llm_requests_count: number
+          llm_request_limit: number
         }
         Insert: {
           id: string
           role?: Database["public"]["Enums"]["user_role"]
           llm_requests_count?: number
+          llm_request_limit?: number
         }
         Update: {
           id?: string
           role?: Database["public"]["Enums"]["user_role"]
           llm_requests_count?: number
+          llm_request_limit?: number
         }
         Relationships: [
           {
