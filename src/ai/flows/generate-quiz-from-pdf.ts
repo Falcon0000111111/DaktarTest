@@ -60,11 +60,15 @@ const GeneratedQuestionSchema = z.object({
     difficulty: z.enum(['standard', 'hard']).describe("The difficulty of the question, either 'standard' or 'hard'."),
 });
 
+// This is the schema for the object we use throughout the app.
 const GenerateQuizOutputSchema = z.object({
   quiz: z.array(GeneratedQuestionSchema)
     .describe('An array of generated quiz question objects.'),
 });
 export type GenerateQuizOutput = z.infer<typeof GenerateQuizOutputSchema>;
+
+// This is the schema for the raw output from the AI, which is just an array.
+const AiOutputSchema = z.array(GeneratedQuestionSchema);
 
 export async function generateQuizFromPdfs(input: GenerateQuizInput): Promise<GenerateQuizOutput> {
   return generateQuizFromPdfFlow(input);
@@ -73,19 +77,19 @@ export async function generateQuizFromPdfs(input: GenerateQuizInput): Promise<Ge
 const prompt = ai.definePrompt({
   name: 'generateQuizFromMultiplePdfsPrompt',
   input: {schema: GenerateQuizInputSchema},
-  output: {schema: GenerateQuizOutputSchema},
+  output: {schema: AiOutputSchema},
   prompt: `### ROLE & GOAL ###
-You are an expert AI Quiz Generator. Your mission is to create a high-quality quiz based on the provided raw text content and a strict set of user-defined rules. You must meticulously follow all configuration parameters.
+You are a specialized AI Quiz Generator. Your primary mission is to create a high-quality quiz by directly analyzing the content of the provided PDF file(s). You will be given one or more PDF files and a strict set of user-defined rules. You must meticulously follow all configuration parameters.
 
-### STEP 1: ANALYZE THE PROVIDED CONTENT ###
-The user has uploaded raw text content below under \`[User-Uploaded Content]\`. This content is your **single source of truth**. It might be a clean textbook chapter, or it could contain both a knowledge base and some example questions.
+### STEP 1: PROCESS THE PROVIDED PDF FILE(S) ###
+Your first task is to **open, parse, and thoroughly read the content of the user-uploaded PDF file(s) attached to this request.** This file is your single source of truth.
 
-Your first task is to intelligently parse this content.
-1.  **Identify the Knowledge Base:** This is the primary factual information (definitions, explanations, processes, data). All questions and answers MUST be derived directly from this.
-2.  **Identify any Example Questions (if present):** If you find what looks like a pre-existing quiz or list of questions, **DO NOT COPY THEM**. Instead, analyze them to understand the desired *style* (e.g., scenario-based, direct recall), *tone* (formal, informal), and *cognitive complexity*. Your new, unique questions should be "principally similar" to these examples. If no examples are present, infer the style from the knowledge base text itself.
+As you analyze the file, perform the following two sub-tasks:
+1.  **Identify the Knowledge Base:** This is the core factual information (definitions, explanations, processes, data) within the PDF. All questions and answers you generate MUST be derived directly from this knowledge base.
+2.  **Identify any Example Questions (if present):** The PDF might contain a pre-existing quiz or list of questions. **DO NOT COPY THESE QUESTIONS.** Instead, analyze them to understand the desired *style* (e.g., scenario-based, direct recall), *tone*, and *cognitive complexity*. Your new, unique questions should be "principally similar" to these examples. If no examples are present, infer an appropriate style from the main body of the PDF text.
 
 ### STEP 2: GENERATE QUIZ ACCORDING TO STRICT CONFIGURATION ###
-Now, generate a brand new quiz. Adherence to the following rules, provided in the \`[User-Defined Configuration]\` block, is mandatory.
+Now, generate a brand new quiz based on your analysis of the PDF. Adherence to the following rules, provided in the \`[User-Defined Configuration]\` block, is mandatory.
 
 **A. Core Configuration:**
 *   **Total Questions to Generate:** You must generate exactly this number of questions.
@@ -93,53 +97,49 @@ Now, generate a brand new quiz. Adherence to the following rules, provided in th
 **B. Question Style and Format:**
 *   **Selected Styles:** The user wants questions that reflect the following styles: \`{{{preferredQuestionStyles}}}\`.
 *   **Mandatory MCQ Format:** Regardless of the style, **all output questions must be formatted as Multiple Choice Questions (MCQs)**.
-    *   If "Short Descriptions" is selected, create questions like: "Which of the following best describes [concept]?"
-    *   If "Fill in the blanks" is selected, create questions like: "Complete the following sentence: 'The process of photosynthesis uses sunlight to synthesize foods from ___ and water.'" providing the missing word/phrase as the correct option.
+    *   If "Short Descriptions" is selected, create questions like: "Which of the following best describes the concept of X as explained in the document?"
+    *   If "Fill in the blanks" is selected, create questions like: "According to the PDF, complete the sentence: 'The process of Y uses sunlight to synthesize foods from ___ and water.'"
     *   Generate a balanced mix of the selected styles.
 
 **C. Difficulty and Complexity:**
-*   **Hard Mode:** If this is set to \`true\`, approximately 60% of the questions must be "hard". A "hard" question is tricky but fair and solvable using ONLY the provided content. It should test deeper understanding by requiring:
-    *   Synthesizing information from multiple parts of the text.
-    *   Making logical inferences or deductions.
-    *   Applying a concept to a new, hypothetical scenario.
-*   **Numerical Calculation Rule:** For any question involving math, you MUST design it so that the entire solving process can be done mentally. The numbers used in the question, intermediate steps, and the final answer MUST NOT involve decimals or complex fractions. Use clean, whole numbers.
+*   **Hard Mode:** If this is set to \`true\`, approximately 60% of the questions must be "hard". A "hard" question is tricky but fair and solvable using ONLY the provided PDF content. It should test deeper understanding by requiring synthesis of information from different sections of the PDF, logical inference, or application of concepts to new scenarios.
 
 **D. Topic Control:**
-*   **Topics/Keywords to Focus On:** If a list is provided, approximately 60% of the total questions MUST be directly related to these specific topics. The remaining 40% should cover other relevant topics from the content (but not from the "dropped" topics).
-*   **Topics/Keywords to Drop:** You MUST NOT generate any questions, answers, or distractors related to these topics. They are to be completely ignored and excluded.
+*   **Topics/Keywords to Focus On:** If a list is provided, approximately 60% of the total questions MUST be directly related to these specific topics found within the PDF.
+*   **Topics/Keywords to Drop:** You MUST NOT generate any questions, answers, or distractors related to these topics. Completely ignore any sections of the PDF discussing these topics.
+
+**E. Numerical Calculation Rule:**
+*   For any question involving numbers or calculations derived from the PDF, design it so that the entire solving process can be done mentally. Use clean, whole numbers. Avoid decimals or complex fractions.
 
 ### STEP 3: PROVIDE OUTPUT IN SPECIFIED JSON FORMAT ###
-You must provide the output as a single, well-formed JSON object. This object must contain a single key, "quiz", which holds an array of question objects. Each object in the array represents a single quiz question and must have the following exact structure:
-{
-  "quiz": [
-    {
-      "question_text": "The full text of the question.",
-      "options": {
-        "A": "Option A",
-        "B": "Option B",
-        "C": "Correct Option C",
-        "D": "Option D"
-      },
-      "correct_answer_key": "C",
-      "explanation": "A brief explanation of why this is the correct answer, referencing the source content.",
-      "topic": "The primary topic/keyword this question relates to.",
-      "difficulty": "standard" or "hard"
-    }
-  ]
-}
+Provide the output as a single, well-formed JSON array. Each object in the array represents a single quiz question and must have the following exact structure:
+[
+  {
+    "question_text": "The full text of the question.",
+    "options": { "A": "Option A", "B": "Option B", "C": "Option C", "D": "Option D" },
+    "correct_answer_key": "The key of the correct option (e.g., 'C')",
+    "explanation": "A brief explanation of why this is the correct answer, referencing information found in the PDF.",
+    "topic": "The primary topic/keyword from the PDF this question relates to.",
+    "difficulty": "standard" or "hard"
+  }
+]
 
 ---
-### PROVIDED MATERIALS ###
+### PROVIDED MATERIALS FOR THIS TASK ###
 
-**[User-Defined Configuration]**
-*   **Total Questions:** {{{totalNumberOfQuestions}}}
-*   **Preferred Question Styles:** {{#if preferredQuestionStyles}}{{{preferredQuestionStyles}}}{{else}}Multiple choice questions{{/if}}
-*   **Hard Mode:** {{#if hardMode}}true{{else}}false{{/if}}
-*   **Topics to Focus On:** {{#if topicsToFocus}}{{{topicsToFocus}}}{{else}}None{{/if}}
-*   **Topics to Drop:** {{#if topicsToDrop}}{{{topicsToDrop}}}{{else}}None{{/if}}
-
-**[User-Uploaded Content]**
+**1. Attached File(s):** The primary source material is contained in the PDF file(s) sent with this request.
 {{#each pdfDocuments}}{{media url=this.dataUri}}\n\n{{/each}}
+
+**2. User-Defined Configuration:**
+\`\`\`json
+{
+  "total_questions": {{{totalNumberOfQuestions}}},
+  "question_styles": "{{#if preferredQuestionStyles}}{{{preferredQuestionStyles}}}{{else}}Multiple choice questions{{/if}}",
+  "hard_mode": {{#if hardMode}}true{{else}}false{{/if}},
+  "focus_on_topics": "{{#if topicsToFocus}}{{{topicsToFocus}}}{{else}}None{{/if}}",
+  "drop_topics": "{{#if topicsToDrop}}{{{topicsToDrop}}}{{else}}None{{/if}}"
+}
+\`\`\`
 `,
     config: {
     safetySettings: [
@@ -167,17 +167,18 @@ const generateQuizFromPdfFlow = ai.defineFlow(
   {
     name: 'generateQuizFromMultiplePdfsFlow',
     inputSchema: GenerateQuizInputSchema,
-    outputSchema: GenerateQuizOutputSchema,
+    outputSchema: GenerateQuizOutputSchema, // The flow's output is the app's data structure
   },
   async input => {
-    const {output} = await prompt(input);
-    if (!output || !output.quiz || output.quiz.length === 0) {
+    // The prompt returns a raw array, validated against AiOutputSchema.
+    const {output: aiOutputArray} = await prompt(input);
+    
+    if (!aiOutputArray || !Array.isArray(aiOutputArray) || aiOutputArray.length === 0) {
       throw new Error("AI failed to generate quiz data in the expected format.");
     }
-    // Zod schema validation is now more comprehensive.
-    // It ensures 'options' is an object with keys A,B,C,D and
-    // 'correct_answer_key' is one of 'A', 'B', 'C', 'D'.
-    // No further manual validation is needed here.
-    return output;
+    
+    // We wrap the AI's raw array output in the object structure our app expects.
+    // This now matches the flow's defined outputSchema.
+    return { quiz: aiOutputArray };
   }
 );
