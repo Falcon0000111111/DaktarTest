@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { Quiz, GeneratedQuizQuestion, UserAnswers } from "@/types/supabase";
@@ -7,9 +6,7 @@ import { CheckCircle, XCircle, HelpCircle, InfoIcon, ChevronDown, ChevronUp, Awa
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import Image from 'next/image';
 import type { User } from "@supabase/supabase-js";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface QuizResultsDisplayProps {
   quiz: Quiz;
@@ -48,55 +45,32 @@ export function QuizResultsDisplay({ quiz, quizData, userAnswers, user, onRetake
   };
 
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "Quiz Taker";
-  const userEmail = user?.email || "User";
-  const fallbackName = userEmail.substring(0, 2).toUpperCase();
 
   const congratulatoryText = `Amazing work, ${userName}! You've mastered this topic. Keep up the great momentum!`;
   const encouragingText = `Good effort, ${userName}! This was a tough one. Review the explanations below and give it another shot.`;
 
   return (
     <div className="space-y-8">
-       <Card className="overflow-hidden shadow-lg border">
-        <CardContent className="p-0 flex flex-col md:flex-row items-stretch">
-            <div className={cn(
-                "p-6 flex-shrink-0 flex items-center justify-center",
-                passed ? "bg-green-50 dark:bg-green-900/20" : "bg-red-50 dark:bg-red-900/20"
-            )}>
-              <Image 
-                  src={passed ? "https://placehold.co/120x120.png" : "https://placehold.co/120x120.png"}
-                  alt={passed ? "Celebration" : "Encouragement"}
-                  width={120} 
-                  height={120} 
-                  className="rounded-full shadow-md object-cover"
-                  data-ai-hint={passed ? "celebration trophy" : "sad bear study"}
-              />
+       <Card className="shadow-lg border">
+        <CardContent className="p-6">
+            <div>
+                <h3 className="text-xl font-semibold mb-1">Quiz Results: {quiz.pdf_name || "Untitled Quiz"}</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                    You scored {score} out of {quizData.length} ({percentage}%)
+                </p>
             </div>
-            <div className="p-6 flex-1 flex flex-col justify-center">
-                <div className="flex justify-between items-start gap-4">
-                    <div>
-                        <h3 className="text-xl font-semibold mb-1">Quiz Results: {quiz.pdf_name || "Untitled Quiz"}</h3>
-                        <p className="text-sm text-muted-foreground mb-3">
-                            You scored {score} out of {quizData.length} ({percentage}%)
-                        </p>
-                    </div>
-                    <Avatar className="h-12 w-12 flex-shrink-0 border-2 border-white dark:border-background shadow-sm">
-                        <AvatarImage src={user?.user_metadata?.avatar_url} alt={userEmail} />
-                        <AvatarFallback>{fallbackName}</AvatarFallback>
-                    </Avatar>
-                </div>
-              
-              {passed !== null && (
-                <div className={cn(
-                  "text-lg font-semibold",
-                  passed ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                )}>
-                  {passed ? <Award className="mr-2 h-5 w-5 inline-block" /> : <AlertTriangleIcon className="mr-2 h-5 w-5 inline-block" />}
-                  Status: {passed ? "Passed" : "Failed"}
-                  {passingScore !== null && <span className="text-sm font-normal ml-1 text-muted-foreground">(Passing: {passingScore}%)</span>}
-                </div>
-              )}
-               <p className="text-muted-foreground mt-2 text-sm">{passed ? congratulatoryText : encouragingText}</p>
-            </div>
+            
+            {passed !== null && (
+              <div className={cn(
+                "text-lg font-semibold mt-4",
+                passed ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+              )}>
+                {passed ? <Award className="mr-2 h-5 w-5 inline-block" /> : <AlertTriangleIcon className="mr-2 h-5 w-5 inline-block" />}
+                Status: {passed ? "Passed" : "Failed"}
+                {passingScore !== null && <span className="text-sm font-normal ml-1 text-muted-foreground">(Passing: {passingScore}%)</span>}
+              </div>
+            )}
+            <p className="text-muted-foreground mt-2 text-sm">{passed ? congratulatoryText : encouragingText}</p>
         </CardContent>
       </Card>
 
