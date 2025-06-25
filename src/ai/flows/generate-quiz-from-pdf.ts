@@ -97,9 +97,10 @@ Now, generate a brand new quiz based on your analysis of the PDF. Adherence to t
 **B. Question Style and Format:**
 *   **Selected Styles:** The user wants questions that reflect the following styles: \`{{{preferredQuestionStyles}}}\`.
 *   **Mandatory MCQ Format:** Regardless of the style, **all output questions must be formatted as Multiple Choice Questions (MCQs)**.
-    *   If "Short Descriptions" is selected, create questions like: "Which of the following best describes the concept of X as explained in the document?"
-    *   If "Fill in the blanks" is selected, create questions like: "According to the PDF, complete the sentence: 'The process of Y uses sunlight to synthesize foods from ___ and water.'"
+    *   If "Short Descriptions" is selected, create questions like: "Which of the following best describes the concept of X?"
+    *   If "Fill in the blanks" is selected, create questions like: "The process of Y uses sunlight to synthesize foods from ___ and water."
     *   Generate a balanced mix of the selected styles.
+*   **Natural Phrasing:** Frame questions naturally. You MUST avoid phrases like "According to the PDF," "As explained in the document," or any other direct references to the source material in the question text. The user should feel like they are taking a standard test, not one that is constantly reminding them of the source document.
 
 **C. Difficulty and Complexity:**
 *   **Hard Mode:** If this is set to \`true\`, approximately 60% of the questions must be "hard". A "hard" question is tricky but fair and solvable using ONLY the provided PDF content. It should test deeper understanding by requiring synthesis of information from different sections of the PDF, logical inference, or application of concepts to new scenarios.

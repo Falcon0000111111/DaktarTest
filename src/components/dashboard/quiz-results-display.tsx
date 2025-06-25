@@ -67,7 +67,7 @@ export function QuizResultsDisplay({ quiz, quizData, userAnswers, user, onRetake
                   alt={passed ? "Celebration" : "Encouragement"}
                   width={120} 
                   height={120} 
-                  className="rounded-lg shadow-md"
+                  className="rounded-full shadow-md object-cover"
                   data-ai-hint={passed ? "celebration trophy" : "sad bear study"}
               />
             </div>
