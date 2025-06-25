@@ -14,23 +14,32 @@ interface QuizTimerProps {
 export function QuizTimer({ durationMinutes, onTimeUp, isSubmitting }: QuizTimerProps) {
   const totalDurationSeconds = durationMinutes * 60;
   const [timeLeft, setTimeLeft] = useState(totalDurationSeconds);
+  const onTimeUpRef = useRef(onTimeUp);
 
   useEffect(() => {
-    if (isSubmitting) return;
+    onTimeUpRef.current = onTimeUp;
+  }, [onTimeUp]);
+
+  // Effect for countdown logic
+  useEffect(() => {
+    if (isSubmitting) {
+      return;
+    }
+
+    if (timeLeft <= 0) {
+      // Use the ref to call the latest version of the function
+      // This prevents the state update during render error.
+      onTimeUpRef.current();
+      return;
+    }
 
     const timerId = setInterval(() => {
-      setTimeLeft(prevTime => {
-        if (prevTime <= 1) {
-          clearInterval(timerId);
-          onTimeUp();
-          return 0;
-        }
-        return prevTime - 1;
-      });
+      setTimeLeft(prevTime => prevTime - 1);
     }, 1000);
 
     return () => clearInterval(timerId);
-  }, [isSubmitting, onTimeUp]);
+  }, [isSubmitting, timeLeft]);
+
 
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -86,12 +95,12 @@ export function QuizTimer({ durationMinutes, onTimeUp, isSubmitting }: QuizTimer
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
   
-  const isLowTime = timeLeft <= 10;
-  const shouldBeVisible = (timeLeft > totalDurationSeconds - 10) || (timeLeft <= 59);
+  const isLowTime = timeLeft <= 10 && timeLeft > 0;
 
-  if (!shouldBeVisible) {
-    return null;
-  }
+  // Show for first 10s, then hide, then show for last 59s
+  const isVisible = (totalDurationSeconds - timeLeft < 10) || (timeLeft < 60);
+  if (!isVisible && !isSubmitting) return null;
+
 
   return (
     <div
@@ -113,7 +122,7 @@ export function QuizTimer({ durationMinutes, onTimeUp, isSubmitting }: QuizTimer
           "flex flex-col items-center gap-1 bg-card/70 backdrop-blur-sm p-4 rounded-full border-2 shadow-lg transition-colors",
           isLowTime 
             ? "border-destructive/80 text-destructive animate-pulse"
-            : "border-primary/50 text-primary"
+            : "border-green-500/50 text-green-500"
         )}
       >
         <Timer className="h-6 w-6" />

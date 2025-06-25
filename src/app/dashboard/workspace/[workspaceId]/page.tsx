@@ -62,6 +62,8 @@ import { useAdminStatus } from "@/hooks/use-admin-status";
 import { Header } from "@/components/layout/header";
 import { QuizProgressBar } from "@/components/dashboard/quiz-progress-bar";
 import { QuizTimer } from "@/components/dashboard/quiz-timer";
+import type { User } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
 
 const CustomSidebarTrigger = () => {
   const { toggleSidebar, open, state } = useSidebar();
@@ -429,6 +431,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
   
   const [sourceToRename, setSourceToRename] = useState<string | null>(null);
   const [isRenameSourceDialogOpen, setIsRenameSourceDialogOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
 
 
   const refreshAllData = useCallback(async () => {
@@ -460,6 +463,14 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     setCanShowAnswers(false);
     setIsQuizFromHistory(false);
     setLiveAnswers({});
+
+    const fetchUserData = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    fetchUserData();
+
   }, [initialWorkspace, initialQuizzes, initialKnowledgeDocuments]);
 
 
@@ -580,7 +591,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         const quizData = activeQuizDBEntry.generated_quiz_data as StoredQuizData;
         if (quizData && quizData.quiz) {
             quizData.quiz.forEach((q, index) => {
-                if (answers[index] === q.answer) {
+                if (answers[index] === q.options[q.correct_answer_key]) {
                 score++;
                 }
             });
@@ -735,6 +746,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                 quiz={activeQuizDBEntry}
                 quizData={activeQuizDisplayData.quiz}
                 userAnswers={userAnswers}
+                user={user}
                 onRetake={() => {
                   setUserAnswers(null);
                   setLiveAnswers({});
