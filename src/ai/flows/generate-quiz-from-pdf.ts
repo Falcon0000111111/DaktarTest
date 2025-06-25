@@ -76,13 +76,15 @@ There are {{pdfDocuments.length}} PDF document(s) provided. Each document may co
 
 {{#each pdfDocuments}}
 --- START OF DOCUMENT: {{{this.name}}} ---
-**Knowledge Base Content (This is the SOLE source of truth for this document):**
+**CONTENT FROM THIS DOCUMENT (Includes Knowledge Base and potentially Example Questions):**
 {{media url=this.dataUri}}
 
-**Example Quiz Questions (For style reference ONLY for this document):**
-No example questions section found in the uploaded file.
+**INSTRUCTION FOR THIS DOCUMENT ({{{this.name}}}):**
+1.  **Identify Knowledge Base Content:** This is the primary instructional text. This is the SOLE source of truth for quiz generation from this document.
+2.  **Identify Example Quiz Questions (if present):** These are for style reference ONLY. They might appear at the end or be formatted as questions. If no clear example section is found, proceed using only the identified Knowledge Base Content.
 --- END OF DOCUMENT: {{{this.name}}} ---
 {{/each}}
+
 
 **QUIZ CONFIGURATION (Strictly Adhere to these settings for the ENTIRE quiz):**
 *   **Total Questions to Generate:** {{{totalNumberOfQuestions}}}
