@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -93,7 +92,7 @@ export default function SignupPage() {
               <Input
                 id="full-name"
                 type="text"
-                placeholder="e.g., John Doe"
+                placeholder="e.g., Mahira Khan"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
