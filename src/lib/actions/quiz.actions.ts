@@ -3,7 +3,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { generateQuizFromPdfs, type GenerateQuizInput, type GenerateQuizOutput } from "@/ai/flows/generate-quiz-from-pdf";
-import type { Quiz, NewQuiz } from "@/types/supabase";
+import type { Quiz, NewQuiz, StoredQuizData } from "@/types/supabase";
 import { revalidatePath } from "next/cache";
 import { getKnowledgeBaseFileAsDataUri } from "./knowledge.actions";
 
@@ -134,10 +134,15 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
 
     const generatedData: GenerateQuizOutput = await generateQuizFromPdfs(aiInput);
 
+    const quizDataToStore: StoredQuizData = {
+      ...generatedData,
+      source_document_paths: knowledgeFileStoragePaths,
+    };
+
     const { data: updatedQuiz, error: updateError } = await supabase
       .from("quizzes")
       .update({
-        generated_quiz_data: generatedData as any,
+        generated_quiz_data: quizDataToStore as any,
         status: "completed",
         error_message: null,
       })
@@ -237,7 +242,7 @@ export async function getQuizzesForWorkspace(workspaceId: string): Promise<Quiz[
 
   const { data, error } = await supabase
     .from("quizzes")
-    .select("id, workspace_id, user_id, pdf_name, num_questions, status, error_message, created_at, updated_at, passing_score_percentage, last_attempt_score_percentage, last_attempt_passed, duration_minutes")
+    .select("id, workspace_id, user_id, pdf_name, num_questions, status, error_message, created_at, updated_at, passing_score_percentage, last_attempt_score_percentage, last_attempt_passed, duration_minutes, generated_quiz_data")
     .eq("workspace_id", workspaceId)
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });

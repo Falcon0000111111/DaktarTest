@@ -7,10 +7,10 @@ import { useEffect, useState, type ReactNode, useRef, useCallback, memo } from "
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
-  Loader2, AlertCircle, FileText, Wand2, ListChecks, BookOpen,
+  Loader2, AlertCircle, FileText, Wand2, ListChecks, BookOpenCheck,
   RefreshCw, Inbox, FolderOpen, PlusCircle, LayoutDashboard,
-  Cpu, PanelLeftClose, PanelRightOpen, CheckCircle, MoreVertical, Trash2, Edit3,
-  Award, AlertTriangleIcon, AlertTriangle
+  PanelLeftClose, PanelRightOpen, CheckCircle, MoreVertical, Trash2, Edit3,
+  Award, AlertTriangleIcon, AlertTriangle, Files
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UploadQuizDialog } from "@/components/dashboard/upload-quiz-dialog";
@@ -315,7 +315,7 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
         )}
         style={{ height: 'var(--header-height)' }}
       >
-        <Cpu className={cn(
+        <BookOpenCheck className={cn(
           "transition-all duration-200 text-sidebar-foreground",
             sidebarState === 'expanded' ? "h-6 w-6" : "hidden"
         )} />
@@ -333,7 +333,7 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
                   )}
                 >
                     <div className={cn("flex items-center w-full", sidebarState === 'collapsed' && "justify-center")}>
-                        <BookOpen className={cn("text-primary/80", sidebarState === 'collapsed' ? "h-5 w-5" : "mr-2 h-5 w-5")} />
+                        <Files className={cn("text-primary/80", sidebarState === 'collapsed' ? "h-5 w-5" : "mr-2 h-5 w-5")} />
                         {sidebarState === 'expanded' && <span className="ml-2">Knowledge Base</span>}
                     </div>
                 </AccordionTrigger>
@@ -779,10 +779,37 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     (viewMode === 'quiz_review' && activeQuizDBEntry && (activeQuizDBEntry.status === 'completed' || activeQuizDBEntry.status === 'failed')) ||
     (viewMode === 'quiz_results' && activeQuizDBEntry);
 
-  const usedWorkspaceSourceNames = Array.from(new Set(allQuizzesForWorkspace
-      .map(q => q.pdf_name)
-      .filter((name): name is string => !!name)
-  )).map(name => ({ name }));
+  const usedSourcePaths = new Set<string>();
+  const usedLegacySourceNames = new Set<string>();
+
+  allQuizzesForWorkspace.forEach(quiz => {
+    let hasNewFormat = false;
+    if (quiz.generated_quiz_data && typeof quiz.generated_quiz_data === 'object' && 'quiz' in quiz.generated_quiz_data) {
+        const data = quiz.generated_quiz_data as StoredQuizData;
+        // Check for the new format
+        if (Array.isArray(data.source_document_paths)) {
+            data.source_document_paths.forEach(path => usedSourcePaths.add(path));
+            hasNewFormat = true;
+        }
+    }
+    // Fallback for old format
+    if (!hasNewFormat && quiz.pdf_name) {
+        usedLegacySourceNames.add(quiz.pdf_name);
+    }
+  });
+
+  // Convert paths to names using the global document list
+  const sourcesFromPaths = allKnowledgeDocuments
+    .filter(doc => usedSourcePaths.has(doc.storage_path))
+    .map(doc => ({ name: doc.file_name }));
+  
+  // Convert legacy names directly
+  const sourcesFromLegacyNames = Array.from(usedLegacySourceNames).map(name => ({ name }));
+
+  // Combine and create a unique list by name
+  const combinedSources = [...sourcesFromPaths, ...sourcesFromLegacyNames];
+  const usedWorkspaceSourceNames = Array.from(new Map(combinedSources.map(item => [item.name, item])).values())
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div className="flex h-screen bg-background">
@@ -822,7 +849,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                       </Button>
                   )}
                   <Button onClick={handleTakeQuiz} disabled={isLoadingActiveQuiz}>
-                          <BookOpen className="mr-2 h-4 w-4" /> 
+                          <BookOpenCheck className="mr-2 h-4 w-4" /> 
                           {isQuizFromHistory ? "Retake Quiz" : "Take Quiz"}
                   </Button>
                   </>
@@ -991,7 +1018,3 @@ export default function WorkspacePageWrapper() {
     </SidebarProvider>
   );
 }
-
-    
-
-    

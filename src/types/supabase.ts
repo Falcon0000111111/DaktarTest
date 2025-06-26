@@ -225,6 +225,7 @@ export type GeneratedQuizQuestion = {
 
 export type StoredQuizData = {
   quiz: GeneratedQuizQuestion[];
+  source_document_paths?: string[];
 };
 
 export type UserAnswers = Record<number, string>;
