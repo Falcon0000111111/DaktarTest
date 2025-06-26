@@ -22,14 +22,15 @@ export async function listAllUsers(): Promise<Profile[]> {
   
   const { data, error } = await supabase
     .from("profiles")
-    .select(`*`);
+    .select(`id, role, llm_requests_count, llm_request_limit`);
 
   if (error) {
     console.error("Error listing users:", error);
     throw new Error(error.message);
   }
 
-  return data;
+  // Manually cast to Profile[] as select with specific columns is not fully typed
+  return data as Profile[];
 }
 
 export async function updateUserRequestLimit(userId: string, newLimit: number): Promise<Profile> {
