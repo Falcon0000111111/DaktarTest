@@ -1,17 +1,17 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import type { Database } from '@/types/supabase';
 
+import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
+import { type CookieOptions, createServerClient } from '@supabase/ssr'
+import type { Database } from '@/types/supabase'
 
-export async function GET(request: NextRequest) {
-  const requestUrl = new URL(request.url);
-  const code = requestUrl.searchParams.get('code');
-  const origin = requestUrl.origin;
+export async function GET(request: Request) {
+  const { searchParams, origin } = new URL(request.url)
+  const code = searchParams.get('code')
+  // if "next" is in param, use it as the redirect URL
+  const next = searchParams.get('next') ?? '/'
 
   if (code) {
-    const cookieStore = cookies();
+    const cookieStore = cookies()
     const supabase = createServerClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -28,14 +28,13 @@ export async function GET(request: NextRequest) {
           },
         },
       }
-    );
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    )
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      return NextResponse.redirect(new URL('/dashboard', requestUrl));
+      return NextResponse.redirect(`${origin}/dashboard`)
     }
-    console.error('Error exchanging code for session:', error);
   }
 
-  // URL to redirect to if something goes wrong
-  return NextResponse.redirect(new URL('/auth/login?error=auth_callback_failed', requestUrl));
+  // return the user to an error page with instructions
+  return NextResponse.redirect(`${origin}/auth/login?error=auth_callback_failed`)
 }

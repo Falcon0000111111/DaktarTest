@@ -1,13 +1,13 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
 
-export async function middleware(req: NextRequest) {
+import { NextResponse, type NextRequest } from 'next/server'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+
+export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
-      headers: req.headers,
+      headers: request.headers,
     },
-  });
+  })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,64 +15,72 @@ export async function middleware(req: NextRequest) {
     {
       cookies: {
         get(name: string) {
-          return req.cookies.get(name)?.value;
+          return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          // If the cookie is set, update the request cookies as well. This is crucial
-          // for Server Components deciding whether to render page content or redirects.
-          req.cookies.set({ name, value, ...options });
+          request.cookies.set({
+            name,
+            value,
+            ...options,
+          })
           response = NextResponse.next({
             request: {
-              headers: req.headers,
+              headers: request.headers,
             },
-          });
-          response.cookies.set({ name, value, ...options });
+          })
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          })
         },
         remove(name: string, options: CookieOptions) {
-          // If the cookie is removed, update the request cookies as well. This is crucial
-          // for Server Components deciding whether to render page content or redirects.
-          req.cookies.set({ name, value: '', ...options });
+          request.cookies.set({
+            name,
+            value: '',
+            ...options,
+          })
           response = NextResponse.next({
             request: {
-              headers: req.headers,
+              headers: request.headers,
             },
-          });
-          response.cookies.set({ name, value: '', ...options });
+          })
+          response.cookies.set({
+            name,
+            value: '',
+            ...options,
+          })
         },
       },
     }
-  );
+  )
 
-  // Refresh session if expired - important to do before accessing session
-  const { data: { session: refreshedSession } } = await supabase.auth.getSession();
+  const { data: { session } } = await supabase.auth.getSession()
 
-  const { pathname } = req.nextUrl;
+  const { pathname } = request.nextUrl
 
-  // Auth routes
   if (pathname.startsWith('/auth/login') || pathname.startsWith('/auth/signup')) {
-    if (refreshedSession) {
-      return NextResponse.redirect(new URL('/dashboard', req.url));
+    if (session) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
     }
-    return response;
+    return response
   }
 
-  // Protected routes
   const protectedPaths = ['/dashboard', '/admin'];
   if (protectedPaths.some(p => pathname.startsWith(p))) {
-    if (!refreshedSession) {
-      return NextResponse.redirect(new URL('/auth/login', req.url));
+    if (!session) {
+      return NextResponse.redirect(new URL('/auth/login', request.url))
     }
   }
   
-  // Root page redirect
   if (pathname === '/') {
-    if (refreshedSession) {
-      return NextResponse.redirect(new URL('/dashboard', req.url));
+    if (session) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
     }
-    return NextResponse.redirect(new URL('/auth/login', req.url));
+    return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
-  return response;
+  return response
 }
 
 export const config = {
@@ -83,8 +91,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - auth/callback (Supabase auth callback)
-     * - api/ (API routes if any)
+     * Feel free to add more exclusion paths here
      */
-    '/((?!_next/static|_next/image|favicon.ico|auth/callback|api/).*)',
+    '/((?!_next/static|_next/image|favicon.ico|auth/callback).*)',
   ],
-};
+}

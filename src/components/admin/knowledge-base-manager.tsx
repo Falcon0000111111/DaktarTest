@@ -10,8 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { uploadKnowledgeBaseFile, deleteKnowledgeBaseDocument } from "@/lib/actions/knowledge.actions";
 import type { KnowledgeBaseDocument } from "@/types/supabase";
-import { FileUp, Loader2, FileText, Trash2, PlusCircle, AlertTriangle } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
+import { FileUp, Loader2, FileText, Trash2, PlusCircle, AlertTriangle, X } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,54 +28,66 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
   const [documents, setDocuments] = useState(initialDocuments);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [fileToUpload, setFileToUpload] = useState<File | null>(null);
-  const [fileName, setFileName] = useState("");
-  const [description, setDescription] = useState("");
+  const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
   const { toast } = useToast();
   const [docToRename, setDocToRename] = useState<KnowledgeBaseDocument | null>(null);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      if (selectedFile.type !== "application/pdf") {
-        toast({ title: "Invalid File Type", description: "Only PDF files are allowed.", variant: "destructive" });
-        return;
-      }
-      setFileToUpload(selectedFile);
-      setFileName(selectedFile.name);
+    const selectedFiles = e.target.files;
+    if (selectedFiles) {
+      const newFiles = Array.from(selectedFiles).filter(file => {
+        if (file.type !== "application/pdf") {
+          toast({ title: "Invalid File Type", description: `${file.name} is not a PDF. Only PDF files are allowed.`, variant: "destructive" });
+          return false;
+        }
+        return true;
+      });
+      setFilesToUpload(prev => [...prev, ...newFiles]);
     }
   };
 
+  const handleRemoveFile = (fileToRemove: File) => {
+    setFilesToUpload(prev => prev.filter(file => file !== fileToRemove));
+  };
+  
+  const resetUploadDialog = () => {
+    setFilesToUpload([]);
+    setIsUploading(false);
+  }
+
+  const handleDialogStateChange = (open: boolean) => {
+    if (!open) {
+      resetUploadDialog();
+    }
+    setIsUploadDialogOpen(open);
+  }
+
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fileToUpload) {
-      toast({ title: "No File", description: "Please select a file to upload.", variant: "destructive" });
-      return;
-    }
-     if (!fileName.trim()) {
-      toast({ title: "File Name Required", description: "Please provide a name for the file.", variant: "destructive" });
+    if (filesToUpload.length === 0) {
+      toast({ title: "No Files Selected", description: "Please select one or more files to upload.", variant: "destructive" });
       return;
     }
 
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append("file", fileToUpload);
-    formData.append("fileName", fileName);
-    formData.append("description", description);
+    
+    const uploadPromises = filesToUpload.map(file => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("fileName", file.name); // Use original file name
+      formData.append("description", ""); // Description can be edited later if needed
+      return uploadKnowledgeBaseFile(formData);
+    });
 
     try {
-      const newDoc = await uploadKnowledgeBaseFile(formData);
-      setDocuments((prev) => [newDoc, ...prev]);
-      toast({ title: "Success", description: `"${newDoc.file_name}" uploaded successfully.` });
-      setIsUploadDialogOpen(false);
-      setFileToUpload(null);
-      setFileName("");
-      setDescription("");
+      const newDocs = await Promise.all(uploadPromises);
+      setDocuments((prev) => [...newDocs, ...prev]);
+      toast({ title: "Upload Successful", description: `${newDocs.length} file(s) have been added to the knowledge base.` });
+      handleDialogStateChange(false);
     } catch (error) {
       toast({ title: "Upload Failed", description: (error as Error).message, variant: "destructive" });
-    } finally {
-      setIsUploading(false);
+      setIsUploading(false); // Only stop loading on error, success closes dialog
     }
   };
 
@@ -96,7 +107,6 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
   };
 
   const handleFileRenamed = async () => {
-    // Refresh the list from the server to get the latest data
     const { listKnowledgeBaseDocuments } = await import('@/lib/actions/knowledge.actions');
     const updatedDocs = await listKnowledgeBaseDocuments();
     setDocuments(updatedDocs);
@@ -113,40 +123,45 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
                 These files are available to all users for quiz generation.
               </CardDescription>
             </div>
-            <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+            <Dialog open={isUploadDialogOpen} onOpenChange={handleDialogStateChange}>
               <DialogTrigger asChild>
                 <Button>
                   <PlusCircle className="mr-2 h-4 w-4" />
-                  Add File
+                  Add File(s)
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>Upload New Knowledge File</DialogTitle>
-                  <DialogDescription>Select a PDF and provide details to add it to the global knowledge base.</DialogDescription>
+                  <DialogTitle>Upload New Knowledge Files</DialogTitle>
+                  <DialogDescription>Select one or more PDF files to add to the global knowledge base.</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleUploadSubmit}>
                   <div className="grid gap-4 py-4">
                     <div>
-                      <Label htmlFor="file-upload">PDF Document</Label>
-                      <Input id="file-upload" type="file" accept="application/pdf" onChange={handleFileChange} />
+                      <Label htmlFor="file-upload">PDF Document(s)</Label>
+                      <Input id="file-upload" type="file" accept="application/pdf" onChange={handleFileChange} multiple disabled={isUploading}/>
                     </div>
-                     <div>
-                      <Label htmlFor="file-name">File Name</Label>
-                      <Input id="file-name" type="text" value={fileName} onChange={(e) => setFileName(e.target.value)} placeholder="User-friendly name for the document"/>
-                    </div>
-                     <div>
-                      <Label htmlFor="description">Description (Optional)</Label>
-                      <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="A brief summary of the document content"/>
-                    </div>
+                    {filesToUpload.length > 0 && (
+                       <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
+                         <Label className="text-xs text-muted-foreground">Selected files:</Label>
+                         {filesToUpload.map((file, index) => (
+                           <div key={index} className="flex items-center justify-between text-sm p-1 bg-muted/50 rounded-md">
+                             <span className="truncate pr-2">{file.name}</span>
+                             <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveFile(file)} disabled={isUploading}>
+                               <X className="h-4 w-4" />
+                             </Button>
+                           </div>
+                         ))}
+                       </div>
+                    )}
                   </div>
-                  <div className="flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={() => setIsUploadDialogOpen(false)} disabled={isUploading}>
+                  <div className="flex justify-end gap-2 mt-4">
+                    <Button type="button" variant="outline" onClick={() => handleDialogStateChange(false)} disabled={isUploading}>
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={isUploading || !fileToUpload}>
+                    <Button type="submit" disabled={isUploading || filesToUpload.length === 0}>
                       {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Upload
+                      {isUploading ? `Uploading ${filesToUpload.length}...` : `Upload ${filesToUpload.length} File(s)`}
                     </Button>
                   </div>
                 </form>
