@@ -20,6 +20,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { RenameKnowledgeFileDialog } from "../dashboard/rename-knowledge-file-dialog";
 
@@ -115,7 +116,12 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
       }
 
     } catch (error) {
-      toast({ title: "Upload Failed", description: (error as Error).message, variant: "destructive" });
+      console.error("Upload failed", error);
+      let errorMessage = "An unknown error occurred during upload."
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      toast({ title: "Upload Failed", description: errorMessage, variant: "destructive" });
       setIsUploading(false);
     }
   };
