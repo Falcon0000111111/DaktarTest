@@ -26,7 +26,7 @@ export default async function AdminUsersPage() {
         <AlertTitle>Error Loading Users</AlertTitle>
         <AlertDescription>
           {(error as Error).message}
-        </Description>
+        </AlertDescription>
       </Alert>
     );
   }
