@@ -83,9 +83,7 @@ export async function uploadKnowledgeBaseFile(formData: FormData): Promise<Knowl
 export async function listKnowledgeBaseDocuments(): Promise<KnowledgeBaseDocument[]> {
   const cookieStore = cookies();
   const supabase = createClient(cookieStore);
-  // Any authenticated user can list the files.
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("User not authenticated.");
+  // RLS policy will handle authentication. Removing redundant user check.
   
   const { data, error } = await supabase
     .from("knowledge_base_documents")
