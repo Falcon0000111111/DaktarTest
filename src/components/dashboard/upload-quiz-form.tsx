@@ -13,6 +13,13 @@ import { BadgeAlert, Percent, FolderOpen, Clock } from "lucide-react";
 import type { Quiz, KnowledgeBaseDocument } from "@/types/supabase";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 
 interface UploadQuizFormProps {
   workspaceId: string;
@@ -243,30 +250,54 @@ export function UploadQuizForm({
 
       <div className="space-y-4 pr-2">
         <div className="space-y-2">
-            <Label htmlFor="kb-select" className="flex items-center">
-              <FolderOpen className="mr-2 h-4 w-4" />
-              Knowledge Base (Select up to {MAX_SELECTED_FILES} files)
-            </Label>
-            <div className="max-h-48 overflow-y-auto w-full rounded-md border p-2 bg-muted/50 space-y-1.5">
-                {knowledgeFiles.length > 0 ? (
-                    knowledgeFiles.map(doc => (
-                        <div key={doc.id} className="flex items-center space-x-3 p-1">
-                            <Checkbox
-                                id={doc.storage_path}
-                                checked={selectedFilePaths.includes(doc.storage_path)}
-                                onCheckedChange={(checked) => handleFileSelectionChange(doc.storage_path, !!checked)}
-                                disabled={loading || (selectedFilePaths.length >= MAX_SELECTED_FILES && !selectedFilePaths.includes(doc.storage_path))}
-                            />
-                            <Label htmlFor={doc.storage_path} className="font-normal truncate cursor-pointer flex-1" title={doc.file_name}>
-                              {doc.file_name}
-                            </Label>
-                        </div>
-                    ))
-                ) : (
-                  <p className="text-sm text-muted-foreground p-2 text-center">No files in knowledge base. Admin can add files.</p>
-                )}
+          <Accordion type="single" collapsible className="w-full border rounded-md" defaultValue="item-1">
+            <AccordionItem value="item-1" className="border-b-0">
+              <AccordionTrigger className="px-3 hover:no-underline">
+                <div className="flex items-center">
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  <span>Knowledge Base (Select up to {MAX_SELECTED_FILES} files)</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-1 pb-2">
+                <div className="max-h-48 overflow-y-auto w-full rounded-md border p-2 bg-muted/50 space-y-1.5">
+                  {knowledgeFiles.length > 0 ? (
+                      knowledgeFiles.map(doc => (
+                          <div key={doc.id} className="flex items-center space-x-3 p-1">
+                              <Checkbox
+                                  id={`kb-checkbox-${doc.id}`}
+                                  checked={selectedFilePaths.includes(doc.storage_path)}
+                                  onCheckedChange={(checked) => handleFileSelectionChange(doc.storage_path, !!checked)}
+                                  disabled={loading || (selectedFilePaths.length >= MAX_SELECTED_FILES && !selectedFilePaths.includes(doc.storage_path))}
+                              />
+                              <Label htmlFor={`kb-checkbox-${doc.id}`} className="font-normal truncate cursor-pointer flex-1" title={doc.file_name}>
+                                {doc.file_name}
+                              </Label>
+                          </div>
+                      ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground p-2 text-center">No files in knowledge base. Admin can add files.</p>
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+          {selectedFilePaths.length > 0 && (
+            <div className="space-y-1 pt-2">
+              <Label className="text-xs text-muted-foreground">Selected ({selectedFilePaths.length}):</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {selectedFilePaths.map(path => {
+                    const file = knowledgeFiles.find(f => f.storage_path === path);
+                    return file ? (
+                      <Badge key={path} variant="secondary" className="font-normal">
+                        {file.file_name}
+                      </Badge>
+                    ) : null;
+                  })}
+              </div>
             </div>
+          )}
         </div>
+
 
         {selectedFilePaths.length === 0 && !loading && (
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-700 flex items-start">
@@ -336,3 +367,5 @@ export function UploadQuizForm({
     </form>
   );
 }
+
+    
