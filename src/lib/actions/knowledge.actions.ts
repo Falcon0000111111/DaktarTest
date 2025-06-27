@@ -5,10 +5,10 @@ import { createClient } from "@/lib/supabase/server";
 import type { KnowledgeBaseDocument } from "@/types/supabase";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase";
 
-async function verifyAdmin() {
-  const cookieStore = cookies();
-  const supabase = createClient(cookieStore);
+async function verifyAdmin(supabase: SupabaseClient<Database>) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -31,9 +31,9 @@ async function verifyAdmin() {
 
 
 export async function uploadKnowledgeBaseFile(formData: FormData): Promise<KnowledgeBaseDocument> {
-  await verifyAdmin();
   const cookieStore = cookies();
   const supabase = createClient(cookieStore);
+  await verifyAdmin(supabase);
 
   const file = formData.get("file") as File;
   const fileName = formData.get("fileName") as string;
@@ -44,7 +44,7 @@ export async function uploadKnowledgeBaseFile(formData: FormData): Promise<Knowl
   if (file.type !== 'application/pdf') throw new Error("Only PDF files are allowed.");
 
   const fileExt = file.name.split('.').pop() || 'pdf';
-  const sanitizedFileName = fileName.replace(/\.pdf$/i, '').replace(/\s+/g, "_");
+  const sanitizedFileName = fileName.replace(/\.pdf$/i, '').replace(/[\s\W]+/g, "_");
   const storagePath = `${Date.now()}-${sanitizedFileName}.${fileExt}`;
 
   // Step 1: Upload to storage
@@ -83,7 +83,7 @@ export async function uploadKnowledgeBaseFile(formData: FormData): Promise<Knowl
 export async function listKnowledgeBaseDocuments(): Promise<KnowledgeBaseDocument[]> {
   const cookieStore = cookies();
   const supabase = createClient(cookieStore);
-  // RLS policy will handle authentication. Removing redundant user check.
+  // RLS policy will handle authentication.
   
   const { data, error } = await supabase
     .from("knowledge_base_documents")
@@ -138,9 +138,9 @@ export async function getKnowledgeBaseFileAsDataUri(storagePath: string): Promis
 
 
 export async function deleteKnowledgeBaseDocument(documentId: string): Promise<void> {
-  await verifyAdmin();
   const cookieStore = cookies();
   const supabase = createClient(cookieStore);
+  await verifyAdmin(supabase);
 
   const { data: doc, error: fetchError } = await supabase
     .from("knowledge_base_documents")
@@ -173,9 +173,9 @@ export async function deleteKnowledgeBaseDocument(documentId: string): Promise<v
 }
 
 export async function renameKnowledgeBaseDocument(documentId: string, newName: string): Promise<void> {
-  await verifyAdmin();
   const cookieStore = cookies();
   const supabase = createClient(cookieStore);
+  await verifyAdmin(supabase);
 
   if (!newName.trim()) {
     throw new Error("File name cannot be empty.");

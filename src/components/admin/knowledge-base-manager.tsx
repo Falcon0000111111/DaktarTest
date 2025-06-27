@@ -20,7 +20,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { RenameKnowledgeFileDialog } from "../dashboard/rename-knowledge-file-dialog";
 
@@ -94,12 +93,24 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
       }
 
       if (failedUploads.length > 0) {
-          toast({ title: "Some Uploads Failed", description: `${failedUploads.length} file(s) could not be uploaded.`, variant: "destructive" });
+          failedUploads.forEach(fail => {
+            console.error("Upload failed with reason:", (fail as PromiseRejectedResult).reason);
+          });
+          const errorMessage = (failedUploads[0] as PromiseRejectedResult).reason?.message || "An unknown error occurred.";
+          toast({ 
+            title: "Some Uploads Failed", 
+            description: `${failedUploads.length} file(s) could not be uploaded. Error: ${errorMessage}`, 
+            variant: "destructive",
+            duration: 9000,
+          });
       }
       
       if (failedUploads.length === 0) {
         handleDialogStateChange(false);
       } else {
+        // If some failed, keep the dialog open but clear the successful ones from the list
+        const successfulFileNames = new Set(newDocs.map(doc => doc.file_name));
+        setFilesToUpload(files => files.filter(f => !successfulFileNames.has(f.name)));
         setIsUploading(false);
       }
 
