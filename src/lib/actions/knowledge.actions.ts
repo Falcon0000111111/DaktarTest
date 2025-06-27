@@ -43,18 +43,21 @@ export async function uploadKnowledgeBaseFile(formData: FormData): Promise<Knowl
   if (!fileName) throw new Error("File name is required.");
   if (file.type !== 'application/pdf') throw new Error("Only PDF files are allowed.");
 
-  const fileExt = file.name.split('.').pop();
-  const storagePath = `${Date.now()}-${fileName.replace(/\s+/g, "_")}.${fileExt}`;
+  const fileExt = file.name.split('.').pop() || 'pdf';
+  const sanitizedFileName = fileName.replace(/\.pdf$/i, '').replace(/\s+/g, "_");
+  const storagePath = `${Date.now()}-${sanitizedFileName}.${fileExt}`;
 
+  // Step 1: Upload to storage
   const { error: uploadError } = await supabase.storage
     .from("knowledge-base-files")
     .upload(storagePath, file);
 
   if (uploadError) {
-    console.error("Error uploading file to storage:", uploadError);
-    throw new Error(uploadError.message);
+    console.error("Error during storage upload:", uploadError);
+    throw new Error(`Storage upload failed: ${uploadError.message}`);
   }
 
+  // Step 2: Insert into database
   const { data: newDocEntry, error: dbError } = await supabase
     .from("knowledge_base_documents")
     .insert({
@@ -66,9 +69,10 @@ export async function uploadKnowledgeBaseFile(formData: FormData): Promise<Knowl
     .single();
 
   if (dbError || !newDocEntry) {
-    console.error("Error creating knowledge base document record:", dbError);
+    console.error("Error during database insert:", dbError);
+    // Cleanup storage if db insert fails
     await supabase.storage.from("knowledge-base-files").remove([storagePath]);
-    throw new Error(dbError?.message || "Failed to save file metadata.");
+    throw new Error(`Database insert failed: ${dbError?.message || "Could not save file metadata."}`);
   }
 
   revalidatePath("/admin/knowledge-base");
