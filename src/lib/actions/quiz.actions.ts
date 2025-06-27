@@ -31,6 +31,22 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     throw new Error("User not authenticated.");
   }
 
+  // Manually check the user's request limit before proceeding.
+  // This is more reliable than relying on potentially flawed database triggers.
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("llm_requests_count, llm_request_limit")
+    .eq("id", user.id)
+    .single();
+
+  if (profileError || !profile) {
+    throw new Error("Could not retrieve user profile to check request limit.");
+  }
+
+  if (profile.llm_requests_count >= profile.llm_request_limit) {
+    throw new Error("You have reached your maximum quiz generation limit.");
+  }
+
   const { 
     workspaceId, 
     knowledgeFileStoragePaths, 
@@ -51,12 +67,18 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
   if (passingScorePercentage !== undefined && passingScorePercentage !== null && (passingScorePercentage < 0 || passingScorePercentage > 100)) {
     throw new Error("Passing score percentage must be between 0 and 100.");
   }
-  
-  // The database triggers `before_quiz_insert_check_limit` and `after_quiz_insert_increment_count`
-  // will now handle the LLM request limits automatically.
-  // The initial insert below will fail if the user is over their limit,
-  // and the error will be caught and displayed to the user.
 
+  // IMPORTANT: We increment the user's request count here, BEFORE calling the AI.
+  // This correctly "spends" the request credit. If the AI fails later, the request is still consumed.
+  const { error: incrementError } = await supabase
+    .from("profiles")
+    .update({ llm_requests_count: profile.llm_requests_count + 1 })
+    .eq("id", user.id);
+  
+  if (incrementError) {
+      throw new Error("Failed to update request count. Please try again.");
+  }
+  
   const pdfDocuments = await Promise.all(
     knowledgeFileStoragePaths.map(path => getKnowledgeBaseFileAsDataUri(path))
   );
@@ -74,9 +96,6 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
 
   let quizEntryId = existingQuizIdToUpdate;
 
-  // This block will attempt the initial insert. If the user is over their limit,
-  // the `before_quiz_insert_check_limit` trigger will raise an exception,
-  // which will be caught by the `catch` block at the end of this function.
   if (!quizEntryId) {
     const initialQuizData: NewQuiz = {
       workspace_id: workspaceId,
@@ -181,8 +200,6 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
       detailedErrorMessage = error.message;
     }
     
-    // If the error was from the AI flow (not the initial insert), mark the quiz as failed.
-    // If it was from the initial insert, the quizEntryId would not exist yet (unless it was a regeneration).
     if (quizEntryId) {
       const { data: quizExists } = await supabase.from('quizzes').select('id').eq('id', quizEntryId).single();
       if (quizExists) {
@@ -196,7 +213,6 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
 
     revalidatePath(`/dashboard/workspace/${workspaceId}`);
     
-    // Re-throw the original error to be displayed in the UI toast.
     throw new Error(detailedErrorMessage);
   }
 }
