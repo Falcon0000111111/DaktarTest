@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 const supabase = createClient();
@@ -9,22 +9,32 @@ const supabase = createClient();
 export function useAdminStatus() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const isChecking = useRef(false);
 
   const checkAdminStatus = useCallback(async () => {
+    if (isChecking.current) return;
+    isChecking.current = true;
+
     setIsLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const { data, error } = await supabase.rpc('is_admin');
-      if (error) {
-        console.error("Error checking admin status:", error.message);
+      try {
+        const { data, error } = await supabase.rpc('is_admin');
+        if (error) {
+          console.error("Error checking admin status:", error.message);
+          setIsAdmin(false);
+        } else {
+          setIsAdmin(data);
+        }
+      } catch (e) {
+        console.error("Exception checking admin status:", (e as Error).message);
         setIsAdmin(false);
-      } else {
-        setIsAdmin(data);
       }
     } else {
       setIsAdmin(false);
     }
     setIsLoading(false);
+    isChecking.current = false;
   }, []);
 
   useEffect(() => {
