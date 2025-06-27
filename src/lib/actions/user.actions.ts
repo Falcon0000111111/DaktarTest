@@ -1,4 +1,3 @@
-
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
@@ -49,14 +48,17 @@ export async function updateUserRequestLimit(userId: string, newLimit: number): 
     .from("profiles")
     .update({ llm_request_limit: newLimit })
     .eq("id", userId)
-    .select()
-    .single();
+    .select();
 
-  if (error || !data) {
+  if (error) {
     console.error("Error updating user limit:", error);
-    throw new Error(error?.message || "Failed to update user limit.");
+    throw new Error(error.message || "Failed to update user limit.");
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error("Profile not found or permission denied. Please check if Row Level Security (RLS) policies allow admins to update profiles.");
   }
 
   revalidatePath("/admin/users");
-  return data;
+  return data[0];
 }
