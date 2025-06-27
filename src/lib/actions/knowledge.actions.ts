@@ -29,56 +29,70 @@ async function verifyAdmin(supabase: SupabaseClient<Database>) {
   return user;
 }
 
+interface UploadFileParams {
+  fileDataUri: string;
+  fileName: string;
+  description: string;
+}
 
-export async function uploadKnowledgeBaseFile(formData: FormData): Promise<KnowledgeBaseDocument> {
+export async function uploadKnowledgeBaseFile(params: UploadFileParams): Promise<KnowledgeBaseDocument> {
   const cookieStore = cookies();
   const supabase = createClient(cookieStore);
   await verifyAdmin(supabase);
 
-  const file = formData.get("file") as File;
-  const fileName = formData.get("fileName") as string;
-  const description = formData.get("description") as string;
-
-  if (!file) throw new Error("No file provided.");
+  const { fileDataUri, fileName, description } = params;
+  
+  if (!fileDataUri) throw new Error("No file data provided.");
   if (!fileName) throw new Error("File name is required.");
-  if (file.type !== 'application/pdf') throw new Error("Only PDF files are allowed.");
 
-  const fileExt = file.name.split('.').pop() || 'pdf';
+  const matches = fileDataUri.match(/^data:(.+);base64,(.+)$/);
+  if (!matches || matches.length !== 3) {
+    throw new Error("Invalid file data URI format.");
+  }
+  const contentType = matches[1];
+  const base64Data = matches[2];
+  
+  if (contentType !== 'application/pdf') throw new Error("Only PDF files are allowed.");
+
+  const fileBuffer = Buffer.from(base64Data, 'base64');
+
+  const fileExt = fileName.split('.').pop() || 'pdf';
   const sanitizedFileName = fileName.replace(/\.pdf$/i, '').replace(/[\s\W]+/g, "_");
   const storagePath = `${Date.now()}-${sanitizedFileName}.${fileExt}`;
 
   // Step 1: Upload to storage
   const { error: uploadError } = await supabase.storage
-    .from("knowledge-base-files")
-    .upload(storagePath, file);
+      .from("knowledge-base-files")
+      .upload(storagePath, fileBuffer, { contentType: 'application/pdf' });
 
   if (uploadError) {
     console.error("Error during storage upload:", uploadError);
     throw new Error(`Storage upload failed: ${uploadError.message}`);
   }
-
+  
   // Step 2: Insert into database
   const { data: newDocEntry, error: dbError } = await supabase
-    .from("knowledge_base_documents")
-    .insert({
-      file_name: fileName,
-      description: description,
-      storage_path: storagePath,
-    })
-    .select()
-    .single();
+      .from("knowledge_base_documents")
+      .insert({
+          file_name: fileName,
+          description: description,
+          storage_path: storagePath,
+      })
+      .select()
+      .single();
 
   if (dbError || !newDocEntry) {
-    console.error("Error during database insert:", dbError);
-    // Cleanup storage if db insert fails
-    await supabase.storage.from("knowledge-base-files").remove([storagePath]);
-    throw new Error(`Database insert failed: ${dbError?.message || "Could not save file metadata."}`);
+      console.error("Error during database insert:", dbError);
+      // Cleanup storage if db insert fails
+      await supabase.storage.from("knowledge-base-files").remove([storagePath]);
+      throw new Error(`Database insert failed: ${dbError?.message || "Could not save file metadata."}`);
   }
 
   revalidatePath("/admin/knowledge-base");
   revalidatePath("/dashboard", "layout");
   return newDocEntry;
 }
+
 
 export async function listKnowledgeBaseDocuments(): Promise<KnowledgeBaseDocument[]> {
   const cookieStore = cookies();

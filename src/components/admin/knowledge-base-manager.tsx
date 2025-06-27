@@ -24,6 +24,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { RenameKnowledgeFileDialog } from "../dashboard/rename-knowledge-file-dialog";
 
+const readFileAsDataURI = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+    reader.readAsDataURL(file);
+  });
+};
+
 export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: KnowledgeBaseDocument[] }) {
   const [documents, setDocuments] = useState(initialDocuments);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
@@ -72,12 +81,17 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
 
     setIsUploading(true);
     
-    const uploadPromises = filesToUpload.map(file => {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("fileName", file.name); // Use original file name
-      formData.append("description", ""); // Description can be edited later if needed
-      return uploadKnowledgeBaseFile(formData);
+    const uploadPromises = filesToUpload.map(async (file) => {
+      try {
+        const fileDataUri = await readFileAsDataURI(file);
+        return uploadKnowledgeBaseFile({
+          fileDataUri,
+          fileName: file.name,
+          description: ""
+        });
+      } catch (error) {
+        throw new Error(`Could not read file ${file.name}: ${(error as Error).message}`);
+      }
     });
 
     try {
@@ -99,8 +113,8 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
           });
           const errorMessage = (failedUploads[0] as PromiseRejectedResult).reason?.message || "An unknown error occurred.";
           toast({ 
-            title: "Some Uploads Failed", 
-            description: `${failedUploads.length} file(s) could not be uploaded. Error: ${errorMessage}`, 
+            title: `Upload Failed for ${failedUploads.length} file(s)`, 
+            description: `Error: ${errorMessage}`, 
             variant: "destructive",
             duration: 9000,
           });
@@ -109,15 +123,14 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
       if (failedUploads.length === 0) {
         handleDialogStateChange(false);
       } else {
-        // If some failed, keep the dialog open but clear the successful ones from the list
         const successfulFileNames = new Set(newDocs.map(doc => doc.file_name));
         setFilesToUpload(files => files.filter(f => !successfulFileNames.has(f.name)));
         setIsUploading(false);
       }
 
     } catch (error) {
-      console.error("Upload failed", error);
-      let errorMessage = "An unknown error occurred during upload."
+      console.error("Upload failed unexpectedly", error);
+      let errorMessage = "An unknown error occurred during the upload process."
       if (error instanceof Error) {
         errorMessage = error.message;
       }
