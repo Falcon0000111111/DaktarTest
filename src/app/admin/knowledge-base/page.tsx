@@ -5,9 +5,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { KnowledgeBaseManager } from "@/components/admin/knowledge-base-manager";
 import { listKnowledgeBaseDocuments } from "@/lib/actions/knowledge.actions";
+import { cookies } from "next/headers";
 
 export default async function AdminKnowledgeBasePage() {
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   const {
     data: { user },
   } = await supabase.auth.getUser();

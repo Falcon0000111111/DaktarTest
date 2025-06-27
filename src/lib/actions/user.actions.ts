@@ -4,9 +4,11 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/types/supabase";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 
 async function verifyAdmin() {
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated.");
   
@@ -18,7 +20,8 @@ async function verifyAdmin() {
 
 export async function listAllUsers(): Promise<Profile[]> {
   await verifyAdmin();
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   
   const { data, error } = await supabase
     .from("profiles")
@@ -35,7 +38,8 @@ export async function listAllUsers(): Promise<Profile[]> {
 
 export async function updateUserRequestLimit(userId: string, newLimit: number): Promise<Profile> {
   await verifyAdmin();
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   
   if (newLimit < 0) {
     throw new Error("Limit cannot be negative.");

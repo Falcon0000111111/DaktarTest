@@ -6,6 +6,7 @@ import { generateQuizFromPdfs, type GenerateQuizInput, type GenerateQuizOutput }
 import type { Quiz, NewQuiz, StoredQuizData } from "@/types/supabase";
 import { revalidatePath } from "next/cache";
 import { getKnowledgeBaseFileAsDataUri } from "./knowledge.actions";
+import { cookies } from "next/headers";
 
 interface GenerateQuizFromPdfsParams {
   workspaceId: string;
@@ -22,7 +23,8 @@ interface GenerateQuizFromPdfsParams {
 }
 
 export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsParams): Promise<Quiz> {
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -204,7 +206,8 @@ export async function updateQuizAttemptResultAction(
   scorePercentage: number, 
   passed: boolean | null
 ): Promise<Quiz> {
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -232,7 +235,8 @@ export async function updateQuizAttemptResultAction(
 
 
 export async function getQuizzesForWorkspace(workspaceId: string): Promise<Quiz[]> {
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -264,7 +268,8 @@ export async function getQuizzesForWorkspace(workspaceId: string): Promise<Quiz[
 }
 
 export async function getQuizById(quizId: string): Promise<Quiz | null> {
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -290,7 +295,8 @@ export async function getQuizById(quizId: string): Promise<Quiz | null> {
 
 
 export async function deleteQuizAction(quizId: string): Promise<void> {
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -324,7 +330,8 @@ export async function deleteQuizAction(quizId: string): Promise<void> {
 }
 
 export async function renameQuizAction(quizId: string, newName: string): Promise<Quiz> {
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -352,7 +359,8 @@ export async function renameQuizAction(quizId: string, newName: string): Promise
 }
 
 export async function renameQuizzesBySourcePdfAction(workspaceId: string, oldName: string, newName: string): Promise<void> {
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {

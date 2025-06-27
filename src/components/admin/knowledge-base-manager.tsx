@@ -43,7 +43,7 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
         }
         return true;
       });
-      setFilesToUpload(prev => [...prev, ...newFiles]);
+      setFilesToUpload(newFiles); // Replace selection instead of accumulating
     }
   };
 
@@ -81,13 +81,31 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
     });
 
     try {
-      const newDocs = await Promise.all(uploadPromises);
-      setDocuments((prev) => [...newDocs, ...prev]);
-      toast({ title: "Upload Successful", description: `${newDocs.length} file(s) have been added to the knowledge base.` });
-      handleDialogStateChange(false);
+      const results = await Promise.allSettled(uploadPromises);
+      const newDocs = results
+        .filter(result => result.status === 'fulfilled')
+        .map(result => (result as PromiseFulfilledResult<KnowledgeBaseDocument>).value);
+      
+      const failedUploads = results.filter(result => result.status === 'rejected');
+
+      if (newDocs.length > 0) {
+        setDocuments((prev) => [...newDocs, ...prev].sort((a,b) => a.file_name.localeCompare(b.file_name)));
+        toast({ title: "Upload Complete", description: `${newDocs.length} file(s) have been added to the knowledge base.` });
+      }
+
+      if (failedUploads.length > 0) {
+          toast({ title: "Some Uploads Failed", description: `${failedUploads.length} file(s) could not be uploaded.`, variant: "destructive" });
+      }
+      
+      if (failedUploads.length === 0) {
+        handleDialogStateChange(false);
+      } else {
+        setIsUploading(false);
+      }
+
     } catch (error) {
       toast({ title: "Upload Failed", description: (error as Error).message, variant: "destructive" });
-      setIsUploading(false); // Only stop loading on error, success closes dialog
+      setIsUploading(false);
     }
   };
 
@@ -143,7 +161,7 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
                     </div>
                     {filesToUpload.length > 0 && (
                        <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
-                         <Label className="text-xs text-muted-foreground">Selected files:</Label>
+                         <Label className="text-xs text-muted-foreground">Selected files ({filesToUpload.length}):</Label>
                          {filesToUpload.map((file, index) => (
                            <div key={index} className="flex items-center justify-between text-sm p-1 bg-muted/50 rounded-md">
                              <span className="truncate pr-2">{file.name}</span>

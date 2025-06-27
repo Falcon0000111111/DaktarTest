@@ -4,9 +4,11 @@
 import { createClient } from "@/lib/supabase/server";
 import type { KnowledgeBaseDocument } from "@/types/supabase";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 
 async function verifyAdmin() {
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -29,8 +31,9 @@ async function verifyAdmin() {
 
 
 export async function uploadKnowledgeBaseFile(formData: FormData): Promise<KnowledgeBaseDocument> {
-  const user = await verifyAdmin();
-  const supabase = createClient();
+  await verifyAdmin();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
 
   const file = formData.get("file") as File;
   const fileName = formData.get("fileName") as string;
@@ -74,7 +77,8 @@ export async function uploadKnowledgeBaseFile(formData: FormData): Promise<Knowl
 }
 
 export async function listKnowledgeBaseDocuments(): Promise<KnowledgeBaseDocument[]> {
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   // Any authenticated user can list the files.
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated.");
@@ -94,7 +98,8 @@ export async function listKnowledgeBaseDocuments(): Promise<KnowledgeBaseDocumen
 
 
 export async function getKnowledgeBaseFileAsDataUri(storagePath: string): Promise<{name: string; dataUri: string}> {
-    const supabase = createClient();
+    const cookieStore = cookies();
+    const supabase = createClient(cookieStore);
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -132,7 +137,8 @@ export async function getKnowledgeBaseFileAsDataUri(storagePath: string): Promis
 
 export async function deleteKnowledgeBaseDocument(documentId: string): Promise<void> {
   await verifyAdmin();
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
 
   const { data: doc, error: fetchError } = await supabase
     .from("knowledge_base_documents")
@@ -166,7 +172,8 @@ export async function deleteKnowledgeBaseDocument(documentId: string): Promise<v
 
 export async function renameKnowledgeBaseDocument(documentId: string, newName: string): Promise<void> {
   await verifyAdmin();
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
 
   if (!newName.trim()) {
     throw new Error("File name cannot be empty.");

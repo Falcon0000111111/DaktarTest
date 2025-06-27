@@ -5,9 +5,11 @@ import { listAllUsers } from "@/lib/actions/user.actions";
 import { UserManagementTable } from "@/components/admin/user-management-table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { cookies } from "next/headers";
 
 export default async function AdminUsersPage() {
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -24,7 +26,7 @@ export default async function AdminUsersPage() {
         <AlertTitle>Error Loading Users</AlertTitle>
         <AlertDescription>
           {(error as Error).message}
-        </AlertDescription>
+        </Description>
       </Alert>
     );
   }

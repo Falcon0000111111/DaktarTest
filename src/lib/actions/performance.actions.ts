@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { Quiz } from "@/types/supabase";
+import { cookies } from "next/headers";
 
 export interface PerformanceData {
   overallAverageScore: number;
@@ -18,7 +19,8 @@ export interface PerformanceData {
 }
 
 export async function getPerformanceData(): Promise<PerformanceData> {
-  const supabase = createClient();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {

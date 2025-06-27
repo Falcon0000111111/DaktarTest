@@ -1,12 +1,13 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server"; // Updated import
+import { createClient } from "@/lib/supabase/server";
 import type { Workspace } from "@/types/supabase";
 import { revalidatePath } from "next/cache";
-import { cookies } from 'next/headers'; // Required for server client
+import { cookies } from 'next/headers';
 
 export async function createWorkspace(name: string): Promise<Workspace> {
-  const supabase = createClient(); // Updated client creation
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -28,7 +29,8 @@ export async function createWorkspace(name: string): Promise<Workspace> {
 }
 
 export async function getWorkspaces(): Promise<Workspace[]> {
-  const supabase = createClient(); // Updated client creation
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -49,7 +51,8 @@ export async function getWorkspaces(): Promise<Workspace[]> {
 }
 
 export async function getWorkspaceById(workspaceId: string): Promise<Workspace | null> {
-  const supabase = createClient(); // Updated client creation
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -71,7 +74,8 @@ export async function getWorkspaceById(workspaceId: string): Promise<Workspace |
 }
 
 export async function deleteWorkspace(workspaceId: string): Promise<void> {
-  const supabase = createClient(); // Updated client creation
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
