@@ -86,7 +86,7 @@ Your first task is to **open, parse, and thoroughly read the content of the user
 
 As you analyze the file, perform the following two sub-tasks:
 1.  **Identify the Knowledge Base:** This is the core factual information (definitions, explanations, processes, data) within the PDF. All questions and answers you generate MUST be derived directly from this knowledge base.
-2.  **Identify any Example Questions (if present):** The PDF might contain a pre-existing quiz or list of questions. **DO NOT COPY THESE QUESTIONS.** Instead, analyze them to understand the desired *style* (e.g., scenario-based, direct recall), *tone*, and *cognitive complexity*. Your new, unique questions should be "principally similar" to these examples. If no examples are present, infer an appropriate style from the main body of the PDF text.
+2.  **Take Inspiration from Example Questions (if present):** Scrutinize the PDF, especially towards the end, for any existing quizzes or example questions. **DO NOT COPY THESE QUESTIONS.** Instead, you MUST use them as a primary source of inspiration. Analyze their structure, style (e.g., scenario-based, direct recall), tone, and cognitive level. Your new, unique questions MUST be "principally similar" to these examples to guide the question generation process. If no examples are present, you must infer an appropriate style from the main body of the PDF text.
 
 ### STEP 2: GENERATE QUIZ ACCORDING TO STRICT CONFIGURATION ###
 Now, generate a brand new quiz based on your analysis of the PDF. Adherence to the following rules, provided in the \`[User-Defined Configuration]\` block, is mandatory.
