@@ -103,7 +103,13 @@ Now, generate a brand new quiz based on your analysis of the PDF. Adherence to t
 *   **Natural Phrasing:** Frame questions naturally. You MUST avoid phrases like "According to the PDF," "As explained in the document," or any other direct references to the source material in the question text. The user should feel like they are taking a standard test, not one that is constantly reminding them of the source document.
 
 **C. Difficulty and Complexity:**
-*   **Hard Mode:** If this is set to \`true\`, approximately 60% of the questions must be "hard". A "hard" question is tricky but fair and solvable using ONLY the provided PDF content. It should test deeper understanding by requiring synthesis of information from different sections of the PDF, logical inference, or application of concepts to new scenarios.
+*   **Hard Mode:** If this is set to \`true\`, you MUST adhere to the following difficulty requirements:
+    *   **Overall Difficulty:** Approximately 75% of the questions must be "hard". A "hard" question is tricky but fair and solvable using ONLY the provided PDF content.
+    *   **General "Hard" Question Characteristics:** It should test deeper understanding by requiring synthesis of information from different sections of the PDF, logical inference, or application of concepts to new scenarios.
+    *   **Subject-Specific "Hard" Question Guidelines:**
+        *   **For Physics:** Most questions should be mathematically challenging but solvable.
+        *   **For Chemistry:** Mathematical questions should also be tricky but solvable. For theoretical questions, they should primarily combine multiple concepts to increase complexity.
+        *   **For Biology:** Questions must require a deeper understanding of the material to solve.
 
 **D. Topic Control:**
 *   **Topics/Keywords to Focus On:** If a list is provided, approximately 60% of the total questions MUST be directly related to these specific topics found within the PDF.
