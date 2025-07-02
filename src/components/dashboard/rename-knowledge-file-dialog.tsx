@@ -22,7 +22,7 @@ interface RenameKnowledgeFileDialogProps {
   doc: KnowledgeBaseDocument | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onFileRenamed: () => void;
+  onFileRenamed: (doc: KnowledgeBaseDocument) => void;
 }
 
 export function RenameKnowledgeFileDialog({ doc, open, onOpenChange, onFileRenamed }: RenameKnowledgeFileDialogProps) {
@@ -47,7 +47,7 @@ export function RenameKnowledgeFileDialog({ doc, open, onOpenChange, onFileRenam
     try {
       await renameKnowledgeBaseDocument(doc.id, name.trim());
       toast({ title: "Success", description: "File renamed successfully." });
-      onFileRenamed();
+      onFileRenamed({ ...doc, file_name: name.trim() });
       onOpenChange(false);
     } catch (error) {
       toast({ title: "Error Renaming File", description: (error as Error).message, variant: "destructive" });

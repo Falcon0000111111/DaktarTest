@@ -141,6 +141,7 @@ export interface Database {
           file_name: string;
           description: string | null;
           storage_path: string;
+          category: Database["public"]["Enums"]["knowledge_category"] | null;
         };
         Insert: {
           id?: string;
@@ -149,6 +150,7 @@ export interface Database {
           file_name: string;
           description?: string | null;
           storage_path: string;
+          category?: Database["public"]["Enums"]["knowledge_category"] | null;
         };
         Update: {
           id?: string;
@@ -157,6 +159,7 @@ export interface Database {
           file_name?: string;
           description?: string | null;
           storage_path?: string;
+          category?: Database["public"]["Enums"]["knowledge_category"] | null;
         };
         Relationships: [];
       };
@@ -192,6 +195,7 @@ export interface Database {
     }
     Enums: {
       user_role: "user" | "admin"
+      knowledge_category: 'Biology' | 'Chemistry' | 'Physics' | 'English' | 'Logical Reasoning'
     }
     CompositeTypes: {
       [_ in never]: never
@@ -207,7 +211,7 @@ export type Quiz = Database['public']['Tables']['quizzes']['Row'];
 export type NewQuiz = Database['public']['Tables']['quizzes']['Insert'];
 export type KnowledgeBaseDocument = Database['public']['Tables']['knowledge_base_documents']['Row'];
 export type NewKnowledgeBaseDocument = Database['public']['Tables']['knowledge_base_documents']['Insert'];
-
+export type KnowledgeCategory = Database['public']['Enums']['knowledge_category'];
 
 export type GeneratedQuizQuestion = {
   question_text: string;

@@ -7,10 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { useState, type FormEvent, useEffect, ChangeEvent, RefObject } from "react";
+import { useState, type FormEvent, useEffect, RefObject, useMemo } from "react";
 import { generateQuizFromPdfsAction } from "@/lib/actions/quiz.actions";
 import { BadgeAlert, Percent, FolderOpen, Clock } from "lucide-react";
-import type { Quiz, KnowledgeBaseDocument } from "@/types/supabase";
+import type { Quiz, KnowledgeBaseDocument, KnowledgeCategory } from "@/types/supabase";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -45,6 +45,9 @@ const questionStyleOptions = [
   { id: "fill-in-the-blanks", label: "Fill in the blanks (as MCQs)" },
 ];
 
+export const CATEGORIES: KnowledgeCategory[] = ['Biology', 'Chemistry', 'Physics', 'English', 'Logical Reasoning'];
+const UNCATEGORIZED_ID = "Uncategorized";
+
 export function UploadQuizForm({
     workspaceId,
     onUploadStarted,
@@ -71,6 +74,23 @@ export function UploadQuizForm({
   const { toast } = useToast();
 
   const isRegenerationMode = !!existingQuizIdToUpdate;
+
+  const docsByCategory = useMemo(() => {
+    const grouped: Record<string, KnowledgeBaseDocument[]> = {
+      [UNCATEGORIZED_ID]: [],
+    };
+    CATEGORIES.forEach(cat => grouped[cat] = []);
+
+    knowledgeFiles.forEach(doc => {
+      const category = doc.category || UNCATEGORIZED_ID;
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(doc);
+    });
+
+    return grouped;
+  }, [knowledgeFiles]);
 
   useEffect(() => {
     const isSelectionValid = selectedFilePaths.length > 0;
@@ -216,14 +236,13 @@ export function UploadQuizForm({
 
       onUploadComplete(generatedQuiz.id); 
 
-    } catch (error) {
-      console.error(`Error processing files:`, error);
-      let errorMessage = "Failed to process the PDF(s).";
-      if (error instanceof Error) errorMessage = error.message;
-      else if (typeof error === 'string') errorMessage = error;
-      else if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') errorMessage = error.message;
-      
-      toast({ title: `Error Generating Quiz`, description: errorMessage, variant: "destructive" });
+    } catch (error: any) {
+        const errorMessage = error.message || "An unknown error occurred.";
+        toast({
+          title: "Error Generating Quiz",
+          description: errorMessage,
+          variant: "destructive",
+        });
     } finally {
       setLoading(false);
       if (!isRegenerationMode) {
@@ -250,37 +269,37 @@ export function UploadQuizForm({
 
       <div className="space-y-4 pr-2">
         <div className="space-y-2">
-          <Accordion type="single" collapsible className="w-full border rounded-md" defaultValue="item-1">
-            <AccordionItem value="item-1" className="border-b-0">
-              <AccordionTrigger className="px-3 hover:no-underline">
-                <div className="flex items-center">
-                  <FolderOpen className="mr-2 h-4 w-4" />
-                  <span>Knowledge Base (Select up to {MAX_SELECTED_FILES} files)</span>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="px-1 pb-2">
-                <div className="max-h-48 overflow-y-auto w-full rounded-md border p-2 bg-muted/50 space-y-1.5">
-                  {knowledgeFiles.length > 0 ? (
-                      knowledgeFiles.map(doc => (
-                          <div key={doc.id} className="flex items-center space-x-3 p-1">
-                              <Checkbox
-                                  id={`kb-checkbox-${doc.id}`}
-                                  checked={selectedFilePaths.includes(doc.storage_path)}
-                                  onCheckedChange={(checked) => handleFileSelectionChange(doc.storage_path, !!checked)}
-                                  disabled={loading || (selectedFilePaths.length >= MAX_SELECTED_FILES && !selectedFilePaths.includes(doc.storage_path))}
-                              />
-                              <Label htmlFor={`kb-checkbox-${doc.id}`} className="font-normal truncate cursor-pointer flex-1" title={doc.file_name}>
-                                {doc.file_name}
-                              </Label>
-                          </div>
-                      ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground p-2 text-center">No files in knowledge base. Admin can add files.</p>
-                  )}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+            <Label>Knowledge Base (Select up to {MAX_SELECTED_FILES} files)</Label>
+            <Accordion type="multiple" className="w-full border rounded-md">
+                {Object.entries(docsByCategory).filter(([_, docs]) => docs.length > 0).map(([category, docs]) => (
+                    <AccordionItem value={category} key={category}>
+                        <AccordionTrigger className="px-3 hover:no-underline">
+                            <div className="flex items-center">
+                                <FolderOpen className="mr-2 h-4 w-4" />
+                                <span>{category} ({docs.length})</span>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-1 pb-2">
+                            <div className="max-h-36 overflow-y-auto w-full rounded-md border p-2 bg-muted/50 space-y-1.5">
+                                {docs.map(doc => (
+                                    <div key={doc.id} className="flex items-center space-x-3 p-1">
+                                        <Checkbox
+                                            id={`kb-checkbox-${doc.id}`}
+                                            checked={selectedFilePaths.includes(doc.storage_path)}
+                                            onCheckedChange={(checked) => handleFileSelectionChange(doc.storage_path, !!checked)}
+                                            disabled={loading || (selectedFilePaths.length >= MAX_SELECTED_FILES && !selectedFilePaths.includes(doc.storage_path))}
+                                        />
+                                        <Label htmlFor={`kb-checkbox-${doc.id}`} className="font-normal truncate cursor-pointer flex-1" title={doc.file_name}>
+                                            {doc.file_name}
+                                        </Label>
+                                    </div>
+                                ))}
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                ))}
+            </Accordion>
+          
           {selectedFilePaths.length > 0 && (
             <div className="space-y-1 pt-2">
               <Label className="text-xs text-muted-foreground">Selected ({selectedFilePaths.length}):</Label>
@@ -367,5 +386,3 @@ export function UploadQuizForm({
     </form>
   );
 }
-
-    

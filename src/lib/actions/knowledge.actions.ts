@@ -2,7 +2,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import type { KnowledgeBaseDocument } from "@/types/supabase";
+import type { KnowledgeBaseDocument, KnowledgeCategory } from "@/types/supabase";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -206,4 +206,30 @@ export async function renameKnowledgeBaseDocument(documentId: string, newName: s
 
   revalidatePath("/admin/knowledge-base");
   revalidatePath("/dashboard", "layout");
+}
+
+export async function updateKnowledgeBaseFileCategory(
+  documentId: string,
+  category: KnowledgeCategory | null
+): Promise<KnowledgeBaseDocument> {
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+  await verifyAdmin(supabase);
+
+  const { data, error } = await supabase
+    .from("knowledge_base_documents")
+    .update({ category: category, updated_at: new Date().toISOString() })
+    .eq("id", documentId)
+    .select()
+    .single();
+  
+  if (error) {
+    console.error("Error updating file category:", error);
+    throw new Error(error.message || "Failed to update file category.");
+  }
+
+  revalidatePath("/admin/knowledge-base");
+  revalidatePath("/dashboard/workspace", "layout");
+
+  return data;
 }

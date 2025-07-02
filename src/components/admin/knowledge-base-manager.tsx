@@ -1,28 +1,20 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { uploadKnowledgeBaseFile, deleteKnowledgeBaseDocument } from "@/lib/actions/knowledge.actions";
-import type { KnowledgeBaseDocument } from "@/types/supabase";
-import { FileUp, Loader2, FileText, Trash2, PlusCircle, AlertTriangle, X, Edit } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { uploadKnowledgeBaseFile, deleteKnowledgeBaseDocument, updateKnowledgeBaseFileCategory } from "@/lib/actions/knowledge.actions";
+import type { KnowledgeBaseDocument, KnowledgeCategory } from "@/types/supabase";
+import { FileUp, Loader2, PlusCircle, X } from "lucide-react";
 import { RenameKnowledgeFileDialog } from "../dashboard/rename-knowledge-file-dialog";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { SortableContext, arrayMove } from "@dnd-kit/sortable";
+import { KnowledgeColumn, DraggableKnowledgeItem } from "./knowledge-board";
 
 const readFileAsDataURI = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -38,6 +30,9 @@ type FileToUpload = {
   customName: string;
 };
 
+export const CATEGORIES: KnowledgeCategory[] = ['Biology', 'Chemistry', 'Physics', 'English', 'Logical Reasoning'];
+const UNCATEGORIZED_ID = "Uncategorized";
+
 export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: KnowledgeBaseDocument[] }) {
   const [documents, setDocuments] = useState(initialDocuments);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
@@ -46,6 +41,33 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
   const { toast } = useToast();
   const [docToRename, setDocToRename] = useState<KnowledgeBaseDocument | null>(null);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+
+  const [activeDoc, setActiveDoc] = useState<KnowledgeBaseDocument | null>(null);
+
+  const sensors = useSensors(useSensor(PointerSensor, {
+    activationConstraint: {
+        distance: 3,
+    },
+  }));
+
+  const docsByCategory = useMemo(() => {
+    const grouped: Record<string, KnowledgeBaseDocument[]> = {
+      [UNCATEGORIZED_ID]: [],
+    };
+    CATEGORIES.forEach(cat => grouped[cat] = []);
+
+    documents.forEach(doc => {
+      const category = doc.category || UNCATEGORIZED_ID;
+      if (grouped[category]) {
+        grouped[category].push(doc);
+      } else {
+        // Fallback for any unexpected category values
+        grouped[UNCATEGORIZED_ID].push(doc);
+      }
+    });
+
+    return grouped;
+  }, [documents]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
@@ -96,7 +118,6 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
       toast({ title: "No Files Selected", description: "Please select one or more files to upload.", variant: "destructive" });
       return;
     }
-
     const hasEmptyName = filesToUpload.some(f => !f.customName.trim());
     if (hasEmptyName) {
       toast({ title: "File Name Required", description: "All files must have a name before uploading.", variant: "destructive" });
@@ -127,7 +148,7 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
       const failedUploads = results.filter(result => result.status === 'rejected');
 
       if (newDocs.length > 0) {
-        setDocuments((prev) => [...newDocs, ...prev].sort((a,b) => a.file_name.localeCompare(b.file_name)));
+        setDocuments((prev) => [...newDocs, ...prev]);
         toast({ title: "Upload Complete", description: `${newDocs.length} file(s) have been added to the knowledge base.` });
       }
 
@@ -163,11 +184,11 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
     }
   };
 
-  const handleDelete = async (docId: string, docName: string) => {
+  const handleDelete = async (docId: string) => {
     try {
       await deleteKnowledgeBaseDocument(docId);
       setDocuments((prev) => prev.filter((doc) => doc.id !== docId));
-      toast({ title: "File Deleted", description: `"${docName}" has been removed from the knowledge base.` });
+      toast({ title: "File Deleted", description: `File has been removed from the knowledge base.` });
     } catch (error) {
       toast({ title: "Deletion Failed", description: (error as Error).message, variant: "destructive" });
     }
@@ -178,11 +199,53 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
     setIsRenameDialogOpen(true);
   };
 
-  const handleFileRenamed = async () => {
-    const { listKnowledgeBaseDocuments } = await import('@/lib/actions/knowledge.actions');
-    const updatedDocs = await listKnowledgeBaseDocuments();
-    setDocuments(updatedDocs);
+  const handleFileRenamed = async (updatedDoc: KnowledgeBaseDocument) => {
+    setDocuments(prev => prev.map(d => d.id === updatedDoc.id ? updatedDoc : d));
   };
+  
+  function onDragStart(event: DragStartEvent) {
+    if (event.active.data.current?.type === "Document") {
+      setActiveDoc(event.active.data.current.doc);
+    }
+  }
+
+  async function onDragEnd(event: DragEndEvent) {
+    setActiveDoc(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeId = active.id;
+    const overId = over.id;
+
+    if (activeId === overId) return;
+    
+    const activeDoc = documents.find(d => d.id === activeId);
+    if (!activeDoc) return;
+    
+    const oldCategory = activeDoc.category || UNCATEGORIZED_ID;
+    const newCategory = over.data.current?.type === "Column" ? (overId as string) : (over.data.current?.doc.category || UNCATEGORIZED_ID);
+    
+    if (oldCategory === newCategory) return;
+    
+    // Optimistic UI update
+    setDocuments(prev => {
+        const updatedDocs = prev.map(d => {
+            if (d.id === activeId) {
+                return {...d, category: newCategory === UNCATEGORIZED_ID ? null : newCategory as KnowledgeCategory};
+            }
+            return d;
+        });
+        return updatedDocs;
+    });
+
+    try {
+        await updateKnowledgeBaseFileCategory(activeId as string, newCategory === UNCATEGORIZED_ID ? null : newCategory as KnowledgeCategory);
+    } catch(error) {
+        toast({ title: "Update Failed", description: (error as Error).message, variant: "destructive" });
+        // Revert UI on failure
+        setDocuments(prev => prev.map(d => d.id === activeId ? activeDoc : d));
+    }
+  }
 
   return (
     <>
@@ -192,7 +255,7 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
             <div>
               <CardTitle>Global Knowledge Base</CardTitle>
               <CardDescription>
-                These files are available to all users for quiz generation.
+                Drag and drop files to organize them into categories. Uploaded files appear in &quot;Uncategorized&quot;.
               </CardDescription>
             </div>
             <Dialog open={isUploadDialogOpen} onOpenChange={handleDialogStateChange}>
@@ -254,56 +317,30 @@ export function KnowledgeBaseManager({ initialDocuments }: { initialDocuments: K
           </div>
         </CardHeader>
         <CardContent>
-          <div className="border rounded-md">
-            {documents.length > 0 ? (
-              <ul className="divide-y">
-                {documents.map((doc) => (
-                  <li key={doc.id} className="flex items-center justify-between p-3">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                      <div className="truncate">
-                        <span className="font-medium truncate block">{doc.file_name}</span>
-                        {doc.description && <span className="text-xs text-muted-foreground truncate block">{doc.description}</span>}
-                      </div>
-                    </div>
-                     <div className="flex items-center flex-shrink-0 ml-2">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRename(doc)}>
-                          <Edit className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle className="flex items-center">
-                                <AlertTriangle className="mr-2 h-5 w-5 text-destructive" /> Are you sure?
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently delete the file &quot;{doc.file_name}&quot; from the knowledge base. This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(doc.id, doc.file_name)}
-                              className="bg-destructive hover:bg-destructive/90"
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                     </div>
-                  </li>
+          <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+            <div className="flex gap-4 overflow-x-auto pb-4">
+                <KnowledgeColumn
+                    id={UNCATEGORIZED_ID}
+                    title="Uncategorized"
+                    documents={docsByCategory[UNCATEGORIZED_ID] || []}
+                    onRename={handleRename}
+                    onDelete={handleDelete}
+                />
+                {CATEGORIES.map(category => (
+                    <KnowledgeColumn
+                        key={category}
+                        id={category}
+                        title={category}
+                        documents={docsByCategory[category] || []}
+                        onRename={handleRename}
+                        onDelete={handleDelete}
+                    />
                 ))}
-              </ul>
-            ) : (
-              <p className="p-4 text-center text-muted-foreground">No files in the knowledge base.</p>
-            )}
-          </div>
+            </div>
+            <DragOverlay>
+              {activeDoc ? <DraggableKnowledgeItem doc={activeDoc} isOverlay /> : null}
+            </DragOverlay>
+          </DndContext>
         </CardContent>
       </Card>
       <RenameKnowledgeFileDialog 
