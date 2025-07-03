@@ -273,36 +273,45 @@ export function UploadQuizForm({
 
       <div className="space-y-4 pr-2">
         <div className="space-y-2">
-            <Label>Knowledge Base (Select up to {MAX_SELECTED_FILES} files)</Label>
-            <Accordion type="multiple" className="w-full border rounded-md">
-                {Object.entries(docsByCategory).filter(([_, docs]) => docs.length > 0).map(([category, docs]) => (
-                    <AccordionItem value={category} key={category}>
-                        <AccordionTrigger className="px-3 hover:no-underline">
-                            <div className="flex items-center">
-                                <FolderOpen className="mr-2 h-4 w-4" />
-                                <span>{category} ({docs.length})</span>
-                            </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="px-1 pb-2">
-                            <div className="max-h-36 overflow-y-auto w-full rounded-md border p-2 bg-muted/50 space-y-1.5">
-                                {docs.map(doc => (
-                                    <div key={doc.id} className="flex items-center space-x-3 p-1">
-                                        <Checkbox
-                                            id={`kb-checkbox-${doc.id}`}
-                                            checked={selectedFilePaths.includes(doc.storage_path)}
-                                            onCheckedChange={(checked) => handleFileSelectionChange(doc.storage_path, !!checked)}
-                                            disabled={loading || (selectedFilePaths.length >= MAX_SELECTED_FILES && !selectedFilePaths.includes(doc.storage_path))}
-                                        />
-                                        <Label htmlFor={`kb-checkbox-${doc.id}`} className="font-normal truncate cursor-pointer flex-1" title={doc.file_name}>
-                                            {doc.file_name}
-                                        </Label>
-                                    </div>
-                                ))}
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                ))}
-            </Accordion>
+          <Label>Knowledge Base (Select up to {MAX_SELECTED_FILES} files)</Label>
+          <Accordion type="single" collapsible className="w-full border rounded-md">
+              <AccordionItem value="knowledge-base-selector" className="border-b-0">
+                  <AccordionTrigger className="px-3 hover:no-underline">
+                      <div className="flex items-center">
+                          <FolderOpen className="mr-2 h-4 w-4" />
+                          <span>Browse Knowledge Base</span>
+                      </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-2 pt-0 pb-2">
+                      <Accordion type="multiple" className="w-full">
+                          {Object.entries(docsByCategory).filter(([, docs]) => docs.length > 0).map(([category, docs]) => (
+                              <AccordionItem value={category} key={category} className="border-b-0">
+                                  <AccordionTrigger className="px-2 py-2 text-sm font-normal hover:no-underline">
+                                      {category} ({docs.length})
+                                  </AccordionTrigger>
+                                  <AccordionContent className="pl-2 pr-1 pb-1">
+                                      <div className="max-h-36 overflow-y-auto w-full rounded-md border p-2 bg-muted/50 space-y-1.5">
+                                          {docs.map(doc => (
+                                              <div key={doc.id} className="flex items-center space-x-3 p-1">
+                                                  <Checkbox
+                                                      id={`kb-checkbox-${doc.id}`}
+                                                      checked={selectedFilePaths.includes(doc.storage_path)}
+                                                      onCheckedChange={(checked) => handleFileSelectionChange(doc.storage_path, !!checked)}
+                                                      disabled={loading || (selectedFilePaths.length >= MAX_SELECTED_FILES && !selectedFilePaths.includes(doc.storage_path))}
+                                                  />
+                                                  <Label htmlFor={`kb-checkbox-${doc.id}`} className="font-normal truncate cursor-pointer flex-1" title={doc.file_name}>
+                                                      {doc.file_name}
+                                                  </Label>
+                                              </div>
+                                          ))}
+                                      </div>
+                                  </AccordionContent>
+                              </AccordionItem>
+                          ))}
+                      </Accordion>
+                  </AccordionContent>
+              </AccordionItem>
+          </Accordion>
           
           {selectedFilePaths.length > 0 && (
             <div className="space-y-1 pt-2">
