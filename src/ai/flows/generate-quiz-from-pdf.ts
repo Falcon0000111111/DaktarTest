@@ -35,6 +35,10 @@ const GenerateQuizInputSchema = z.object({
     .boolean()
     .optional()
     .describe('If true, questions MUST be made significantly more challenging, requiring deeper understanding or synthesis of information. This is not a suggestion but a requirement.'),
+  numericalMode: z
+    .boolean()
+    .optional()
+    .describe('If true, all generated questions MUST be numerical problems that require multi-step solutions. This overrides other style preferences.'),
   topicsToFocus: z
     .string()
     .optional()
@@ -55,7 +59,7 @@ const GeneratedQuestionSchema = z.object({
         D: z.string(),
     }).describe("An object containing four possible answers, with keys 'A', 'B', 'C', 'D'."),
     correct_answer_key: z.enum(['A', 'B', 'C', 'D']).describe("The key ('A', 'B', 'C', or 'D') corresponding to the correct answer in the 'options' object."),
-    explanation: z.string().describe("A brief explanation of why this is the correct answer, referencing the source content."),
+    explanation: z.string().describe("A brief explanation of why this is the correct answer. For numerical questions, this MUST be a step-by-step solution, clearly demonstrating how to arrive at the correct option."),
     topic: z.string().describe("The primary topic/keyword this question relates to."),
     difficulty: z.enum(['standard', 'hard']).describe("The difficulty of the question, either 'standard' or 'hard'."),
 });
@@ -91,6 +95,12 @@ As you analyze the file, perform the following two sub-tasks:
 ### STEP 2: GENERATE QUIZ ACCORDING TO STRICT CONFIGURATION ###
 Now, generate a brand new quiz based on your analysis of the PDF. Adherence to the following rules, provided in the \`[User-Defined Configuration]\` block, is mandatory.
 
+{{#if numericalMode}}
+### RULE: NUMERICAL MODE (OVERRIDE) ###
+You MUST generate ONLY questions that require multi-step numerical solutions. All other rules regarding question style or topic distribution are secondary to this primary directive. For these numerical questions, the "explanation" field in the JSON output MUST provide a clear, step-by-step walkthrough of the calculation process. All questions must be designed to be solvable without a calculator, using clean, whole numbers.
+{{else}}
+### RULE: STANDARD/HARD MODE ###
+
 **A. Core Configuration:**
 *   **Total Questions to Generate:** You must generate exactly this number of questions.
 
@@ -100,23 +110,29 @@ Now, generate a brand new quiz based on your analysis of the PDF. Adherence to t
     *   If "Short Descriptions" is selected, create questions like: "Which of the following best describes the concept of X?"
     *   If "Fill in the blanks" is selected, create questions like: "The process of Y uses sunlight to synthesize foods from ___ and water."
     *   Generate a balanced mix of the selected styles.
-*   **Natural Phrasing:** Frame questions naturally. You MUST avoid phrases like "According to the PDF," "As explained in the document," or any other direct references to the source material in the question text. The user should feel like they are taking a standard test, not one that is constantly reminding them of the source document.
+*   **Natural Phrasing:** Frame questions naturally. You MUST avoid phrases like "According to the PDF," "As explained in the document," or any other direct references to the source material in the question text.
 
-**C. Difficulty and Complexity:**
-*   **Hard Mode:** If this is set to \`true\`, you MUST adhere to the following difficulty requirements:
-    *   **Overall Difficulty:** Approximately 75% of the questions must be "hard". A "hard" question is tricky but fair and solvable using ONLY the provided PDF content.
-    *   **General "Hard" Question Characteristics:** It should test deeper understanding by requiring synthesis of information from different sections of the PDF, logical inference, or application of concepts to new scenarios.
-    *   **Subject-Specific "Hard" Question Guidelines:**
-        *   **For Physics:** Most questions should be mathematically challenging but solvable.
-        *   **For Chemistry:** Mathematical questions should also be tricky but solvable. For theoretical questions, they should primarily combine multiple concepts to increase complexity.
-        *   **For Biology:** Questions must require a deeper understanding of the material to solve.
+**C. Difficulty and Complexity (Subject-Specific):**
+This is the most critical section. You MUST tailor the difficulty based on the subject matter of the PDF content and the user's "Hard Mode" selection.
+
+*   **If the PDF content is primarily about PHYSICS:**
+    *   **If Hard Mode is \`true\`:** Approximately 80% of the questions MUST be multi-step calculation problems with intentionally tricky statements.
+    *   **If Hard Mode is \`false\` (Standard Mode):** Approximately 40% of questions MUST involve multi-step calculations.
+*   **If the PDF content is primarily about BIOLOGY:**
+    *   **If Hard Mode is \`true\`:** Question statements MUST be complex and tricky. Crucially, the answer options MUST also be tricky and plausible, forcing careful distinction. Only one option can be correct.
+*   **If the PDF content is primarily about CHEMISTRY:**
+    *   **If Hard Mode is \`true\`:** Both question statements AND answer options MUST be tricky. Any numerical questions MUST be multi-step.
+*   **For all other subjects or if the subject is mixed/unclear:**
+    *   **If Hard Mode is \`true\`:** Approximately 75% of the questions must be "hard". A "hard" question requires synthesis of information, logical inference, or application of concepts to new scenarios.
 
 **D. Topic Control:**
-*   **Topics/Keywords to Focus On:** If a list is provided, approximately 60% of the total questions MUST be directly related to these specific topics found within the PDF.
-*   **Topics/Keywords to Drop:** You MUST NOT generate any questions, answers, or distractors related to these topics. Completely ignore any sections of the PDF discussing these topics.
+*   **Topics/Keywords to Focus On:** If a list is provided, approximately 60% of the total questions MUST be directly related to these specific topics.
+*   **Topics/Keywords to Drop:** You MUST NOT generate any questions related to these topics.
 
-**E. Numerical Calculation Rule:**
-*   For any question involving numbers or calculations derived from the PDF, design it so that the entire solving process can be done mentally. Use clean, whole numbers. Avoid decimals or complex fractions.
+**E. Numerical Calculation & Explanation Rule:**
+*   **Calculation:** All questions involving numbers MUST be solvable without a calculator. Use clean, whole numbers.
+*   **Explanation:** For any numerical question, the "explanation" field in the JSON output MUST provide a clear, step-by-step walkthrough of how to arrive at the correct answer.
+{{/if}}
 
 ### STEP 3: PROVIDE OUTPUT IN SPECIFIED JSON FORMAT ###
 Provide the output as a single, well-formed JSON array. Each object in the array represents a single quiz question and must have the following exact structure:
@@ -125,7 +141,7 @@ Provide the output as a single, well-formed JSON array. Each object in the array
     "question_text": "The full text of the question.",
     "options": { "A": "Option A", "B": "Option B", "C": "Option C", "D": "Option D" },
     "correct_answer_key": "The key of the correct option (e.g., 'C')",
-    "explanation": "A brief explanation of why this is the correct answer, referencing information found in the PDF.",
+    "explanation": "A brief explanation of why this is the correct answer. For numerical questions, this MUST be a step-by-step solution.",
     "topic": "The primary topic/keyword from the PDF this question relates to.",
     "difficulty": "standard" or "hard"
   }
@@ -143,6 +159,7 @@ Provide the output as a single, well-formed JSON array. Each object in the array
   "total_questions": {{{totalNumberOfQuestions}}},
   "question_styles": "{{#if preferredQuestionStyles}}{{{preferredQuestionStyles}}}{{else}}Multiple choice questions{{/if}}",
   "hard_mode": {{#if hardMode}}true{{else}}false{{/if}},
+  "numerical_mode": {{#if numericalMode}}true{{else}}false{{/if}},
   "focus_on_topics": "{{#if topicsToFocus}}{{{topicsToFocus}}}{{else}}None{{/if}}",
   "drop_topics": "{{#if topicsToDrop}}{{{topicsToDrop}}}{{else}}None{{/if}}"
 }

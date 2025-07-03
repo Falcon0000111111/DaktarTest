@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useState, type FormEvent, useEffect, RefObject, useMemo } from "react";
 import { generateQuizFromPdfsAction } from "@/lib/actions/quiz.actions";
-import { BadgeAlert, Percent, FolderOpen, Clock } from "lucide-react";
+import { BadgeAlert, Percent, FolderOpen, Clock, Calculator } from "lucide-react";
 import type { Quiz, KnowledgeBaseDocument, KnowledgeCategory } from "@/types/supabase";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -68,6 +68,7 @@ export function UploadQuizForm({
   const [durationMinutes, setDurationMinutes] = useState<number | null>(initialDurationMinutes === undefined ? null : initialDurationMinutes);
   const [selectedQuestionStyles, setSelectedQuestionStyles] = useState<string[]>(["multiple-choice"]);
   const [hardMode, setHardMode] = useState(false);
+  const [numericalMode, setNumericalMode] = useState(false);
   const [topicsToFocus, setTopicsToFocus] = useState("");
   const [topicsToDrop, setTopicsToDrop] = useState("");
   const [loading, setLoading] = useState(false); 
@@ -119,6 +120,7 @@ export function UploadQuizForm({
     if (!isRegenerationMode) {
         setSelectedQuestionStyles(["multiple-choice"]); 
         setHardMode(false);
+        setNumericalMode(false);
         setTopicsToFocus("");
         setTopicsToDrop("");
         setSelectedFilePaths([]);
@@ -230,14 +232,15 @@ export function UploadQuizForm({
         existingQuizIdToUpdate: isRegenerationMode ? existingQuizIdToUpdate : undefined,
         preferredQuestionStyles: preferredStylesString || undefined,
         hardMode: hardMode,
+        numericalMode: numericalMode,
         topicsToFocus: topicsToFocus || undefined,
         topicsToDrop: topicsToDrop || undefined,
       });
 
       onUploadComplete(generatedQuiz.id); 
 
-    } catch (error: any) {
-        const errorMessage = error.message || "An unknown error occurred.";
+    } catch (error) {
+        const errorMessage = (error as Error).message || "An unknown error occurred.";
         toast({
           title: "Error Generating Quiz",
           description: errorMessage,
@@ -249,6 +252,7 @@ export function UploadQuizForm({
         setSelectedFilePaths([]);
         setSelectedQuestionStyles(["multiple-choice"]);
         setHardMode(false);
+        setNumericalMode(false);
         setTopicsToFocus("");
         setTopicsToDrop("");
         setPassingScore(70);
@@ -369,9 +373,17 @@ export function UploadQuizForm({
         </div>
         
         <div className="flex items-center space-x-2 pt-2">
-          <Switch id="hard-mode" checked={hardMode} onCheckedChange={setHardMode} disabled={loading} />
+          <Switch id="hard-mode" checked={hardMode} onCheckedChange={setHardMode} disabled={loading || numericalMode} />
           <Label htmlFor="hard-mode">Hard Mode (More challenging questions)</Label>
         </div>
+        
+        <div className="flex items-center space-x-2 pt-2">
+          <Switch id="numerical-mode" checked={numericalMode} onCheckedChange={setNumericalMode} disabled={loading} />
+          <Label htmlFor="numerical-mode" className="flex items-center">
+             <Calculator className="mr-2 h-4 w-4 text-muted-foreground" /> Numerical Mode (All questions are calculations)
+          </Label>
+        </div>
+
 
         <div className="space-y-2">
           <Label htmlFor="topics-to-focus">Topics/Keywords to Focus On (Optional, comma-separated)</Label>

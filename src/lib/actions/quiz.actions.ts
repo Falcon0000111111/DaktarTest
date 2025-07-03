@@ -18,6 +18,7 @@ interface GenerateQuizFromPdfsParams {
   existingQuizIdToUpdate?: string;
   preferredQuestionStyles?: string;
   hardMode?: boolean;
+  numericalMode?: boolean;
   topicsToFocus?: string;
   topicsToDrop?: string;
 }
@@ -57,6 +58,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     existingQuizIdToUpdate,
     preferredQuestionStyles,
     hardMode,
+    numericalMode,
     topicsToFocus,
     topicsToDrop 
   } = params;
@@ -149,6 +151,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
       totalNumberOfQuestions: totalNumberOfQuestions,
       preferredQuestionStyles: preferredQuestionStyles,
       hardMode: hardMode,
+      numericalMode: numericalMode,
       topicsToFocus: topicsToFocus,
       topicsToDrop: topicsToDrop,
     };
