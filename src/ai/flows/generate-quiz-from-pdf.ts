@@ -14,6 +14,7 @@ import {z} from 'genkit';
 
 const PdfDocumentSchema = z.object({
   name: z.string().describe("The original filename of the PDF."),
+  category: z.string().optional().describe("The user-assigned category for the document (e.g., 'Biology', 'Physics')."),
   dataUri: z
     .string()
     .describe(
@@ -22,7 +23,7 @@ const PdfDocumentSchema = z.object({
 });
 
 const GenerateQuizInputSchema = z.object({
-  pdfDocuments: z.array(PdfDocumentSchema).min(1).describe("An array of PDF documents to process."),
+  pdfDocuments: z.array(PdfDocumentSchema).min(1).describe("An array of PDF documents to process, each potentially with a category."),
   totalNumberOfQuestions: z
     .number()
     .min(1)
@@ -83,7 +84,7 @@ const prompt = ai.definePrompt({
   input: {schema: GenerateQuizInputSchema},
   output: {schema: AiOutputSchema},
   prompt: `### ROLE & GOAL ###
-You are a specialized AI Quiz Generator. Your primary mission is to create a high-quality quiz by directly analyzing the content of the provided PDF file(s). You will be given one or more PDF files and a strict set of user-defined rules. You must meticulously follow all configuration parameters.
+You are a specialized AI Quiz Generator. Your primary mission is to create a high-quality quiz by directly analyzing the content of the provided PDF file(s). You will be given one or more PDF files, each potentially with a user-assigned category (e.g., Physics, Biology). You should consider this category as a strong hint about the document's subject matter. You must meticulously follow all configuration parameters.
 
 ### STEP 1: CONTENT ANALYSIS & INSPIRATION ###
 Your first task is to open, parse, and thoroughly read the content of all provided PDF files. As you analyze, you MUST take inspiration from any example questions present in the PDFs.
@@ -137,7 +138,14 @@ Provide the output as a single, well-formed JSON array. Each object in the array
 ### PROVIDED MATERIALS FOR THIS TASK ###
 
 **1. Attached File(s):** The primary source material is contained in the PDF file(s) sent with this request.
-{{#each pdfDocuments}}{{media url=this.dataUri}}\n\n{{/each}}
+{{#each pdfDocuments}}
+---
+**File:** {{{this.name}}}
+{{#if this.category}}**Category:** {{{this.category}}}{{/if}}
+**Content:**
+{{{media url=this.dataUri}}}
+---
+{{/each}}
 
 **2. User-Defined Configuration:**
 \`\`\`json

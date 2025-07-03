@@ -113,7 +113,7 @@ export async function listKnowledgeBaseDocuments(): Promise<KnowledgeBaseDocumen
 }
 
 
-export async function getKnowledgeBaseFileAsDataUri(storagePath: string): Promise<{name: string; dataUri: string}> {
+export async function getKnowledgeBaseFileAsDataUri(storagePath: string): Promise<{name: string; dataUri: string; category: KnowledgeCategory | null}> {
     const cookieStore = cookies();
     const supabase = createClient(cookieStore);
     const { data: { user } } = await supabase.auth.getUser();
@@ -131,23 +131,22 @@ export async function getKnowledgeBaseFileAsDataUri(storagePath: string): Promis
         throw new Error(error.message || "Could not download file from knowledge base.");
     }
     
-    const { data: doc, error: docError } = await supabase.from('knowledge_base_documents').select('file_name').eq('storage_path', storagePath).single();
+    const { data: doc, error: docError } = await supabase.from('knowledge_base_documents').select('file_name, category').eq('storage_path', storagePath).single();
+    
+    const buffer = Buffer.from(await blob.arrayBuffer());
+    const dataUri = `data:${blob.type || 'application/pdf'};base64,${buffer.toString('base64')}`;
 
     if (docError || !doc) {
-      console.error("Error fetching document name:", docError);
+      console.error("Error fetching document metadata:", docError);
       // Fallback to parsing from storage path if DB lookup fails
       const fileNameWithPrefix = storagePath.substring(storagePath.lastIndexOf('/') + 1);
       const fallbackFileName = fileNameWithPrefix.substring(fileNameWithPrefix.indexOf('-') + 1).replace(/_/g, " ");
       
-      const buffer = Buffer.from(await blob.arrayBuffer());
-      const dataUri = `data:${blob.type || 'application/pdf'};base64,${buffer.toString('base64')}`;
-      return { name: fallbackFileName, dataUri };
+      return { name: fallbackFileName, dataUri, category: null };
     }
 
-    const buffer = Buffer.from(await blob.arrayBuffer());
-    const dataUri = `data:${blob.type || 'application/pdf'};base64,${buffer.toString('base64')}`;
 
-    return { name: doc.file_name, dataUri };
+    return { name: doc.file_name, dataUri, category: doc.category };
 }
 
 
