@@ -103,6 +103,7 @@ You MUST generate ONLY questions that require multi-step numerical solutions. Al
 
 **A. Core Configuration:**
 *   **Total Questions to Generate:** You must generate exactly this number of questions.
+*   **Question Distribution:** If multiple documents are provided, you MUST strive to distribute the total number of questions proportionally among them, based on their content length and relevance. Do not focus on just one document if multiple are given.
 
 **B. Question Style and Format:**
 *   **Selected Styles:** The user wants questions that reflect the following styles: \`{{{preferredQuestionStyles}}}\`.

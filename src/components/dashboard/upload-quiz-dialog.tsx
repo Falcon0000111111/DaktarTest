@@ -16,6 +16,7 @@ import type { ReactNode} from "react";
 import { X, Wand2, Loader2 } from "lucide-react";
 import React, { useRef, useState } from "react";
 import type { KnowledgeBaseDocument } from "@/types/supabase";
+import { QuizGenerationProgress } from "./quiz-generation-progress";
 
 interface UploadQuizDialogProps {
   children?: ReactNode; 
@@ -76,55 +77,66 @@ export function UploadQuizDialog({
         <DialogHeader className="p-6 pb-4 flex-shrink-0 border-b">
           <DialogTitle className="font-headline flex items-center">
             <Wand2 className="mr-2 h-5 w-5 text-primary" /> 
-            {isRegenerationMode ? "Re-Generate Quiz" : "Generate New Quiz"}
+            {isFormSubmitting
+              ? "Quiz Generation In Progress"
+              : isRegenerationMode
+              ? "Re-Generate Quiz"
+              : "Generate New Quiz"}
           </DialogTitle>
           <DialogDescription>
-            {isRegenerationMode 
+            {isFormSubmitting
+              ? "The AI is working on your request."
+              : isRegenerationMode 
               ? `Re-generating quiz.` 
               : "Select up to 5 files from the global Knowledge Base and configure options to generate a quiz."
             }
           </DialogDescription>
         </DialogHeader>
         
-        <UploadQuizForm 
-          workspaceId={workspaceId} 
-          onUploadStarted={() => {
-            setIsFormSubmitting(true);
-            onQuizGenerationStart();
-          }} 
-          onUploadComplete={(quizId) => {
-            setIsFormSubmitting(false);
-            onQuizGenerated(quizId); 
-          }}
-          onFormValidityChange={setIsFormValidForSubmission}
-          initialNumQuestions={initialNumQuestions}
-          initialPassingScore={initialPassingScore}
-          initialDurationMinutes={initialDurationMinutes}
-          existingQuizIdToUpdate={existingQuizIdToUpdate}
-          formSubmitRef={formSubmitButtonRef}
-          onActualCancel={() => { 
-            onOpenChange(false);
-            handleDialogClose(false);
-          }}
-          knowledgeFiles={knowledgeFiles}
-          className="flex-1 min-h-0 px-6 py-4" 
-        />
-        <DialogFooter className="p-6 pt-4 flex-shrink-0 border-t">
-            <Button type="button" variant="outline" onClick={() => {
-                onOpenChange(false);
-                handleDialogClose(false);
-            }} disabled={isFormSubmitting}>
-              <X className="mr-2 h-4 w-4" /> Cancel
-            </Button>
-            <Button type="button" onClick={handleGenerateClick} disabled={isFormSubmitting || !isFormValidForSubmission}>
-              {isFormSubmitting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
+        {isFormSubmitting ? (
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <QuizGenerationProgress />
+          </div>
+        ) : (
+          <UploadQuizForm 
+            workspaceId={workspaceId} 
+            onUploadStarted={() => {
+              setIsFormSubmitting(true);
+              onQuizGenerationStart();
+            }} 
+            onUploadComplete={(quizId) => {
+              setIsFormSubmitting(false);
+              onQuizGenerated(quizId); 
+            }}
+            onFormValidityChange={setIsFormValidForSubmission}
+            initialNumQuestions={initialNumQuestions}
+            initialPassingScore={initialPassingScore}
+            initialDurationMinutes={initialDurationMinutes}
+            existingQuizIdToUpdate={existingQuizIdToUpdate}
+            formSubmitRef={formSubmitButtonRef}
+            onActualCancel={() => { 
+              onOpenChange(false);
+              handleDialogClose(false);
+            }}
+            knowledgeFiles={knowledgeFiles}
+            className="flex-1 min-h-0 px-6 py-4" 
+          />
+        )}
+        
+        {!isFormSubmitting && (
+          <DialogFooter className="p-6 pt-4 flex-shrink-0 border-t">
+              <Button type="button" variant="outline" onClick={() => {
+                  onOpenChange(false);
+                  handleDialogClose(false);
+              }}>
+                <X className="mr-2 h-4 w-4" /> Cancel
+              </Button>
+              <Button type="button" onClick={handleGenerateClick} disabled={!isFormValidForSubmission}>
                 <Wand2 className="mr-2 h-4 w-4" />
-              )}
-              {isFormSubmitting ? (isRegenerationMode ? "Re-Generating..." : "Generating...") : (isRegenerationMode ? "Re-Generate Quiz" : "Generate Quiz")}
-            </Button>
-        </DialogFooter>
+                {isRegenerationMode ? "Re-Generate Quiz" : "Generate Quiz"}
+              </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
