@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client"; // Updated import
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { LogIn, BookOpenCheck } from "lucide-react";
+import { LogIn, Stethoscope } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
@@ -57,9 +57,9 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-2xl animate-fade-in">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
-            <BookOpenCheck className="h-16 w-16 text-primary" />
+            <Stethoscope className="h-16 w-16 text-primary" />
           </div>
-          <CardTitle className="text-3xl font-headline">Welcome to FinalQuiz</CardTitle>
+          <CardTitle className="text-3xl font-headline">Welcome to DaktarTest</CardTitle>
           <CardDescription className="text-md">Sign in to access your quizzes and workspaces.</CardDescription>
         </CardHeader>
         <CardContent>
