@@ -60,7 +60,7 @@ const GeneratedQuestionSchema = z.object({
         D: z.string(),
     }).describe("An object containing four possible answers, with keys 'A', 'B', 'C', 'D'."),
     correct_answer_key: z.enum(['A', 'B', 'C', 'D']).describe("The key ('A', 'B', 'C', or 'D') corresponding to the correct answer in the 'options' object."),
-    explanation: z.string().describe("A brief explanation of why this is the correct answer. For numerical questions, this MUST be a step-by-step solution, clearly demonstrating how to arrive at the correct option."),
+    explanation: z.string().describe("A brief explanation of why the answer is correct. For numerical questions, this MUST be a step-by-step solution, with each step on a new line (using '\\n'), clearly demonstrating how to arrive at the correct option."),
     topic: z.string().describe("The primary topic/keyword this question relates to."),
     difficulty: z.enum(['standard', 'hard']).describe("The difficulty of the question, either 'standard' or 'hard'."),
 });
@@ -95,7 +95,7 @@ Now, generate a brand new quiz based on your analysis and the user's configurati
 
 {{#if numericalMode}}
 ### RULE: NUMERICAL MODE (OVERRIDE) ###
-You MUST generate ONLY questions that require multi-step numerical solutions. All other rules regarding question style or topic distribution are secondary to this primary directive. For these numerical questions, the "explanation" field in the JSON output MUST provide a clear, step-by-step walkthrough of the calculation process. All questions must be designed to be solvable without a calculator, using clean, whole numbers.
+You MUST generate ONLY questions that require multi-step numerical solutions. All other rules regarding question style or topic distribution are secondary to this primary directive. For these numerical questions, the "explanation" field in the JSON output MUST provide a clear, step-by-step walkthrough of the calculation process. Each step of the calculation MUST be on its own line, separated by a newline character (\\\\n). All questions must be designed to be solvable without a calculator, using clean, whole numbers.
 {{else}}
 ### RULES: STANDARD/HARD MODE ###
 
@@ -118,7 +118,7 @@ You MUST generate ONLY questions that require multi-step numerical solutions. Al
 
 **D. Numerical Calculation & Explanation Rule:**
 *   **Calculation:** All questions involving numbers MUST be solvable without a calculator. Use clean, whole numbers.
-*   **Explanation:** For any numerical question, the "explanation" field in the JSON output MUST provide a clear, step-by-step walkthrough of how to arrive at the correct answer.
+*   **Explanation:** For any numerical question, the "explanation" field in the JSON output MUST provide a clear, step-by-step walkthrough of how to arrive at the correct answer. Each step of the calculation MUST be on its own line, separated by a newline character (\\\\n).
 {{/if}}
 
 ### STEP 3: PROVIDE OUTPUT IN SPECIFIED JSON FORMAT ###
@@ -128,7 +128,7 @@ Provide the output as a single, well-formed JSON array. Each object in the array
     "question_text": "The full text of the question.",
     "options": { "A": "Option A", "B": "Option B", "C": "Option C", "D": "Option D" },
     "correct_answer_key": "The key of the correct option (e.g., 'C')",
-    "explanation": "A brief explanation of why this is the correct answer. For numerical questions, this MUST be a step-by-step solution.",
+    "explanation": "A brief explanation of why this is the correct answer. For numerical questions, this MUST be a step-by-step solution, with each step on a new line (using '\\\\n').",
     "topic": "The primary topic/keyword from the PDF this question relates to.",
     "difficulty": "standard" or "hard"
   }

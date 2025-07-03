@@ -134,7 +134,7 @@ export function QuizResultsDisplay({ quiz, quizData, userAnswers, user, onRetake
                         </Button>
                     </div>
                     {isExplanationVisible && (
-                        <p className="text-sm text-muted-foreground pl-1 animate-accordion-down">
+                        <p className="text-sm text-muted-foreground pl-1 animate-accordion-down whitespace-pre-wrap">
                             {q.explanation || "No explanation provided."}
                         </p>
                     )}
