@@ -1,3 +1,4 @@
+
 import type {Config} from 'tailwindcss';
 
 export default {
@@ -95,13 +96,43 @@ export default {
         'slide-in-up': {
           from: { transform: 'translateY(20px)', opacity: '0'},
           to: { transform: 'translateY(0)', opacity: '1'},
-        }
+        },
+        'dialog-in': {
+          '0%': { opacity: '0', transform: 'translate(-50%, -48%) scale(0.96)' },
+          '100%': { opacity: '1', transform: 'translate(-50%, -50%) scale(1)' },
+        },
+        'dialog-out': {
+          '0%': { opacity: '1', transform: 'translate(-50%, -50%) scale(1)' },
+          '100%': { opacity: '0', transform: 'translate(-50%, -48%) scale(0.96)' },
+        },
+        'sheet-in-left': {
+          '0%': { transform: 'translateX(-100%)', opacity: '0.5' },
+          '100%': { transform: 'translateX(0)', opacity: '1' },
+        },
+        'sheet-out-left': {
+          '0%': { transform: 'translateX(0)', opacity: '1' },
+          '100%': { transform: 'translateX(-100%)', opacity: '0.5' },
+        },
+         'sheet-in-right': {
+          '0%': { transform: 'translateX(100%)', opacity: '0.5' },
+          '100%': { transform: 'translateX(0)', opacity: '1' },
+        },
+        'sheet-out-right': {
+          '0%': { transform: 'translateX(0)', opacity: '1' },
+          '100%': { transform: 'translateX(100%)', opacity: '0.5' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'fade-in': 'fade-in 0.5s ease-out',
         'slide-in-up': 'slide-in-up 0.5s ease-out forwards',
+        'dialog-in': 'dialog-in 0.3s ease-out',
+        'dialog-out': 'dialog-out 0.2s ease-in',
+        'sheet-in-left': 'sheet-in-left 0.4s ease-in-out',
+        'sheet-out-left': 'sheet-out-left 0.3s ease-in-out',
+        'sheet-in-right': 'sheet-in-right 0.4s ease-in-out',
+        'sheet-out-right': 'sheet-out-right 0.3s ease-in-out',
       },
     },
   },
