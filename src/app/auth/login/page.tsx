@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ export default function LoginPage() {
       if (error) {
         toast({
           title: "Login Failed",
-          description: error.message,
+          description: "Invalid email or password. Please check your credentials and try again.",
           variant: "destructive",
         });
       } else {
@@ -43,8 +44,8 @@ export default function LoginPage() {
       }
     } catch (error) {
       toast({
-        title: "An unexpected error occurred",
-        description: (error as Error).message,
+        title: "Network Error",
+        description: "Could not log in. Please check your internet connection and try again.",
         variant: "destructive",
       });
     } finally {

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -52,9 +53,15 @@ export default function SignupPage() {
         },
       });
       if (error) {
+        let description = "An unknown error occurred. Please try again.";
+        if (error.message.includes("User already registered")) {
+            description = "A user with this email already exists. Please log in instead.";
+        } else if (error.message.includes("Password should be at least 6 characters")) {
+            description = "Your password must be at least 6 characters long.";
+        }
         toast({
           title: "Signup Failed",
-          description: error.message,
+          description: description,
           variant: "destructive",
         });
       } else {
@@ -66,8 +73,8 @@ export default function SignupPage() {
       }
     } catch (error) {
        toast({
-        title: "An unexpected error occurred",
-        description: (error as Error).message,
+        title: "Network Error",
+        description: "Could not sign up. Please check your internet connection and try again.",
         variant: "destructive",
       });
     } finally {

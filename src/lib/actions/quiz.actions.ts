@@ -29,11 +29,10 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    throw new Error("User not authenticated.");
+    throw new Error("You must be logged in to generate a quiz.");
   }
 
   // Manually check the user's request limit before proceeding.
-  // This is more reliable than relying on potentially flawed database triggers.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("llm_requests_count, llm_request_limit")
@@ -41,7 +40,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
     .single();
 
   if (profileError || !profile) {
-    throw new Error("Could not retrieve user profile to check request limit.");
+    throw new Error("Could not find your profile to check your quiz generation limit.");
   }
 
   if (profile.llm_requests_count >= profile.llm_request_limit) {
@@ -64,21 +63,20 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
   } = params;
 
   if (!knowledgeFileStoragePaths || knowledgeFileStoragePaths.length === 0) {
-    throw new Error("At least one PDF document from the Knowledge Base is required.");
+    throw new Error("Please select at least one document from the Knowledge Base.");
   }
   if (passingScorePercentage !== undefined && passingScorePercentage !== null && (passingScorePercentage < 0 || passingScorePercentage > 100)) {
-    throw new Error("Passing score percentage must be between 0 and 100.");
+    throw new Error("Passing score must be between 0 and 100.");
   }
 
-  // IMPORTANT: We increment the user's request count here, BEFORE calling the AI.
-  // This correctly "spends" the request credit. If the AI fails later, the request is still consumed.
+  // Increment the user's request count BEFORE calling the AI.
   const { error: incrementError } = await supabase
     .from("profiles")
     .update({ llm_requests_count: profile.llm_requests_count + 1 })
     .eq("id", user.id);
   
   if (incrementError) {
-      throw new Error("Failed to update request count. Please try again.");
+      throw new Error("Failed to update your request count. Please try again.");
   }
   
   const pdfDocuments = await Promise.all(
@@ -117,7 +115,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
 
     if (createError || !newQuizEntry) {
       console.error("Error creating initial quiz entry:", createError);
-      throw new Error(createError?.message || "Failed to create quiz entry.");
+      throw new Error("Failed to create a new quiz entry in the database.");
     }
     quizEntryId = newQuizEntry.id;
   } else {
@@ -139,7 +137,7 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
 
     if (updateToProcessingError) {
       console.error("Error updating quiz to processing for retry:", updateToProcessingError);
-      throw new Error(updateToProcessingError?.message || "Failed to set quiz to processing for retry.");
+      throw new Error("Failed to prepare the quiz for re-generation.");
     }
   }
 
@@ -180,42 +178,37 @@ export async function generateQuizFromPdfsAction(params: GenerateQuizFromPdfsPar
       if (quizEntryId) {
         await supabase
           .from("quizzes")
-          .update({ status: "failed", error_message: updateError?.message || "Failed to save generated quiz content." })
+          .update({ status: "failed", error_message: "Failed to save the generated quiz content." })
           .eq("id", quizEntryId)
           .eq("user_id", user.id);
       }
       revalidatePath(`/dashboard/workspace/${workspaceId}`); 
-      throw new Error(updateError?.message || "Failed to update quiz with generated data.");
+      throw new Error("Failed to save the newly generated quiz data.");
     }
 
     revalidatePath(`/dashboard/workspace/${workspaceId}`);
     return updatedQuiz;
 
   } catch (error) {
-    console.error(`Error during AI flow or DB update (Quiz ID: ${quizEntryId}):`, error);
-
     let detailedErrorMessage = "An unknown error occurred during quiz generation.";
     if (error instanceof Error) {
       detailedErrorMessage = error.message;
-    } else if (typeof error === 'string') {
-      detailedErrorMessage = error;
-    } else if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
-      detailedErrorMessage = error.message;
     }
     
+    // Make AI-specific errors more user-friendly
+    if (detailedErrorMessage.includes("unsuitable for quiz generation")) {
+       detailedErrorMessage = "The AI had trouble with the selected document(s). Please try a different file or adjust your settings.";
+    }
+
     if (quizEntryId) {
-      const { data: quizExists } = await supabase.from('quizzes').select('id').eq('id', quizEntryId).single();
-      if (quizExists) {
         await supabase
           .from("quizzes")
           .update({ status: "failed", error_message: detailedErrorMessage })
           .eq("id", quizEntryId)
           .eq("user_id", user.id);
-      }
     }
 
     revalidatePath(`/dashboard/workspace/${workspaceId}`);
-    
     throw new Error(detailedErrorMessage);
   }
 }
@@ -230,7 +223,7 @@ export async function updateQuizAttemptResultAction(
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    throw new Error("User not authenticated.");
+    throw new Error("You must be logged in to save your quiz results.");
   }
 
   const { data: updatedQuiz, error } = await supabase
@@ -246,7 +239,7 @@ export async function updateQuizAttemptResultAction(
 
   if (error || !updatedQuiz) {
     console.error("Error updating quiz attempt result:", error);
-    throw new Error(error?.message || "Failed to update quiz attempt result.");
+    throw new Error("Could not save your quiz results. Please try again.");
   }
   revalidatePath(`/dashboard/workspace/${updatedQuiz.workspace_id}`);
   return updatedQuiz;
@@ -271,17 +264,8 @@ export async function getQuizzesForWorkspace(workspaceId: string): Promise<Quiz[
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Supabase error fetching quizzes for workspace. Raw error:", JSON.stringify(error, null, 2));
-    const messageParts = [
-      `Failed to fetch quizzes for workspace ${workspaceId}.`,
-      error.message ? `Message: ${error.message}` : 'Unknown error.',
-      error.code ? `Code: ${error.code}` : null,
-      error.details ? `Details: ${error.details}` : null,
-      error.hint ? `Hint: ${error.hint}` : null,
-    ];
-    const errorMessage = messageParts.filter(part => part !== null).join(' ');
-    console.error("Constructed error message for throw:", errorMessage);
-    throw new Error(errorMessage);
+    console.error("Supabase error fetching quizzes for workspace:", error);
+    throw new Error(`Failed to load quizzes for this workspace. Please refresh the page.`);
   }
   return data || [];
 }
@@ -292,7 +276,7 @@ export async function getQuizById(quizId: string): Promise<Quiz | null> {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    throw new Error("User not authenticated for getQuizById.");
+    throw new Error("You must be logged in to view a quiz.");
   }
 
   const { data, error } = await supabase
@@ -307,7 +291,7 @@ export async function getQuizById(quizId: string): Promise<Quiz | null> {
       return null;
     }
     console.error("Error fetching quiz by ID:", error);
-    throw new Error(error.message || "Failed to fetch quiz by ID.");
+    throw new Error("Could not load the selected quiz. Please try again.");
   }
   return data;
 }
@@ -319,7 +303,7 @@ export async function deleteQuizAction(quizId: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    throw new Error("User not authenticated.");
+    throw new Error("You must be logged in to delete a quiz.");
   }
 
   const { data: quizData, error: fetchError } = await supabase
@@ -331,7 +315,7 @@ export async function deleteQuizAction(quizId: string): Promise<void> {
 
   if (fetchError || !quizData) {
     console.error("Error fetching quiz for deletion or quiz not found:", fetchError);
-    throw new Error(fetchError?.message || "Quiz not found or permission denied.");
+    throw new Error("The quiz could not be found or you don't have permission to delete it.");
   }
   
   const { error } = await supabase
@@ -342,7 +326,7 @@ export async function deleteQuizAction(quizId: string): Promise<void> {
 
   if (error) {
     console.error("Error deleting quiz:", error);
-    throw new Error(error.message || "Failed to delete quiz.");
+    throw new Error("Failed to delete the quiz. Please try again.");
   }
   revalidatePath(`/dashboard/workspace/${quizData.workspace_id}`);
   revalidatePath(`/dashboard`);
@@ -354,7 +338,7 @@ export async function renameQuizAction(quizId: string, newName: string): Promise
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    throw new Error("User not authenticated.");
+    throw new Error("You must be logged in to rename a quiz.");
   }
   if (!newName.trim()) {
     throw new Error("Quiz name cannot be empty.");
@@ -370,7 +354,7 @@ export async function renameQuizAction(quizId: string, newName: string): Promise
 
   if (error || !updatedQuiz) {
     console.error("Error renaming quiz:", error);
-    throw new Error(error?.message || "Failed to rename quiz.");
+    throw new Error("Failed to rename the quiz. Please try again.");
   }
   revalidatePath(`/dashboard/workspace/${updatedQuiz.workspace_id}`);
   revalidatePath(`/dashboard`);
@@ -383,10 +367,10 @@ export async function renameQuizzesBySourcePdfAction(workspaceId: string, oldNam
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    throw new Error("User not authenticated.");
+    throw new Error("You must be logged in to perform this action.");
   }
   if (!newName.trim()) {
-    throw new Error("New name cannot be empty.");
+    throw new Error("The new name cannot be empty.");
   }
 
   const { error } = await supabase
@@ -398,7 +382,7 @@ export async function renameQuizzesBySourcePdfAction(workspaceId: string, oldNam
 
   if (error) {
     console.error("Error renaming quizzes by source PDF name:", error);
-    throw new Error(error.message || "Failed to rename quizzes by source PDF name.");
+    throw new Error("Failed to rename the quizzes. Please try again.");
   }
   revalidatePath(`/dashboard/workspace/${workspaceId}`);
 }

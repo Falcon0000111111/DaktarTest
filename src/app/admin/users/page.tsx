@@ -25,7 +25,7 @@ export default async function AdminUsersPage() {
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Error Loading Users</AlertTitle>
         <AlertDescription>
-          {(error as Error).message}
+          There was a problem loading the user list. Please refresh the page to try again.
         </AlertDescription>
       </Alert>
     );

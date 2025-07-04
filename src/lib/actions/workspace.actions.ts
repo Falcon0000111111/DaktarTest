@@ -1,3 +1,4 @@
+
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
@@ -11,7 +12,7 @@ export async function createWorkspace(name: string): Promise<Workspace> {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    throw new Error("User not authenticated.");
+    throw new Error("You must be logged in to create a workspace.");
   }
 
   const { data, error } = await supabase
@@ -22,7 +23,7 @@ export async function createWorkspace(name: string): Promise<Workspace> {
 
   if (error) {
     console.error("Error creating workspace:", error);
-    throw new Error(error.message || "Failed to create workspace.");
+    throw new Error("Could not create the workspace. Please try again later.");
   }
   revalidatePath("/dashboard");
   return data;
@@ -45,7 +46,7 @@ export async function getWorkspaces(): Promise<Workspace[]> {
 
   if (error) {
     console.error("Error fetching workspaces:", error);
-    throw new Error(error.message || "Failed to fetch workspaces.");
+    throw new Error("Could not load your workspaces. Please refresh the page.");
   }
   return data || [];
 }
@@ -56,7 +57,7 @@ export async function getWorkspaceById(workspaceId: string): Promise<Workspace |
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    throw new Error("User not authenticated.");
+    throw new Error("You must be logged in to view a workspace.");
   }
 
   const { data, error } = await supabase
@@ -68,7 +69,7 @@ export async function getWorkspaceById(workspaceId: string): Promise<Workspace |
   
   if (error && error.code !== 'PGRST116') { 
     console.error("Error fetching workspace by ID:", error);
-    throw new Error(error.message || "Failed to fetch workspace.");
+    throw new Error("Could not load the workspace. Please try again later.");
   }
   return data;
 }
@@ -79,9 +80,10 @@ export async function deleteWorkspace(workspaceId: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    throw new Error("User not authenticated.");
+    throw new Error("You must be logged in to delete a workspace.");
   }
 
+  // First, verify the user owns the workspace they're trying to delete.
   const { error: checkError } = await supabase
     .from("workspaces")
     .select("id")
@@ -90,10 +92,10 @@ export async function deleteWorkspace(workspaceId: string): Promise<void> {
     .single();
 
   if (checkError) {
-    console.error("Error verifying workspace ownership or workspace not found:", checkError);
-    throw new Error("Workspace not found or permission denied.");
+    throw new Error("Workspace not found or you don't have permission to delete it.");
   }
 
+  // Delete all quizzes associated with the workspace.
   const { error: deleteQuizzesError } = await supabase
     .from("quizzes")
     .delete()
@@ -102,9 +104,10 @@ export async function deleteWorkspace(workspaceId: string): Promise<void> {
   
   if (deleteQuizzesError) {
     console.error("Error deleting quizzes in workspace:", deleteQuizzesError);
-    throw new Error(deleteQuizzesError.message || "Failed to delete quizzes in workspace.");
+    throw new Error("Failed to delete quizzes associated with the workspace. Please try again.");
   }
 
+  // Finally, delete the workspace itself.
   const { error } = await supabase
     .from("workspaces")
     .delete()
@@ -113,7 +116,7 @@ export async function deleteWorkspace(workspaceId: string): Promise<void> {
 
   if (error) {
     console.error("Error deleting workspace:", error);
-    throw new Error(error.message || "Failed to delete workspace.");
+    throw new Error("Failed to delete the workspace. Please try again.");
   }
   revalidatePath("/dashboard");
 }

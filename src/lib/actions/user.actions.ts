@@ -1,3 +1,4 @@
+
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
@@ -9,7 +10,7 @@ async function verifyAdmin() {
   const cookieStore = cookies();
   const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("User not authenticated.");
+  if (!user) throw new Error("You must be logged in to perform this action.");
   
   const { data: isAdmin, error } = await supabase.rpc('is_admin');
   if (error || !isAdmin) {
@@ -28,7 +29,7 @@ export async function listAllUsers(): Promise<Profile[]> {
 
   if (error) {
     console.error("Error listing users:", error);
-    throw new Error(error.message);
+    throw new Error("Failed to load the list of users. Please refresh the page.");
   }
 
   // Manually cast to Profile[] as select with specific columns is not fully typed
@@ -41,7 +42,7 @@ export async function updateUserRequestLimit(userId: string, newLimit: number): 
   const supabase = createClient(cookieStore);
   
   if (newLimit < 0) {
-    throw new Error("Limit cannot be negative.");
+    throw new Error("Limit cannot be a negative number.");
   }
 
   const { data, error } = await supabase
@@ -52,11 +53,11 @@ export async function updateUserRequestLimit(userId: string, newLimit: number): 
 
   if (error) {
     console.error("Error updating user limit:", error);
-    throw new Error(error.message || "Failed to update user limit.");
+    throw new Error("Could not update the user's limit. Please try again.");
   }
 
   if (!data || data.length === 0) {
-    throw new Error("Profile not found or permission denied. Please check if Row Level Security (RLS) policies allow admins to update profiles.");
+    throw new Error("Profile not found or permission denied.");
   }
 
   revalidatePath("/admin/users");

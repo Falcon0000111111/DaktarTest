@@ -192,7 +192,7 @@ const generateQuizFromPdfFlow = ai.defineFlow(
     const {output: aiOutputArray} = await prompt(input);
     
     if (!aiOutputArray || !Array.isArray(aiOutputArray) || aiOutputArray.length === 0) {
-      throw new Error("AI failed to generate quiz data in the expected format.");
+      throw new Error("The AI couldn't generate a quiz from the provided document(s). The content might be unsuitable for quiz generation. Please try a different file or adjust the settings.");
     }
     
     // We wrap the AI's raw array output in the object structure our app expects.

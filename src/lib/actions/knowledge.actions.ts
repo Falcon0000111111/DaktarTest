@@ -12,14 +12,14 @@ async function verifyAdmin(supabase: SupabaseClient<Database>) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    throw new Error("User not authenticated.");
+    throw new Error("You must be logged in to perform this action.");
   }
   
   const { data: isAdmin, error } = await supabase.rpc('is_admin');
   
   if (error) {
     console.error("RPC error checking admin status:", error);
-    throw new Error("Could not verify user permissions.");
+    throw new Error("Could not verify your permissions. Please try again later.");
   }
 
   if (!isAdmin) {
@@ -42,12 +42,12 @@ export async function uploadKnowledgeBaseFile(params: UploadFileParams): Promise
 
   const { fileDataUri, fileName, description } = params;
   
-  if (!fileDataUri) throw new Error("No file data provided.");
-  if (!fileName) throw new Error("File name is required.");
+  if (!fileDataUri) throw new Error("No file data was provided.");
+  if (!fileName) throw new Error("A file name is required.");
 
   const matches = fileDataUri.match(/^data:(.+);base64,(.+)$/);
   if (!matches || matches.length !== 3) {
-    throw new Error("Invalid file data URI format.");
+    throw new Error("The uploaded file appears to be corrupted or in an invalid format. Please try uploading it again.");
   }
   const contentType = matches[1];
   const base64Data = matches[2];
@@ -67,7 +67,7 @@ export async function uploadKnowledgeBaseFile(params: UploadFileParams): Promise
 
   if (uploadError) {
     console.error("Error during storage upload:", uploadError);
-    throw new Error(`Storage upload failed: ${uploadError.message}`);
+    throw new Error("There was a problem saving your file. Please try again later.");
   }
   
   // Step 2: Insert into database
@@ -85,7 +85,7 @@ export async function uploadKnowledgeBaseFile(params: UploadFileParams): Promise
       console.error("Error during database insert:", dbError);
       // Cleanup storage if db insert fails
       await supabase.storage.from("knowledge-base-files").remove([storagePath]);
-      throw new Error(`Database insert failed: ${dbError?.message || "Could not save file metadata."}`);
+      throw new Error("Could not save the file's metadata to the database. Please try again.");
   }
 
   revalidatePath("/admin/knowledge-base");
@@ -106,7 +106,7 @@ export async function listKnowledgeBaseDocuments(): Promise<KnowledgeBaseDocumen
 
   if (error) {
     console.error("Error listing knowledge base documents:", error);
-    throw new Error(error.message);
+    throw new Error("Could not load documents from the Knowledge Base.");
   }
 
   return data || [];
@@ -119,7 +119,7 @@ export async function getKnowledgeBaseFileAsDataUri(storagePath: string): Promis
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-        throw new Error("User not authenticated.");
+        throw new Error("You must be logged in to access this file.");
     }
 
     const { data: blob, error } = await supabase.storage
@@ -128,7 +128,7 @@ export async function getKnowledgeBaseFileAsDataUri(storagePath: string): Promis
 
     if (error || !blob) {
         console.error("Error downloading file:", error);
-        throw new Error(error.message || "Could not download file from knowledge base.");
+        throw new Error("The requested file could not be downloaded from the knowledge base.");
     }
     
     const { data: doc, error: docError } = await supabase.from('knowledge_base_documents').select('file_name, category').eq('storage_path', storagePath).single();
@@ -162,7 +162,7 @@ export async function deleteKnowledgeBaseDocument(documentId: string): Promise<v
     .single();
 
   if (fetchError || !doc) {
-    throw new Error("Document not found.");
+    throw new Error("The document you are trying to delete could not be found.");
   }
 
   const { error: storageError } = await supabase.storage
@@ -179,7 +179,7 @@ export async function deleteKnowledgeBaseDocument(documentId: string): Promise<v
     .eq("id", documentId);
 
   if (dbError) {
-    throw new Error(dbError.message || "Failed to delete document record from database.");
+    throw new Error("Failed to delete the document record. Please try again.");
   }
   revalidatePath("/admin/knowledge-base");
   revalidatePath("/dashboard", "layout");
@@ -200,7 +200,7 @@ export async function renameKnowledgeBaseDocument(documentId: string, newName: s
     .eq("id", documentId);
 
   if (error) {
-    throw new Error(error.message || "Failed to rename document.");
+    throw new Error("Failed to rename the document. Please try again.");
   }
 
   revalidatePath("/admin/knowledge-base");
@@ -224,7 +224,7 @@ export async function updateKnowledgeBaseFileCategory(
   
   if (error) {
     console.error("Error updating file category:", error);
-    throw new Error(error.message || "Failed to update file category.");
+    throw new Error("Failed to update the file's category. Please try again.");
   }
 
   revalidatePath("/admin/knowledge-base");

@@ -39,7 +39,8 @@ export default function AdminKnowledgeBasePage() {
           setInitialDocuments(docs);
         }
       } catch (e) {
-        setError((e as Error).message);
+        console.error("Error in checkUserAndPermissions:", e);
+        setError("An error occurred while loading the page. Please try again later.");
       } finally {
         setIsLoading(false);
       }

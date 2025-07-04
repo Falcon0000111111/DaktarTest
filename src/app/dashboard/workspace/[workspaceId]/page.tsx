@@ -446,7 +446,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       setAllKnowledgeDocuments(docs);
     } catch (error) {
       console.error("Error refreshing workspace data:", error);
-      toast({ title: "Error refreshing workspace data", description: (error as Error).message, variant: "destructive" });
+      toast({ title: "Error", description: "Could not refresh workspace data. Please try again later.", variant: "destructive" });
     } finally {
       setIsLoadingSidebarData(false);
     }
@@ -511,7 +511,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         setViewMode("empty_state");
       }
     } catch (error) {
-      toast({ title: "Error loading generated quiz", description: (error as Error).message, variant: "destructive" });
+      toast({ title: "Error", description: "An error occurred while loading the generated quiz.", variant: "destructive" });
       setViewMode("empty_state");
     } finally {
       setIsLoadingActiveQuiz(false);
@@ -550,11 +550,11 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                 setViewMode("empty_state");
             }
         } else {
-            toast({ title: "Error", description: "Selected quiz not found.", variant: "destructive"});
+            toast({ title: "Error", description: "Selected quiz could not be found.", variant: "destructive"});
             setViewMode("empty_state");
         }
     } catch (error) {
-        toast({ title: "Error loading quiz from history", description: (error as Error).message, variant: "destructive" });
+        toast({ title: "Error", description: "Could not load quiz from history. Please try again.", variant: "destructive" });
         setViewMode("empty_state");
     } finally {
         setIsLoadingActiveQuiz(false);
@@ -568,7 +568,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       setCanShowAnswers(false); 
       setViewMode("quiz_taking");
     } else {
-      toast({title: "Cannot take quiz", description: "The quiz is not available or has an issue.", variant: "destructive"});
+      toast({title: "Cannot Take Quiz", description: "The quiz is not yet ready or has an issue. Please select another.", variant: "destructive"});
     }
   }, [activeQuizDBEntry, activeQuizDisplayData, toast]);
   
@@ -576,7 +576,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     if (activeQuizDBEntry) {
         handleOpenUploadDialog(activeQuizDBEntry);
     } else {
-        toast({title: "Error", description: "No active quiz to regenerate.", variant: "destructive"});
+        toast({title: "Error", description: "No active quiz selected to re-generate.", variant: "destructive"});
     }
   }, [activeQuizDBEntry, handleOpenUploadDialog, toast]);
 
@@ -617,7 +617,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                     );
                 }
             } catch (error) {
-                toast({ title: "Error Saving Attempt", description: (error as Error).message, variant: "destructive"});
+                toast({ title: "Error", description: "Could not save your quiz attempt. Please try again.", variant: "destructive"});
             }
         }
     }
@@ -670,7 +670,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
       setQuizToDeleteId(null); 
       refreshAllData(); 
     } catch (error) {
-      toast({ title: "Error Deleting Quiz", description: (error as Error).message, variant: "destructive" });
+      toast({ title: "Error", description: "Could not delete the quiz. Please try again.", variant: "destructive" });
     } finally {
       setIsDeletingQuiz(false);
     }
@@ -707,7 +707,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                <p className="text-muted-foreground mt-2 max-w-md mx-auto">
                  This quiz ({activeQuizDBEntry.pdf_name || 'Untitled'}) encountered an error:
                </p>
-               <p className="text-sm text-destructive mt-1 mb-4">{activeQuizDBEntry.error_message || "Unknown error."}</p>
+               <p className="text-sm text-destructive mt-1 mb-4">{activeQuizDBEntry.error_message || "An unknown error occurred."}</p>
              </div>
            );
         }
@@ -840,28 +840,28 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                 </div>
             </ScrollArea>
             {showActionButtonsFooterRightPane && activeQuizDBEntry && (
-              <div className="p-4 flex justify-end space-x-3 flex-shrink-0 bg-transparent w-full">
+              <div className="p-4 flex flex-col sm:flex-row justify-end gap-3 flex-shrink-0 bg-transparent w-full">
               {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'completed' && (
                   <>
                   {showRegenerateButtonInMain && (
-                      <Button variant="outline" onClick={handleRegenerateActiveQuiz} disabled={isLoadingActiveQuiz}>
+                      <Button variant="outline" onClick={handleRegenerateActiveQuiz} disabled={isLoadingActiveQuiz} className="w-full sm:w-auto">
                           <RefreshCw className="mr-2 h-4 w-4" /> Re-Generate
                       </Button>
                   )}
-                  <Button onClick={handleTakeQuiz} disabled={isLoadingActiveQuiz}>
+                  <Button onClick={handleTakeQuiz} disabled={isLoadingActiveQuiz} className="w-full sm:w-auto">
                           <BookOpenCheck className="mr-2 h-4 w-4" /> 
                           {isQuizFromHistory ? "Retake Quiz" : "Take Quiz"}
                   </Button>
                   </>
               )}
               {viewMode === 'quiz_review' && activeQuizDBEntry.status === 'failed' && showRegenerateButtonInMain && (
-                  <Button onClick={handleRegenerateActiveQuiz} disabled={isLoadingActiveQuiz}>
+                  <Button onClick={handleRegenerateActiveQuiz} disabled={isLoadingActiveQuiz} className="w-full sm:w-auto">
                       <RefreshCw className="mr-2 h-4 w-4" /> Re-Generate
                   </Button>
               )}
               {viewMode === 'quiz_results' && (
                   <>
-                  <Button onClick={() => {setUserAnswers(null); setLiveAnswers({}); setCanShowAnswers(false); setIsQuizFromHistory(true); setViewMode("quiz_taking"); }}>
+                  <Button onClick={() => {setUserAnswers(null); setLiveAnswers({}); setCanShowAnswers(false); setIsQuizFromHistory(true); setViewMode("quiz_taking"); }} className="w-full sm:w-auto">
                       <RefreshCw className="mr-2 h-4 w-4" /> Retake Quiz
                   </Button>
                   </>
@@ -946,7 +946,7 @@ export default function WorkspacePageWrapper() {
   useEffect(() => {
     const fetchWorkspaceData = async () => {
       if (!workspaceId) {
-        setErrorPage("Workspace ID is not available.");
+        setErrorPage("Workspace ID could not be found.");
         setIsLoadingPage(false);
         return;
       }
@@ -960,7 +960,7 @@ export default function WorkspacePageWrapper() {
         ]);
         
         if (!ws) {
-          setErrorPage("Workspace not found or access denied.");
+          setErrorPage("This workspace could not be found or you don't have permission to view it.");
           setWorkspace(null);
         } else {
           setWorkspace(ws);
@@ -968,7 +968,7 @@ export default function WorkspacePageWrapper() {
           setInitialKnowledgeDocuments(docs);
         }
       } catch (e) {
-        setErrorPage((e as Error).message);
+        setErrorPage("An error occurred while loading your workspace. Please try again later.");
         console.error("Error fetching workspace data:", e);
       } finally {
         setIsLoadingPage(false);

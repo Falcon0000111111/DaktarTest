@@ -39,14 +39,14 @@ export function WorkspaceCard({ workspace }: WorkspaceCardProps) {
       toast({ title: "Success", description: `Workspace "${workspace.name}" deleted.` });
       router.refresh();
     } catch (error) {
-      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+      toast({ title: "Error", description: "Could not delete the workspace. Please try again.", variant: "destructive" });
     } finally {
       setIsDeleting(false);
     }
   };
 
   return (
-    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-200 flex flex-col">
+    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-200 flex flex-col animate-fade-in">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center">
@@ -104,4 +104,3 @@ export function WorkspaceCard({ workspace }: WorkspaceCardProps) {
     </Card>
   );
 }
-
