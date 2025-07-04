@@ -10,7 +10,7 @@ import {
   Loader2, AlertCircle, FileText, Wand2, ListChecks, BookOpenCheck,
   RefreshCw, Inbox, FolderOpen, PlusCircle, LayoutDashboard,
   PanelLeftClose, PanelRightOpen, CheckCircle, MoreVertical, Trash2, Edit3,
-  Award, AlertTriangleIcon, AlertTriangle, Files
+  Award, AlertTriangleIcon, AlertTriangle, Files, Menu
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UploadQuizDialog } from "@/components/dashboard/upload-quiz-dialog";
@@ -403,7 +403,7 @@ interface WorkspacePageContentProps {
 }
 
 const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWorkspace, initialQuizzes, initialKnowledgeDocuments }) => {
-  const { open: isSidebarOpen } = useSidebar();
+  const { state: sidebarState, isMobile, toggleSidebar } = useSidebar();
   const workspaceId = initialWorkspace.id;
   const { isAdmin } = useAdminStatus();
   const [workspace, setWorkspace] = useState<Workspace | null>(initialWorkspace);
@@ -759,13 +759,12 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         );
       case "empty_state":
       default:
-        const { state: sidebarState } = useSidebar();
         return (
           <div className="flex flex-col items-center justify-center h-full text-center p-8">
             <LayoutDashboard className="h-20 w-20 text-muted-foreground/50 mb-6" data-ai-hint="dashboard illustration" />
             <h2 className="text-2xl mb-2">Welcome to {workspace?.name}</h2>
             <p className="text-muted-foreground max-w-md">
-              { sidebarState === 'collapsed'
+              { sidebarState === 'collapsed' && !isMobile
                 ? "Open the sidebar to navigate or generate quizzes."
                 : "Select an item from the sidebar to get started. You can generate new quizzes from the global Knowledge Base or review past quizzes under \"History\"."
               }
@@ -829,7 +828,22 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
         />
       </Sidebar>
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header workspaceName={workspace?.name} />
+        <Header
+            workspaceName={workspace?.name}
+            mobileSidebarTrigger={
+                isMobile ? (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="md:hidden -ml-2"
+                    onClick={toggleSidebar}
+                >
+                    <Menu className="h-6 w-6" />
+                    <span className="sr-only">Toggle Sidebar</span>
+                </Button>
+                ) : undefined
+            }
+        />
         <main className="flex-1 flex flex-col overflow-y-auto">
             <ScrollArea 
                 ref={rightPaneContentRef} 

@@ -6,12 +6,14 @@ import { UserNav } from "@/components/auth/user-nav";
 import { Stethoscope } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
 
 interface HeaderProps {
   workspaceName?: string;
+  mobileSidebarTrigger?: ReactNode;
 }
 
-export function Header({ workspaceName }: HeaderProps) {
+export function Header({ workspaceName, mobileSidebarTrigger }: HeaderProps) {
   const pathname = usePathname();
   const isWorkspacePage = pathname.startsWith('/dashboard/workspace/');
 
@@ -24,7 +26,8 @@ export function Header({ workspaceName }: HeaderProps) {
       style={{ height: 'var(--header-height)' }}
     >
       <div className="flex h-full items-center justify-between px-4 sm:px-6">
-        <div>
+        <div className="flex items-center gap-2">
+          {mobileSidebarTrigger}
           {isWorkspacePage && workspaceName ? (
               <span className="font-bold text-xl font-headline truncate">{workspaceName}</span>
           ) : (
