@@ -20,6 +20,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface UploadQuizFormProps {
   workspaceId: string;
@@ -73,6 +74,7 @@ export function UploadQuizForm({
   const [topicsToDrop, setTopicsToDrop] = useState("");
   const [loading, setLoading] = useState(false); 
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const isRegenerationMode = !!existingQuizIdToUpdate;
 
@@ -215,10 +217,12 @@ export function UploadQuizForm({
       });
       const quizTitle = fileNames.length > 1 ? `${fileNames.length} files` : fileNames[0];
 
-      toast({
-        title: `Processing Document(s)`,
-        description: `Quiz generation has started for "${quizTitle}". This may take a moment.`
-      });
+      if (!isMobile) {
+        toast({
+          title: `Processing Document(s)`,
+          description: `Quiz generation has started for "${quizTitle}". This may take a moment.`
+        });
+      }
 
       const preferredStylesString = selectedQuestionStyles.join(", ");
 
