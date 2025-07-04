@@ -36,7 +36,39 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
           <CardDescription>View users and manage their quiz generation limits.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="border rounded-md">
+          {/* Mobile view: Card list */}
+          <div className="md:hidden space-y-4">
+            {users.map((user) => (
+              <div key={user.id} className="border rounded-lg p-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm text-muted-foreground">User ID</p>
+                    <p className="font-mono text-xs">{user.id}</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => handleEditClick(user)}>
+                    <Edit className="mr-2 h-3 w-3" /> Edit
+                  </Button>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Role</p>
+                    <p className="font-medium">{user.role}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Used</p>
+                    <p className="font-medium">{user.llm_requests_count}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Limit</p>
+                    <p className="font-medium">{user.llm_request_limit}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* Desktop view: Table */}
+          <div className="hidden md:block border rounded-md">
             <Table>
               <TableHeader>
                 <TableRow>

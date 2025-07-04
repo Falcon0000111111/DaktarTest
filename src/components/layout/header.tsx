@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -22,7 +23,7 @@ export function Header({ workspaceName }: HeaderProps) {
       )}
       style={{ height: 'var(--header-height)' }}
     >
-      <div className="flex h-full items-center justify-between px-6">
+      <div className="flex h-full items-center justify-between px-4 sm:px-6">
         <div>
           {isWorkspacePage && workspaceName ? (
               <span className="font-bold text-xl font-headline truncate">{workspaceName}</span>
