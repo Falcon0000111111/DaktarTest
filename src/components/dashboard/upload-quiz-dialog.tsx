@@ -128,7 +128,7 @@ export function UploadQuizDialog({
               <Button type="button" variant="outline" onClick={() => {
                   onOpenChange(false);
                   handleDialogClose(false);
-              }}>
+              }} className="hidden sm:inline-flex">
                 <X className="mr-2 h-4 w-4" /> Cancel
               </Button>
               <Button type="button" onClick={handleGenerateClick} disabled={!isFormValidForSubmission}>
