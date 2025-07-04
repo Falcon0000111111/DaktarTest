@@ -50,7 +50,7 @@ export function QuizTimer({ durationMinutes, onTimeUp, isSubmitting }: QuizTimer
   useEffect(() => {
     if (timerRef.current) {
         const initialX = window.innerWidth - timerRef.current.offsetWidth - 32;
-        const initialY = (window.innerHeight - timerRef.current.offsetHeight) / 2;
+        const initialY = 32;
         setPosition({ x: initialX, y: initialY });
         setIsInitialized(true);
     }
