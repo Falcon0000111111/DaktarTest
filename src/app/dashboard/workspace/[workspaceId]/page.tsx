@@ -403,7 +403,7 @@ interface WorkspacePageContentProps {
 }
 
 const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWorkspace, initialQuizzes, initialKnowledgeDocuments }) => {
-  const { state: sidebarState, isMobile, toggleSidebar } = useSidebar();
+  const { state: sidebarState, isMobile, toggleSidebar, setOpenMobile } = useSidebar();
   const workspaceId = initialWorkspace.id;
   const { isAdmin } = useAdminStatus();
   const [workspace, setWorkspace] = useState<Workspace | null>(initialWorkspace);
@@ -516,8 +516,11 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
     } finally {
       setIsLoadingActiveQuiz(false);
       refreshAllData();
+      if (isMobile) {
+        setOpenMobile(false);
+      }
     }
-  }, [toast, refreshAllData]);
+  }, [toast, refreshAllData, isMobile, setOpenMobile]);
   
   const handleUploadDialogClose = useCallback((refresh?: boolean) => {
     setIsUploadDialogOpen(false);
