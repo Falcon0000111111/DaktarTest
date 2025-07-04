@@ -16,12 +16,14 @@ export default async function DashboardPage() {
         <div className="px-4 md:px-8 py-4 md:py-8">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center">
-              <LayoutDashboard className="h-8 w-8 mr-3 text-primary" />
-              <h1 className="text-3xl font-bold">Your Workspaces</h1>
+              <LayoutDashboard className="h-7 w-7 md:h-8 md:w-8 mr-2 md:mr-3 text-primary" />
+              <h1 className="text-2xl md:text-3xl font-bold">Your Workspaces</h1>
             </div>
             <CreateWorkspaceDialog>
               <Button>
-                <PlusCircle className="mr-2 h-4 w-4" /> New workspace
+                <PlusCircle className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">New workspace</span>
+                <span className="sm:hidden">New</span>
               </Button>
             </CreateWorkspaceDialog>
           </div>

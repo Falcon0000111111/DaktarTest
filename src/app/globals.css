@@ -108,3 +108,15 @@
     transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
   }
 }
+
+@layer utilities {
+  @media (max-width: 768px) {
+    .no-scrollbar-mobile::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar-mobile {
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+    }
+  }
+}
