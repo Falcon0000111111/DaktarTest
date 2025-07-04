@@ -287,7 +287,7 @@ export function UploadQuizForm({
                           {Object.entries(docsByCategory).filter(([, docs]) => docs.length > 0).map(([category, docs]) => (
                               <AccordionItem value={category} key={category} className="border-b-0">
                                   <AccordionTrigger className="px-2 py-2 text-sm font-normal hover:no-underline">
-                                      {category} ({docs.length})
+                                      {category}
                                   </AccordionTrigger>
                                   <AccordionContent className="pl-2 pr-1 pb-1">
                                       <div className="max-h-36 overflow-y-auto w-full rounded-md border p-2 bg-muted/50 space-y-1.5">
