@@ -87,7 +87,6 @@ export function UserNav() {
 
   const userEmail = user.email || "User";
   const fallbackName = userEmail.substring(0, 2).toUpperCase();
-  const creditsLeft = profile ? profile.llm_request_limit - profile.llm_requests_count : null;
 
   return (
     <DropdownMenu>
@@ -97,11 +96,6 @@ export function UserNav() {
             <AvatarImage src={user.user_metadata?.avatar_url} alt={userEmail} />
             <AvatarFallback>{fallbackName}</AvatarFallback>
           </Avatar>
-           {creditsLeft !== null && (
-             <div className="absolute -bottom-1 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1 text-primary-foreground text-[10px] font-bold ring-2 ring-background">
-              {creditsLeft}
-            </div>
-          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -120,7 +114,7 @@ export function UserNav() {
             <>
               <DropdownMenuItem disabled className="cursor-default focus:bg-transparent opacity-100">
                   <CreditCard className="mr-2 h-4 w-4" />
-                  <span>Credits: {creditsLeft} / {profile.llm_request_limit}</span>
+                  <span>Credits Used: {profile.llm_requests_count} / {profile.llm_request_limit}</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
             </>
