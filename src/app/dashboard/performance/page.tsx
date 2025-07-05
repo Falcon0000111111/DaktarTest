@@ -21,7 +21,7 @@ export default async function PerformanceDashboardPage() {
     return (
         <div className="flex flex-col h-full">
             <Header />
-            <main className="flex-1 overflow-y-auto p-4 md:p-8">
+            <main className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar-mobile">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold">Performance Dashboard</h1>
                     <p className="text-muted-foreground">Your overall progress and insights across all quizzes.</p>
