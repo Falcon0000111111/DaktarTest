@@ -13,9 +13,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
+import type { Profile } from "@/types/supabase";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { LogOut, Moon, Sun, ShieldCheck, BarChartHorizontal } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { LogOut, Moon, Sun, ShieldCheck, BarChartHorizontal, CreditCard } from "lucide-react";
 import { useTheme } from "@/components/providers/theme-provider";
 import { useAdminStatus } from "@/hooks/use-admin-status";
 import Link from "next/link";
@@ -24,26 +25,51 @@ export function UserNav() {
   const supabase = createClient();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Pick<Profile, 'llm_requests_count' | 'llm_request_limit'> | null>(null);
   const { theme, setTheme } = useTheme();
   const { isAdmin, isLoading: isAdminLoading } = useAdminStatus();
 
+  const fetchProfile = useCallback(async (userId: string) => {
+    const { data: profileData, error } = await supabase
+      .from('profiles')
+      .select('llm_requests_count, llm_request_limit')
+      .eq('id', userId)
+      .single();
+    
+    if (error) {
+      console.error("Error fetching user profile for credits:", error);
+      setProfile(null);
+    } else {
+      setProfile(profileData);
+    }
+  }, [supabase]);
+
   useEffect(() => {
-    const getUserSession = async () => {
+    const getUserAndProfile = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      }
     };
-    getUserSession();
+    getUserAndProfile();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        setUser(session?.user ?? null);
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        if (currentUser) {
+            fetchProfile(currentUser.id);
+        } else {
+            setProfile(null);
+        }
       }
     );
 
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, fetchProfile]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -61,6 +87,7 @@ export function UserNav() {
 
   const userEmail = user.email || "User";
   const fallbackName = userEmail.substring(0, 2).toUpperCase();
+  const creditsLeft = profile ? profile.llm_request_limit - profile.llm_requests_count : null;
 
   return (
     <DropdownMenu>
@@ -70,6 +97,11 @@ export function UserNav() {
             <AvatarImage src={user.user_metadata?.avatar_url} alt={userEmail} />
             <AvatarFallback>{fallbackName}</AvatarFallback>
           </Avatar>
+           {creditsLeft !== null && (
+             <div className="absolute -bottom-1 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1 text-primary-foreground text-[10px] font-bold ring-2 ring-background">
+              {creditsLeft}
+            </div>
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -84,6 +116,15 @@ export function UserNav() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {profile && (
+            <>
+              <DropdownMenuItem disabled className="cursor-default focus:bg-transparent opacity-100">
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  <span>Credits: {creditsLeft} / {profile.llm_request_limit}</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+        )}
         <DropdownMenuItem asChild className="cursor-pointer">
             <Link href="/dashboard/performance">
                 <BarChartHorizontal className="mr-2 h-4 w-4" />
