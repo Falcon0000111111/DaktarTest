@@ -4,8 +4,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { AppProviders } from '@/components/providers/app-providers';
 
 export const metadata: Metadata = {
-  title: 'DaktarTest - AI Powered Quiz Generator',
-  description: 'Generate engaging quizzes from your PDF documents with DaktarTest.',
+  title: 'DoctorQuiz - AI Powered Quiz Generator',
+  description: 'Generate engaging quizzes from your PDF documents with DoctorQuiz.',
 };
 
 export default function RootLayout({

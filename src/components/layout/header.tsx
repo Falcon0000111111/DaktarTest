@@ -33,7 +33,7 @@ export function Header({ workspaceName, mobileSidebarTrigger }: HeaderProps) {
           ) : (
               <Link href="/dashboard" className="flex items-center space-x-2">
                   <Stethoscope className="h-7 w-7 text-primary" />
-                  <span className="font-bold text-xl font-headline">DaktarTest</span>
+                  <span className="font-bold text-xl font-headline">DoctorQuiz</span>
               </Link>
           )}
         </div>

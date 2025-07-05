@@ -90,7 +90,7 @@ export default function SignupPage() {
              <Stethoscope className="h-16 w-16 text-primary" />
           </div>
           <CardTitle className="text-3xl font-headline">Create an Account</CardTitle>
-          <CardDescription className="text-md">Join DaktarTest to start generating quizzes.</CardDescription>
+          <CardDescription className="text-md">Join DoctorQuiz to start generating quizzes.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignup} className="space-y-6">

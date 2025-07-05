@@ -7,7 +7,7 @@ import { useEffect, useState, type ReactNode, useRef, useCallback, memo } from "
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
-  Loader2, AlertCircle, FileText, Wand2, ListChecks, BookOpenCheck,
+  Loader2, AlertCircle, FileText, Wand2, ListChecks, Stethoscope,
   RefreshCw, Inbox, FolderOpen, PlusCircle, LayoutDashboard,
   PanelLeftClose, PanelRightOpen, CheckCircle, MoreVertical, Trash2, Edit3,
   Award, AlertTriangleIcon, AlertTriangle, Files, Menu
@@ -315,7 +315,7 @@ const WorkspaceSidebarInternals: React.FC<WorkspaceSidebarInternalsProps> = ({
         )}
         style={{ height: 'var(--header-height)' }}
       >
-        <BookOpenCheck className={cn(
+        <Stethoscope className={cn(
           "transition-all duration-200 text-sidebar-foreground",
             sidebarState === 'expanded' ? "h-6 w-6" : "hidden"
         )} />
@@ -866,7 +866,7 @@ const WorkspacePageContent: React.FC<WorkspacePageContentProps> = ({ initialWork
                       </Button>
                   )}
                   <Button onClick={handleTakeQuiz} disabled={isLoadingActiveQuiz} className="w-full sm:w-auto">
-                          <BookOpenCheck className="mr-2 h-4 w-4" /> 
+                          <Stethoscope className="mr-2 h-4 w-4" /> 
                           {isQuizFromHistory ? "Retake Quiz" : "Take Quiz"}
                   </Button>
                   </>

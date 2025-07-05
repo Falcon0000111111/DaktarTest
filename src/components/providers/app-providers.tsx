@@ -6,7 +6,7 @@ import { ThemeProvider } from './theme-provider';
 
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider defaultTheme="light" storageKey="daktartest-theme">
+    <ThemeProvider defaultTheme="light" storageKey="doctorquiz-theme">
       {children}
     </ThemeProvider>
   );

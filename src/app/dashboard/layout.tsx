@@ -9,7 +9,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
       <footer className="py-4 text-center text-xs text-muted-foreground border-t bg-background h-[var(--footer-height)] flex-shrink-0">
-        © <CurrentYear /> DaktarTest. All rights reserved.
+        © <CurrentYear /> DoctorQuiz. All rights reserved.
       </footer>
     </div>
   );

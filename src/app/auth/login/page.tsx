@@ -60,7 +60,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-4">
             <Stethoscope className="h-16 w-16 text-primary" />
           </div>
-          <CardTitle className="text-3xl font-headline">Welcome to DaktarTest</CardTitle>
+          <CardTitle className="text-3xl font-headline">Welcome to DoctorQuiz</CardTitle>
           <CardDescription className="text-md">Sign in to access your quizzes and workspaces.</CardDescription>
         </CardHeader>
         <CardContent>
